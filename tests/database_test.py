@@ -6,6 +6,7 @@ import unittest
 SQL = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0001_init.sql').read_text()
 STARTING_CASH_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0003_starting_cash.sql').read_text()
 AVATAR_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0004_player_avatars.sql').read_text()
+MARKET_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0002_real_market.sql').read_text()
 UID = '123456789012345678'
 
 
@@ -75,6 +76,45 @@ class TradeLedgerTest(unittest.TestCase):
         """, (UID, 'Renamed Trader', 100000, 100000, None, None))
         self.assertEqual(self.db.execute('SELECT avatar_hash,avatar_discriminator FROM players WHERE user_id=?', (UID,)).fetchone(), (None, None))
         self.assertEqual(self.balance(), 980000)
+
+    def test_all_chart_history_survives_and_sampling_uses_real_observations(self):
+        self.db.executescript(MARKET_MIGRATION)
+        earliest = 1730000000
+        source = [(earliest + day * 86400, 10000 + day * 7) for day in range(370)]
+        self.db.executemany(
+            'INSERT INTO quote_history(symbol,observed_at,price_cents) VALUES (?,?,?)',
+            [('AAPL', at, cents) for at, cents in source],
+        )
+        self.db.execute(
+            'INSERT INTO quote_history(symbol,observed_at,price_cents) VALUES (?,?,?)',
+            ('MSFT', earliest, 50000),
+        )
+        oldest = self.db.execute(
+            'SELECT observed_at FROM quote_history WHERE symbol=? ORDER BY observed_at ASC LIMIT 1',
+            ('AAPL',),
+        ).fetchone()[0]
+        self.assertEqual(oldest, earliest)
+        bucket_seconds = 2 * 86400
+        result = self.db.execute("""
+            WITH buckets AS (
+                SELECT MAX(observed_at) AS at FROM quote_history
+                WHERE symbol=? AND observed_at>=? AND observed_at<=?
+                GROUP BY CAST(observed_at / ? AS INTEGER)
+            )
+            SELECT history.observed_at, history.price_cents
+            FROM buckets JOIN quote_history history
+                ON history.symbol=? AND history.observed_at=buckets.at
+            ORDER BY history.observed_at ASC LIMIT 300
+        """, ('AAPL', earliest, source[-1][0], bucket_seconds, 'AAPL')).fetchall()
+        self.assertGreater(len(result), 170)
+        self.assertLessEqual(len(result), 190)
+        self.assertTrue(all(point in source for point in result))
+        self.assertEqual(self.db.execute(
+            'SELECT COUNT(*) FROM quote_history WHERE symbol=?', ('AAPL',)
+        ).fetchone()[0], 370)
+        self.assertEqual(self.db.execute(
+            'SELECT COUNT(*) FROM quote_history WHERE symbol=?', ('MSFT',)
+        ).fetchone()[0], 1)
 
     def test_orders_idempotent(self):
         self.order('order-id', 'BUY', 1)

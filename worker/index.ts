@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, type MarketEnv } from './market';
+import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
+import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
@@ -63,13 +64,14 @@ app.post('/api/auth', async c => {
     VALUES (?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,
     avatar_hash=excluded.avatar_hash, avatar_discriminator=excluded.avatar_discriminator`)
     .bind(user.id, displayName, STARTING_CASH_CENTS, STARTING_CASH_CENTS, avatarHash, avatarDiscriminator).run();
+  invalidateMemo('leaderboard');
   const session = await createSession(c.env.SESSION_SECRET, user.id);
   return noStore({ access_token: token.access_token, session, user: { id: user.id, displayName, avatarUrl } });
 });
 
 app.get('/api/market', async c => {
   if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
-  const quotes = await allQuotes(c.env);
+  const quotes = await memoized('market:response', 20000, () => allQuotes(c.env));
   if (!quotes.length) return noStore({ error: 'Real market prices are temporarily unavailable' }, 503);
   return noStore({ quotes, totalSymbols: STOCKS.length, provider: 'finnhub' });
 });
@@ -78,8 +80,10 @@ app.get('/api/chart', async c => {
   const symbol = c.req.query('symbol');
   if (!isSymbol(symbol)) return noStore({ error: 'Invalid stock symbol' }, 422);
   if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
-  const points = await quoteHistory(symbol, c.env);
-  return noStore({ points, available: points.length >= 2, source: 'finnhub' });
+  const range = c.req.query('range') ?? '1W';
+  if (!isHistoryRange(range)) return noStore({ error: 'Unsupported chart time range' }, 422);
+  const points = await quoteHistory(symbol, c.env, range);
+  return noStore({ points, available: points.length >= 2, range, source: 'finnhub' });
 });
 
 app.get('/api/portfolio', async c => {
@@ -107,20 +111,22 @@ app.get('/api/history', async c => {
 });
 
 app.get('/api/leaderboard', async c => {
-  // Refresh the small shared price table before calculating every player's mark-to-market equity.
-  // This is a global ranking, not a ranking of one unverified guild ID.
   const quotes = await allQuotes(c.env);
-  if (quotes.length !== STOCKS.length || quotes.some(q => q.stale)) return noStore({ error: 'Leaderboard unavailable while market quotes are stale' }, 503);
-  const { results } = await c.env.DB.prepare(`SELECT p.user_id AS userId, p.display_name AS displayName,
-    p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents, p.starting_cash_cents AS startingCashCents,
-    p.avatar_hash AS avatarHash, p.avatar_discriminator AS avatarDiscriminator
-    FROM players p LEFT JOIN holdings h ON h.user_id = p.user_id
-    LEFT JOIN quote_cache q ON q.symbol = h.symbol
-    GROUP BY p.user_id ORDER BY equityCents DESC, p.created_at ASC LIMIT 25`).all<LeaderRow>();
-  const leaders: Leader[] = results.map(({ avatarHash, avatarDiscriminator, ...row }) => ({
-    ...row, avatarUrl: discordAvatarUrl(row.userId, avatarHash, avatarDiscriminator),
-    changeCents: row.equityCents - row.startingCashCents,
-  }));
+  if (quotes.length !== STOCKS.length || quotes.some(q => q.stale))
+    return noStore({ error: 'Leaderboard unavailable while market quotes are stale' }, 503);
+  const leaders = await memoized('leaderboard', 15000, async (): Promise<Leader[]> => {
+    const { results } = await c.env.DB.prepare(`SELECT p.user_id AS userId, p.display_name AS displayName,
+      p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents,
+      p.starting_cash_cents AS startingCashCents,
+      p.avatar_hash AS avatarHash, p.avatar_discriminator AS avatarDiscriminator
+      FROM players p LEFT JOIN holdings h ON h.user_id = p.user_id
+      LEFT JOIN quote_cache q ON q.symbol = h.symbol
+      GROUP BY p.user_id ORDER BY equityCents DESC, p.created_at ASC LIMIT 25`).all<LeaderRow>();
+    return results.map(({ avatarHash, avatarDiscriminator, ...row }) => ({
+      ...row, avatarUrl: discordAvatarUrl(row.userId, avatarHash, avatarDiscriminator),
+      changeCents: row.equityCents - row.startingCashCents,
+    }));
+  });
   return noStore({ leaders });
 });
 
@@ -145,6 +151,7 @@ app.post('/api/trade', async c => {
     const result = await c.env.DB.prepare(`INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents)
       VALUES(?,?,?,?,?,?) RETURNING id`).bind(userId, input.orderId, input.symbol, input.side,
       input.shares, quote.priceCents).first<{ id: number }>();
+    invalidateMemo('leaderboard');
     return noStore({ tradeId: result?.id, symbol: input.symbol, side: input.side, shares: input.shares, fillPriceCents: quote.priceCents });
   } catch (error) {
     const message = String(error);
@@ -163,4 +170,13 @@ app.onError((error, c) => {
   console.error('PaperStreet API error', error instanceof Error ? error.message : 'Unknown error');
   return c.json({ error: 'Request failed. Please try again.' }, 503, { 'Cache-Control': 'no-store' });
 });
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
+    // Cron collects real quotes on weekdays without a connected user; no fake backfill.
+    ctx.waitUntil(allQuotes(env).then(() => {}).catch(error => {
+      console.error('Finnhub history collector failed', error instanceof Error ? error.message : 'Unknown failure');
+    }));
+  },
+} satisfies ExportedHandler<Bindings>;

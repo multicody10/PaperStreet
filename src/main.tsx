@@ -7,8 +7,8 @@ import {
   LoaderCircle, RefreshCw, Search, ShieldCheck, TrendingDown,
   TrendingUp, Trophy, Wallet, X,
 } from 'lucide-react';
-import type { Leader, Portfolio, Quote, SymbolCode, Trade } from '../shared/stocks';
-import { STARTING_CASH_CENTS } from '../shared/stocks';
+import type { HistoryRange, Leader, Portfolio, Quote, SymbolCode, Trade } from '../shared/stocks';
+import { HISTORY_RANGES, STARTING_CASH_CENTS } from '../shared/stocks';
 import { appHash, parseAppHash, type Page, type View } from './navigation';
 import './style.css';
 
@@ -62,6 +62,8 @@ function App() {
   const [search, setSearch] = useState('');
   const [history, setHistory] = useState<Point[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   function goToPage(page: Page) {
     setTab(page);
@@ -88,20 +90,22 @@ function App() {
     };
   }, []);
 
-  const refresh = useCallback(async (session: string) => {
+  const refresh = useCallback(async (session: string, view: View) => {
     if (!session) return;
-    const results = await Promise.allSettled([
-      request<{ quotes: Quote[] }>('/api/market', session),
-      request<{ portfolio: Portfolio }>('/api/portfolio', session),
-      request<{ leaders: Leader[] }>('/api/leaderboard', session),
-      request<{ trades: Trade[] }>('/api/history', session),
-    ]);
-    if (results[0].status === 'fulfilled') setQuotes(results[0].value.quotes);
-    if (results[1].status === 'fulfilled') setPortfolio(results[1].value.portfolio);
-    if (results[2].status === 'fulfilled') setLeaders(results[2].value.leaders);
-    if (results[3].status === 'fulfilled') setTrades(results[3].value.trades);
-    const first = results.find(r => r.status === 'rejected');
-    if (first?.status === 'rejected') setFeedback({ kind: 'error', message: errorMessage(first.reason) });
+    // Only load data consumed by the current page, saving Worker requests and D1 reads.
+    const jobs: Promise<void>[] = [];
+    if (view === 'dashboard' || view === 'trade' || view === 'stock')
+      jobs.push(request<{ quotes: Quote[] }>('/api/market', session).then(({ quotes }) => setQuotes(quotes)));
+    if (view === 'dashboard' || view === 'portfolio' || view === 'stock')
+      jobs.push(request<{ portfolio: Portfolio }>('/api/portfolio', session).then(({ portfolio }) => setPortfolio(portfolio)));
+    if (view === 'dashboard' || view === 'leaderboard')
+      jobs.push(request<{ leaders: Leader[] }>('/api/leaderboard', session).then(({ leaders }) => setLeaders(leaders)));
+    if (view === 'dashboard' || view === 'history')
+      jobs.push(request<{ trades: Trade[] }>('/api/history', session).then(({ trades }) => setTrades(trades)));
+    const results = await Promise.allSettled(jobs);
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure?.status === 'rejected')
+      setFeedback({ kind: 'error', message: errorMessage(failure.reason) });
   }, []);
 
   useEffect(() => {
@@ -129,9 +133,7 @@ function App() {
         setToken(auth.session);
         setAccount(auth.user);
         setAuthStatus('Connected');
-        setLoading(true);
-        await refresh(auth.session);
-        if (active) setLoading(false);
+        // The page-scoped effect below loads initial data once authentication completes.
       } catch (error) {
         if (active) { setAuthError(errorMessage(error)); setAuthStatus('Not connected'); setLoading(false); }
       }
@@ -142,23 +144,33 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !pending) void refresh(token);
-    }, 120_000);
-    return () => window.clearInterval(interval);
-  }, [token, pending, refresh]);
+    let active = true;
+    setLoading(true);
+    void refresh(token, tab).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [token, tab, refresh]);
 
   useEffect(() => {
-    if (!token || tab !== 'stock') { setHistory([]); setHistoryLoading(false); return; }
+    if (!token) return;
+    const period = tab === 'trade' || tab === 'stock' ? 120_000 : 300_000;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && !pending) void refresh(token, tab);
+    }, period);
+    return () => window.clearInterval(interval);
+  }, [token, pending, tab, refresh]);
+
+  useEffect(() => {
+    if (!token || tab !== 'stock') { setHistory([]); setHistoryLoading(false); setHistoryError(null); return; }
     let active = true;
     setHistory([]);
+    setHistoryError(null);
     setHistoryLoading(true);
-    request<{ points: Point[] }>(`/api/chart?symbol=${encodeURIComponent(selectedSymbol)}`, token)
+    request<{ points: Point[] }>(`/api/chart?symbol=${encodeURIComponent(selectedSymbol)}&range=${historyRange}`, token)
       .then(({ points }) => { if (active) setHistory(points); })
-      .catch(() => { if (active) setHistory([]); })
+      .catch(error => { if (active) { setHistory([]); setHistoryError(errorMessage(error)); } })
       .finally(() => { if (active) setHistoryLoading(false); });
     return () => { active = false; };
-  }, [selectedSymbol, tab, token, quotes.find(quote => quote.symbol === selectedSymbol)?.fetchedAt]);
+  }, [selectedSymbol, historyRange, tab, token, quotes.find(quote => quote.symbol === selectedSymbol)?.fetchedAt]);
 
   const selected = quotes.find(q => q.symbol === selectedSymbol);
   const quantity = Number(shares);
@@ -177,7 +189,7 @@ function App() {
     if (!token || loading) return;
     setFeedback(null);
     setLoading(true);
-    void refresh(token).finally(() => setLoading(false));
+    void refresh(token, tab).finally(() => setLoading(false));
   };
 
   async function execute() {
@@ -194,7 +206,7 @@ function App() {
         message: response.duplicate ? 'Order already filled.' :
           `${side === 'BUY' ? 'Bought' : 'Sold'} ${quantity} ${selected.symbol} at ${money(response.fillPriceCents ?? selected.priceCents)}.`,
       });
-      await refresh(token);
+      await refresh(token, 'stock');
     } catch (error) { setFeedback({ kind: 'error', message: errorMessage(error) }); }
     finally { setPending(false); }
   }
@@ -284,8 +296,11 @@ function App() {
                   <section className="panel chart-panel" aria-label={selectedSymbol + ' price history'}>
                     <div className="chart-top"><div className="symbol-badge">{selectedSymbol.slice(0, 2)}</div><div className="chart-identity"><strong>{selectedSymbol}</strong><span>{selected?.name ?? 'Loading verified quote…'}</span></div><span className="chart-source" title={selected ? 'Provider last trade: ' + new Date(selected.fetchedAt * 1000).toLocaleString() : undefined}>FINNHUB · LAST TRADE</span></div>
                     <div className="chart-price"><strong>{selected ? money(selected.priceCents) : '—'}</strong><span className={selected && selected.changePct < 0 ? 'negative' : 'positive'}>{selected ? <>{selected.changePct >= 0 ? <TrendingUp size={15}/> : <TrendingDown size={15}/>} {pct(selected.changePct)} vs. previous close</> : 'Waiting for prices'}</span></div>
-                    <PriceChart points={history} loading={historyLoading}/>
-                    <div className="chart-footer"><span>RECORDED REAL QUOTES · PAST 12 HOURS</span><span>{selected?.stale ? 'STALE QUOTE' : selected && !selected.marketOpen ? 'AFTER HOURS · LAST VERIFIED' : 'USD / SHARE'}</span></div>
+                    <div className="chart-range-bar" role="group" aria-label="Select stock history time range">
+                      {HISTORY_RANGES.map(range => <button key={range} type="button" className={historyRange === range ? 'active' : ''} aria-pressed={historyRange === range} onClick={() => setHistoryRange(range)}>{range}</button>)}
+                    </div>
+                    <PriceChart points={history} loading={historyLoading} quote={selected} range={historyRange} error={historyError}/>
+                    <div className="chart-footer"><span>VERIFIED PRICE OBSERVATIONS · {historyRange} · {history.length} PTS</span><span>{selected?.stale ? 'STALE QUOTE' : selected && !selected.marketOpen ? 'AFTER HOURS · LAST VERIFIED' : 'USD / SHARE'}</span></div>
                   </section>
                   <section className="panel" aria-label="Stock quote details"><div className="stock-facts">
                     <div className="stock-fact"><span>LAST PRICE</span><strong>{selected ? money(selected.priceCents) : '—'}</strong><small>Verified provider quote</small></div>
@@ -312,21 +327,49 @@ function Stat({ title, value, sub, icon, valueClass = '', subClass = '' }: { tit
   return <div className="stat-card"><div className="stat-top"><span>{title}</span><span className="stat-icon">{icon}</span></div><strong className={valueClass}>{value}</strong><small className={subClass}>{sub}</small></div>;
 }
 
-function PriceChart({ points, loading }: { points: Point[]; loading: boolean }) {
-  if (loading || points.length < 2) return <div className="chart-placeholder"><BarChart3 size={25}/><span>{loading ? 'Loading recorded stock quotes…' : 'Real price history is accumulating. This chart needs at least two observations.'}</span></div>;
+function PriceChart({ points, loading, quote, range, error }: {
+  points: Point[]; loading: boolean; quote?: Quote; range: HistoryRange; error: string | null;
+}) {
+  if (loading) return <div className="chart-placeholder"><BarChart3 size={25}/><span>Loading verified stock history…</span></div>;
+  if (error) return <div className="chart-placeholder"><BarChart3 size={25}/><span>Unable to load price history: {error}</span></div>;
+  if (points.length < 2) {
+    // Do not fabricate intermediate observations. Show the genuine last quote and
+    // genuine previous close as separately labelled values until a real timeline exists.
+    return <div className="chart-single" role="status">
+      <div className="chart-single-prices">
+        <div><span>LAST VERIFIED PRICE</span><strong>{quote ? money(quote.priceCents) : points.length ? money(points[0].priceCents) : '—'}</strong></div>
+        <div><span>PREVIOUS CLOSE</span><strong>{quote ? money(quote.previousCloseCents) : '—'}</strong></div>
+      </div>
+      <p>{points.length ? 'One real price observation in this range.' : 'No recorded observations in this range.'}
+        {' '}Choose a longer range to view older records. Historical prices are never deleted.</p>
+    </div>;
+  }
   const min = Math.min(...points.map(p => p.priceCents));
   const max = Math.max(...points.map(p => p.priceCents));
   const spread = Math.max(max - min, 1);
-  const coordinates = points.map((p, index) => ({ x: (index / (points.length - 1)) * 1000, y: 180 - ((p.priceCents - min) / spread) * 150 }));
+  const start = points[0].at, end = points[points.length - 1].at;
+  const span = Math.max(1, end - start);
+  const coordinates = points.map(p => ({
+    x: ((p.at - start) / span) * 1000,
+    y: 180 - ((p.priceCents - min) / spread) * 150,
+  }));
   const line = coordinates.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   const area = `M ${coordinates.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')} L 1000 206 L 0 206 Z`;
   const rising = points.at(-1)!.priceCents >= points[0].priceCents;
-  return <div className="price-chart"><svg viewBox="0 0 1000 208" preserveAspectRatio="none" role="img" aria-label={`Observed real stock prices from ${money(points[0].priceCents)} to ${money(points.at(-1)!.priceCents)}`}>
+  const label = (at: number) => range === '1D'
+    ? new Date(at * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : new Date(at * 1000).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', ...(range === 'ALL' ? { year: '2-digit' as const } : {}),
+    });
+  return <div className="price-chart"><svg viewBox="0 0 1000 208" preserveAspectRatio="none"
+    role="img" aria-label={`Verified recorded prices from ${money(points[0].priceCents)} on ${label(start)} to ${money(points.at(-1)!.priceCents)} on ${label(end)}`}>
     {[0, 1, 2, 3, 4].map(i => <line key={`h${i}`} x1="0" y1={i * 50 + 4} x2="1000" y2={i * 50 + 4} className="gridline"/>)}
     {[1, 2, 3, 4, 5].map(i => <line key={`v${i}`} x1={i * 166.67} y1="0" x2={i * 166.67} y2="208" className="gridline"/>)}
     <path d={area} fill={rising ? '#0b3023' : '#351d25'}/>
     <polyline points={line} className={rising ? 'chart-line up' : 'chart-line down'}/>
-  </svg><div className="chart-axis"><span>12h ago</span><span>9h</span><span>6h</span><span>3h</span><span>Now</span></div></div>;
+  </svg><div className="chart-axis">
+    {[0, 0.25, 0.5, 0.75, 1].map(step => <span key={step}>{label(Math.floor(start + span * step))}</span>)}
+  </div></div>;
 }
 
 function TradeTicket({ selected, side, setSide, shares, setShares, total, positionShares, canTrade, pending, execute, portfolio }: {

@@ -1,4 +1,5 @@
-import { STOCKS, type Quote, type SymbolCode } from '../shared/stocks';
+import { STOCKS, HISTORY_RANGES, type HistoryRange, type Quote, type SymbolCode } from '../shared/stocks';
+import { memoized, invalidateMemo } from './memo';
 
 export interface MarketEnv { DB: D1Database; FINNHUB_API_KEY?: string }
 type CacheRow = { price_cents: number; previous_close_cents: number; fetched_at: number; provider_at: number | null; mode: string };
@@ -38,7 +39,7 @@ function easterSunday(year: number): Date {
   const day = (h + l - 7 * m + 114) % 31 + 1;
   return new Date(Date.UTC(year, month - 1, day));
 }
-export function isUsMarketOpen(now = Math.floor(Date.now() / 1000)): boolean {
+function calculateUsMarketOpen(now: number): boolean {
   const fields = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
@@ -69,6 +70,30 @@ export function isUsMarketOpen(now = Math.floor(Date.now() / 1000)): boolean {
   return minutes < (earlyClose ? 780 : 960);
 }
 
+let lastMarketMinute = -1;
+let lastMarketOpen = false;
+export function isUsMarketOpen(now = Math.floor(Date.now() / 1000)): boolean {
+  const minute = Math.floor(now / 60);
+  if (minute !== lastMarketMinute) {
+    lastMarketMinute = minute;
+    lastMarketOpen = calculateUsMarketOpen(now);
+  }
+  return lastMarketOpen;
+}
+
+export const isHistoryRange = (value: unknown): value is HistoryRange =>
+  typeof value === 'string' && HISTORY_RANGES.includes(value as HistoryRange);
+const HISTORY_SECONDS: Record<Exclude<HistoryRange, 'ALL'>, number> = {
+  '1D': 86400, '1W': 7 * 86400, '1M': 30 * 86400,
+  '3M': 90 * 86400, '1Y': 365 * 86400,
+};
+export function historyQueryWindow(range: HistoryRange, oldest: number, now: number) {
+  // Never delete historical observations. Only limit which ones the chart requests.
+  const startAt = range === 'ALL' ? oldest : Math.max(oldest, now - HISTORY_SECONDS[range]);
+  const bucketSeconds = Math.max(60, Math.ceil((now - startAt) / 240 / 60) * 60);
+  return { startAt, bucketSeconds };
+}
+
 export function parseFinnhubQuote(symbol: SymbolCode, body: ProviderPayload, now = Math.floor(Date.now() / 1000)): Quote {
   const { c, pc, t } = body;
   if (![c, pc, t].every(Number.isFinite) || typeof c !== 'number' || typeof pc !== 'number' ||
@@ -87,22 +112,39 @@ export function parseFinnhubQuote(symbol: SymbolCode, body: ProviderPayload, now
 export const isQuoteExecutable = (quote: Quote): boolean =>
   quote.source === 'finnhub' && !quote.stale && Number.isSafeInteger(quote.priceCents) && quote.priceCents > 0;
 
+type StoredRow = CacheRow & { symbol: SymbolCode };
+
+function fromStored(symbol: SymbolCode, row: CacheRow | null, now: number): Quote | null {
+  if (!row || row.mode !== 'finnhub' || !Number.isSafeInteger(row.price_cents) ||
+      !Number.isSafeInteger(row.previous_close_cents) || row.price_cents <= 0 ||
+      row.previous_close_cents <= 0 || row.price_cents > MAX_PRICE_CENTS ||
+      row.previous_close_cents > MAX_PRICE_CENTS || !row.provider_at ||
+      !Number.isSafeInteger(row.provider_at) || row.provider_at > now + 60 ||
+      row.provider_at < now - 30 * 86400) return null;
+  const marketOpen = isUsMarketOpen(now);
+  return { symbol, name: STOCK_NAMES.get(symbol)!, priceCents: row.price_cents,
+    previousCloseCents: row.previous_close_cents,
+    changePct: Math.round((row.price_cents / row.previous_close_cents - 1) * 10000) / 100,
+    fetchedAt: row.provider_at, source: 'finnhub',
+    stale: now - row.provider_at > (marketOpen ? MAX_TRADE_AGE_SECONDS : MAX_OFFHOURS_AGE_SECONDS),
+    marketOpen };
+}
+
 const inflight = new Map<SymbolCode, Promise<Quote>>();
-export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.floor(Date.now() / 1000)): Promise<Quote> {
+
+export async function quoteFor(
+  symbol: SymbolCode, env: MarketEnv, now = Math.floor(Date.now() / 1000),
+  provided?: CacheRow | null,
+): Promise<Quote> {
   if (!env.FINNHUB_API_KEY) throw new Error('Real market data is not configured');
-  const row = await env.DB.prepare(`SELECT price_cents,previous_close_cents,fetched_at,provider_at,mode
-    FROM quote_cache WHERE symbol=? AND mode='finnhub'`).bind(symbol).first<CacheRow>();
-  const cached = (): Quote | null => {
-    if (!row?.provider_at || row.provider_at > now + 60) return null;
-    const marketOpen = isUsMarketOpen(now);
-    return { symbol, name: STOCK_NAMES.get(symbol)!, priceCents: row.price_cents,
-      previousCloseCents: row.previous_close_cents,
-      changePct: Math.round((row.price_cents / row.previous_close_cents - 1) * 10000) / 100,
-      fetchedAt: row.provider_at, source: 'finnhub',
-      stale: now - row.provider_at > (marketOpen ? MAX_TRADE_AGE_SECONDS : MAX_OFFHOURS_AGE_SECONDS), marketOpen };
-  };
-  const previous = cached();
-  if (previous && now - row!.fetched_at < (previous.marketOpen ? MARKET_CACHE_SECONDS : CLOSED_CACHE_SECONDS)) return previous;
+  const row = provided === undefined
+    ? await memoized<CacheRow | null>('quote:' + symbol, 12000, () =>
+      env.DB.prepare(`SELECT price_cents,previous_close_cents,fetched_at,provider_at,mode
+        FROM quote_cache WHERE symbol=? AND mode='finnhub'`).bind(symbol).first<CacheRow>())
+    : provided;
+  const previous = fromStored(symbol, row, now);
+  if (previous && now - row!.fetched_at < (previous.marketOpen ? MARKET_CACHE_SECONDS : CLOSED_CACHE_SECONDS))
+    return previous;
   const pending = inflight.get(symbol);
   if (pending) return pending;
   const task = async (): Promise<Quote> => {
@@ -127,8 +169,13 @@ export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.fl
         previous_close_cents=excluded.previous_close_cents,fetched_at=excluded.fetched_at,
         provider_at=excluded.provider_at,mode='finnhub' WHERE excluded.fetched_at >= quote_cache.fetched_at`)
         .bind(symbol, quote.priceCents, quote.previousCloseCents, now, quote.fetchedAt).run();
-      await env.DB.prepare(`INSERT OR IGNORE INTO quote_history(symbol,observed_at,price_cents) VALUES(?,?,?)`)
-        .bind(symbol, quote.fetchedAt, quote.priceCents).run();
+      invalidateMemo('quote:' + symbol);
+      invalidateMemo('market:rows');
+      invalidateMemo('market:response');
+      invalidateMemo('leaderboard');
+      const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO quote_history(symbol,observed_at,price_cents)
+        VALUES(?,?,?)`).bind(symbol, quote.fetchedAt, quote.priceCents).run();
+      if ((inserted.meta?.changes ?? 0) > 0) invalidateMemo('history:' + symbol + ':');
       return quote;
     } catch {
       if (previous) return previous;
@@ -143,16 +190,52 @@ export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.fl
   try { return await promise; } finally { inflight.delete(symbol); }
 }
 
-export async function allQuotes(env: MarketEnv): Promise<Quote[]> {
+export async function allQuotes(env: MarketEnv, now = Math.floor(Date.now() / 1000)): Promise<Quote[]> {
   if (!env.FINNHUB_API_KEY) throw new Error('Real market data is not configured');
-  const settled = await Promise.allSettled(STOCKS.map(s => quoteFor(s.symbol, env)));
-  return settled.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+  // One indexed D1 query instead of a dozen separate reads per screen refresh.
+  const rows = await memoized<StoredRow[]>('market:rows', 12000, async () => {
+    const { results } = await env.DB.prepare(`SELECT symbol,price_cents,previous_close_cents,
+      fetched_at,provider_at,mode FROM quote_cache WHERE mode='finnhub'`).all<StoredRow>();
+    return results;
+  });
+  const cache = new Map(rows.map(row => [row.symbol, row]));
+  const found: Quote[] = [];
+  // At most 5 parallel provider refreshes to stay below Workers Free's 6-connection ceiling.
+  for (let i = 0; i < STOCKS.length; i += 5) {
+    const settled = await Promise.allSettled(STOCKS.slice(i, i + 5).map(async stock => {
+      const row = cache.get(stock.symbol);
+      const quote = fromStored(stock.symbol, row ?? null, now);
+      if (quote && now - row!.fetched_at < (quote.marketOpen ? MARKET_CACHE_SECONDS : CLOSED_CACHE_SECONDS))
+        return quote;
+      return quoteFor(stock.symbol, env, now, row ?? null);
+    }));
+    for (const result of settled)
+      if (result.status === 'fulfilled') found.push(result.value);
+  }
+  return found;
 }
 
-export async function quoteHistory(symbol: SymbolCode, env: MarketEnv, now = Math.floor(Date.now() / 1000)) {
+export async function quoteHistory(
+  symbol: SymbolCode, env: MarketEnv, range: HistoryRange = '1W',
+  now = Math.floor(Date.now() / 1000),
+): Promise<{ at: number; priceCents: number }[]> {
   if (!env.FINNHUB_API_KEY) throw new Error('Real market data is not configured');
-  const { results } = await env.DB.prepare(`SELECT observed_at AS at,price_cents AS priceCents FROM quote_history
-    WHERE symbol=? AND observed_at>=? ORDER BY observed_at DESC LIMIT 144`)
-    .bind(symbol, now - 12 * 3600).all<{ at: number; priceCents: number }>();
-  return results.reverse();
+  return memoized('history:' + symbol + ':' + range, 90000, async () => {
+    // The WITHOUT ROWID table is indexed by (symbol, observed_at). All points are retained.
+    const oldest = await env.DB.prepare(`SELECT observed_at AS at FROM quote_history
+      WHERE symbol=? ORDER BY observed_at ASC LIMIT 1`).bind(symbol).first<{ at: number }>();
+    if (!oldest) return [];
+    const { startAt, bucketSeconds } = historyQueryWindow(range, oldest.at, now);
+    const { results } = await env.DB.prepare(`WITH buckets AS (
+        SELECT MAX(observed_at) AS at FROM quote_history
+        WHERE symbol=? AND observed_at>=? AND observed_at<=?
+        GROUP BY CAST(observed_at / ? AS INTEGER)
+      )
+      SELECT history.observed_at AS at,history.price_cents AS priceCents
+      FROM buckets JOIN quote_history history ON history.symbol=? AND history.observed_at=buckets.at
+      ORDER BY history.observed_at ASC LIMIT 300`)
+      .bind(symbol, startAt, now, bucketSeconds, symbol)
+      .all<{ at: number; priceCents: number }>();
+    return results;
+  });
 }

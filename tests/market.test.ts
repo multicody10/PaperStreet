@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isUsMarketOpen, isQuoteExecutable, parseFinnhubQuote } from '../worker/market';
+import { historyQueryWindow, isUsMarketOpen, isHistoryRange, isQuoteExecutable, parseFinnhubQuote } from '../worker/market';
 import { STOCKS, isSymbol, STARTING_CASH_CENTS } from '../shared/stocks';
 
 const et = (date: string) => Math.floor(Date.parse(date) / 1000);
@@ -78,4 +78,29 @@ test('invalid or unverifiable provider quotes are never accepted', () => {
     { c: 1e12, pc: 120, t: now }, { c: '123', pc: 120, t: now },
     { c: 123, pc: 120, t: NaN }, { c: 123, pc: 120, t: 0 },
   ]) assert.throws(() => parseFinnhubQuote('AAPL', raw, now));
+});
+
+test('UI time ranges select observations without deleting historical records', () => {
+  const now = et('2026-11-20T20:00:00Z');
+  const oldest = now - 2 * 365 * 86400;
+  assert.deepEqual(historyQueryWindow('ALL', oldest, now).startAt, oldest);
+  assert.equal(historyQueryWindow('1D', oldest, now).startAt, now - 86400);
+  assert.equal(historyQueryWindow('1W', oldest, now).startAt, now - 7 * 86400);
+  assert.equal(historyQueryWindow('1M', oldest, now).startAt, now - 30 * 86400);
+  assert.equal(historyQueryWindow('3M', oldest, now).startAt, now - 90 * 86400);
+  assert.equal(historyQueryWindow('1Y', oldest, now).startAt, now - 365 * 86400);
+  assert.ok(historyQueryWindow('ALL', oldest, now).bucketSeconds >= 3600);
+  for (const range of ['1D', '1W', '1M', '3M', '1Y', 'ALL'])
+    assert.equal(isHistoryRange(range), true);
+  assert.equal(isHistoryRange('infinity'), false);
+  assert.equal(isHistoryRange('../../'), false);
+});
+
+test('fixed price history bucket spacing is bounded to about 240 actual data points', () => {
+  const now = et('2026-11-20T20:00:00Z');
+  for (const range of ['1D', '1W', '1M', '3M', '1Y', 'ALL'] as const) {
+    const { startAt, bucketSeconds } = historyQueryWindow(range, now - 4 * 365 * 86400, now);
+    assert.ok((now - startAt) / bucketSeconds <= 240);
+    assert.ok(bucketSeconds >= 60);
+  }
 });
