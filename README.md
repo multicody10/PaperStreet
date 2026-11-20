@@ -24,42 +24,41 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 4. Under **Activities → URL Mappings**, configure `/` to the hostname of your deployed Worker, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, no `https://`). The browser sends all `/api/*` calls through the same mapped origin. **No other mappings are necessary.**
 5. Configure application installation settings so it can be launched using the Discord App Launcher and test it from your server. You do not need to configure a Discord interactions endpoint for the automatic Launch handler.
 
-## 2. Cloudflare D1 and deployment
+## 2. Automatic Cloudflare deployment with GitHub Actions
 
-These commands are for Git Bash, macOS, or any shell with Node.js 22+ installed. Cloudflare's free plan is sufficient for an initial small player population.
+Once set up, **every push or merged PR to `main` automatically tests, migrates D1, and deploys** the Activity and API to one Cloudflare Worker. You can also manually run **Actions → Deploy PaperStreet → Run workflow**. Pull requests only run checks and never deploy. No paid plan or always-on process is required.
+
+### One-time configuration
+
+1. **Create the D1 database** in your Cloudflare account under **Workers & Pages → D1** (name it `paperstreet`), or run `npx wrangler login` and `npx wrangler d1 create paperstreet` locally. Copy the resulting **database ID** (UUID). Do not create a new database for each deployment.
+2. **Create a scoped Cloudflare API token** in [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens). Allow the account's **Workers Scripts: Edit** and **D1: Edit** permissions, scoped to the specific Cloudflare account. Obtain your **Account ID** from the Cloudflare dashboard. Keep the token private.
+3. In [PaperStreet GitHub Actions secrets](https://github.com/multicody10/PaperStreet/settings/secrets/actions), create two repository **secrets**:
+   - `CLOUDFLARE_API_TOKEN`: the scoped Cloudflare token.
+   - `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account ID.
+4. In [PaperStreet GitHub Actions variables](https://github.com/multicody10/PaperStreet/settings/variables/actions), create one repository **variable**:
+   - `PAPERSTREET_D1_DATABASE_ID`: the D1 database UUID from step 1. This identifier is not a credential.
+5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment.
+6. In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
+   - `DISCORD_CLIENT_ID`: your Discord Application ID.
+   - `DISCORD_CLIENT_SECRET`: your Discord OAuth2 Client Secret.
+   - `SESSION_SECRET`: a unique 64-character hexadecimal secret (`openssl rand -hex 32` in Git Bash).
+7. Configure **Discord Developer Portal → Activities → URL Mappings** with `/` mapped to your deployed Worker hostname as described in section 1. Test launch from Discord.
+
+**Security:** The GitHub token deploys the project and updates the database, but does **not** need your Discord credentials. Set Discord secrets on the **Cloudflare Worker**, not in GitHub or `wrangler.jsonc`. `PAPERSTREET_D1_DATABASE_ID` is substituted into the runner's temporary Wrangler configuration before build; the tracked placeholder is never committed as a real database ID. Deployment secrets are exposed only to the migration and deploy commands, not to dependency installation or tests. Do not separately connect a Cloudflare Workers Builds Git integration to the same Worker; otherwise two deployment systems could race.
+
+### Optional manual deployment and development
+
+If you prefer running Wrangler yourself, copy the D1 database ID into your local `wrangler.jsonc`, replacing the all-zero placeholder, then run `npm install --no-audit --no-fund && npm run db:remote && npm run deploy` after `npx wrangler login`. The GitHub Actions workflow does **not** require editing the tracked `wrangler.jsonc`.
+
+For local development, copy `.dev.vars.example` to `.dev.vars`, fill in Discord credentials, and run:
 
 ```sh
 npm install --no-audit --no-fund
-npx wrangler login
-npx wrangler d1 create paperstreet
-```
-
-Copy the printed `database_id` into `wrangler.jsonc`, replacing the all-zero placeholder. Then apply the schema **before deploying**:
-
-```sh
-npm run db:remote
-```
-
-Generate a session signing secret, set your OAuth credentials, and deploy:
-
-```sh
-openssl rand -hex 32
-npx wrangler secret put DISCORD_CLIENT_ID
-npx wrangler secret put DISCORD_CLIENT_SECRET
-npx wrangler secret put SESSION_SECRET
-npm run deploy
-```
-
-Paste the generated secret into `SESSION_SECRET` and **never commit it**. Use your actual Discord Application ID and OAuth2 Client Secret for the other prompts. Copy the `*.workers.dev` deployment hostname into the Discord Activity URL Mapping above.
-
-For development, copy `.dev.vars.example` to `.dev.vars`, replace all placeholders, and run:
-
-```sh
 npm run db:local
 npm run dev
 ```
 
-The local UI must be opened from a Discord Activity, not directly in a browser, because the Embedded App SDK requires Discord's iframe context. For local Discord testing, make the local Vite server reachable via `cloudflared tunnel --url http://localhost:5173` and temporarily map `/` to the tunnel hostname in the Developer Portal. The OAuth2 Client Secret remains on the Worker; it must never be exposed through a `VITE_` variable.
+The local UI must be opened from a Discord Activity, not directly in a browser, because the Embedded App SDK requires Discord's iframe context. For local testing, make Vite accessible using `cloudflared tunnel --url http://localhost:5173` and temporarily map `/` to the tunnel hostname in the Discord Developer Portal. The OAuth2 Client Secret remains on the Worker; never expose it through a `VITE_` variable.
 
 ## 3. Real quote mode (optional)
 
@@ -102,7 +101,7 @@ python3 tests/database_test.py
 npm run build
 ```
 
-CI groups all checks in a single job with concurrency control and runs only when a PR is opened/updated or manually requested. Deployment is intentionally **manual** so changes cannot accidentally publish a game requiring secrets or a provisioned D1 database.
+CI groups PR checks in a single job with concurrency control. A separate deployment workflow runs only on pushes to `main` or manual dispatch, verifies all checks, applies remote D1 migrations, and deploys with secrets supplied by GitHub Actions. Deployment requires the one-time Cloudflare and GitHub configuration in section 2.
 
 ## Future roadmap
 
