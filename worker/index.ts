@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { allQuotes, quoteFor, type MarketEnv } from './market';
 import { createSession, verifySession } from './session';
-import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type Quote, type SymbolCode } from '../shared/stocks';
+import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
 
 type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };

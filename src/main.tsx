@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { ArrowDownLeft, ArrowUpRight, BarChart3, CheckCircle2, ChevronRight, Clock3, Landmark, LayoutDashboard, ListOrdered, LoaderCircle, RefreshCw, ShieldCheck, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';
 import type { Leader, Portfolio, Quote, SymbolCode, Trade } from '../shared/stocks';
-import { STOCKS, STARTING_CASH_CENTS } from '../shared/stocks';
+import { STARTING_CASH_CENTS } from '../shared/stocks';
 import './style.css';
 
 type Tab = 'market' | 'portfolio' | 'leaderboard' | 'history';

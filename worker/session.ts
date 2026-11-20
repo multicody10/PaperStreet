@@ -21,7 +21,10 @@ export async function verifySession(secret: string, token: string, now = Math.fl
   const parts = token.split('.');
   if (parts.length !== 2 || parts[0].length > 512 || parts[1].length > 128) return null;
   try {
-    const valid = await crypto.subtle.verify('HMAC', await key(secret), unb64(parts[1]), encoder.encode(parts[0]));
+    const signatureBytes = unb64(parts[1]);
+    const signature = new ArrayBuffer(signatureBytes.byteLength);
+    new Uint8Array(signature).set(signatureBytes);
+    const valid = await crypto.subtle.verify('HMAC', await key(secret), signature, encoder.encode(parts[0]));
     if (!valid) return null;
     const payload = JSON.parse(new TextDecoder().decode(unb64(parts[0])));
     if (payload.aud !== 'paperstreet' || !Number.isSafeInteger(payload.exp) || payload.exp <= now || !/^\d{15,22}$/.test(payload.sub)) return null;
