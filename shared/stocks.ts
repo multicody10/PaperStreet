@@ -14,6 +14,9 @@ export const STOCKS = [
   { symbol: 'SPY', name: 'S&P 500 ETF' },
 ] as const;
 
+export const HISTORY_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'] as const;
+export type HistoryRange = typeof HISTORY_RANGES[number];
+
 export type SymbolCode = (typeof STOCKS)[number]['symbol'];
 export const symbols = STOCKS.map(s => s.symbol);
 export const isSymbol = (value: unknown): value is SymbolCode =>

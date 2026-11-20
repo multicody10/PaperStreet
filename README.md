@@ -12,9 +12,9 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
 - Separate **Dashboard**, **Trade**, and **individual stock pages**, all responsive and viewport locked inside Discord. Dashboard displays portfolio value, positions, completed orders, leaderboard, and a read-only market snapshot; it contains no order ticket or trade execution controls.
 - The Trade page contains searchable Finnhub stock quotes, market breadth, and largest movers. Selecting a symbol opens its dedicated stock page with verified quote details, observed history and buy/sell ticket. Trading remains available 24/7 at verified provider prices.
-- Twelve hour price charts built from actual provider quote observations recorded in D1. Charts stay empty until two or more genuine observations exist.
+- Persistent real-price history in D1 with **1D, 1W, 1M, 3M, 1Y, All** UI ranges. No quote observations are deleted. Longer views are downsampled for display using actual timestamps and prices, never synthetic data. Until at least two observations exist, the chart displays the verified latest price and previous close separately.
 - Mobile responsive dark interface inside Discord, without external browser data APIs.
-- Stock quote caching in D1 with cross-request refresh leases, 12 supported symbols, and frontend refreshes every two minutes while visible.
+- Cloudflare Free optimization: shared D1 quote storage, batched reads for all 12 assets, bounded in-isolate TTL caches with invalidation, coalesced requests, and page-specific frontend polling (2 minutes on Trade, 5 minutes elsewhere while visible). User-specific balances, session tokens and trade history are never shared between accounts.
 - **Real market quotes only:** Finnhub last-trade prices and previous closes. No fictional quotes, no simulated market mode, and no invented chart data.
 
 > This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Virtual trades are available 24/7, including evenings, weekends and holidays, using the last verified provider quote. Prices may remain unchanged outside exchange hours. Orders are blocked only when market data is missing, invalid or older than the freshness limit. Historical simulated fills are preserved for audit when migrating an existing installation.
@@ -75,11 +75,15 @@ The local UI must be opened from a Discord Activity, not directly in a browser, 
 1. Obtain a Finnhub key and suitable redistribution permissions for this usage. Store the key in **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets → Add → Secret** as `FINNHUB_API_KEY`, or from Git Bash run `npx wrangler secret put FINNHUB_API_KEY` in a production-bound project.
 2. Run the migration `0002_real_market.sql` (the GitHub Actions deployment applies pending migrations automatically) and deploy the Worker.
 3. Verify `/api/config` reports `dataConfigured: true` and the authenticated `/api/market` endpoint returns quotes with `source: "finnhub"`. Do not share keys or bearer tokens in public logs.
-4. At first launch real price history is empty. The chart builds from actual provider quote observations over time. No paid candles endpoint or fabricated history is used.
+4. At first launch, real history has at most the most recent verified quote. The UI immediately shows the last quote and previous close as labeled values; a five-minute Cron Trigger records real source prices during exchange sessions, even with zero users online. Finnhub's free tier does not offer historical candle backfill. As observations arrive, the chart becomes a true time series. No fabricated data is ever inserted.
 
-### Quote freshness and request limits
+### Quote freshness, permanent observations, and request limits
 
-- The Worker caches successful responses in D1 for 5 minutes during regular hours and 1 hour while the market is closed. Shared D1 leases prevent concurrent viewers from exhausting upstream rate limits with simultaneous refreshes. In-memory request coalescing also reduces duplication inside a Worker instance.
+- The Worker caches successful responses in D1 for 5 minutes during regular hours and 1 hour while the market is closed. Shared D1 leases prevent duplicate upstream refreshes. All 12 asset quotes are read from D1 in one query rather than 12. At most five provider requests run concurrently to respect Workers Free limits.
+- Small bounded in-isolate caches retain public market responses, quote rows, chart ranges and leaderboards for 12–90 seconds. Fresh quote writes invalidate quote and chart caches, while trades and Discord identity updates invalidate rankings. Account cash, holdings, history, and secrets are never stored in shared caches. Separate data centers may remain up to the TTL behind, but D1 remains authoritative for every trade.
+- A single Free-plan Cron Trigger runs every five minutes and fetches quotes only during valid US stock sessions; it is a background price collector, not an always-on server. Quote-history rows are deduplicated by actual Finnhub timestamps and **never pruned**. Price history range selection limits only query results and display granularity, not storage.
+- `GET /api/chart?symbol=AAPL&range=ALL` retrieves retained observations across the entire database lifespan. Other supported ranges are `1D`, `1W`, `1M`, `3M`, and `1Y`. The SQL computes the last verified point in each time bucket to cap response size to roughly 240 points. The graph's horizontal scale uses real provider timestamps, not evenly spaced fabricated times.
+- Cloudflare D1 Free includes **5 million rows read/day, 100,000 rows written/day, and 5 GB storage**. As retained observations grow, monitor D1 row usage in the Cloudflare dashboard. Once storage is exhausted, no more records can be inserted until capacity is freed, so indefinite retention is subject to these physical limits.
 - The last trade timestamp reported by Finnhub is retained. During exchange hours, quotes older than 20 minutes cannot be traded; outside exchange hours, the last verified provider quote can be traded for up to 7 days. **Stale prices may be displayed for context but are never executable.** Provider errors or concurrent refreshes can reuse a still-valid cached quote rather than unnecessarily stopping virtual trades; missing or expired quotes still block execution. Prices are never simulated.
 - PaperStreet's **virtual exchange is always open**. The US stock exchange calendar is used only to determine whether the source price should be actively updating (20-minute freshness limit) or is an after-hours last-trade price (7-day freshness limit). Every order is filled at the server validated last verified Finnhub quote with the existing 1% expected-price guard. This is a game, not a real after-hours brokerage execution.
 - Quotes can be delayed, incomplete, or limited to a specific exchange by the provider. A data API's market access and licensing, not the game, determine how recent and complete prices are.
@@ -104,7 +108,7 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 ## Resource design and constraints
 
 - Single Worker + static SPA, no separate Pages project or always-running bot process.
-- On demand D1 reads; small indexed tables, shared quote cache, refresh leases, and indexed genuine price history observations. No scheduled polling or paid background queues.
+- Indexed D1 tables and persistent history, batched market snapshot reads, coalesced quote fetches, and a single five-minute Free-plan Cron Trigger during market hours. No paid background queues, paid cache products or 24-hour compute process.
 - `GET /api/market` is scoped to a signed account; `POST /api/trade` obtains the execution quote itself rather than accepting a client supplied price. The client supplied expected price is only a slippage guard.
 - Only the 12 preselected symbols are tradeable. Full market search and instant quote streaming would exceed the intended zero cost design.
 - Free tiers have enforceable limits. If player volume grows, additional HTTP request rate limiting, data rights and provider access may be necessary.
@@ -117,7 +121,7 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 | `GET /api/config` | Public | Discord application ID, real provider and readiness |
 | `POST /api/auth` | OAuth code | Exchange with Discord; issue signed game session |
 | `GET /api/market` | Bearer session | Market quotes |
-| `GET /api/chart?symbol=AAPL` | Bearer session | Observed real quote history (no fabricated backfill) |
+| `GET /api/chart?symbol=AAPL&range=ALL` | Bearer session | Full recorded history downsampled for display; all original observations retained |
 | `GET /api/portfolio` | Bearer session | Account equity and positions |
 | `POST /api/trade` | Bearer session | Execute idempotent buy/sell order |
 | `GET /api/leaderboard` | Bearer session | Top 25 by current equity |
