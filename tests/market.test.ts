@@ -1,36 +1,48 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { simulatedQuote, simulatedHistory } from '../worker/market';
+import { isUsMarketOpen, parseFinnhubQuote } from '../worker/market';
 import { STOCKS, isSymbol, STARTING_CASH_CENTS } from '../shared/stocks';
 
+const et = (date: string) => Math.floor(Date.parse(date) / 1000);
 test('stock symbols are strictly allowlisted', () => {
   assert.equal(isSymbol('AAPL'), true);
   assert.equal(isSymbol('AAPL; DROP TABLE players'), false);
   assert.equal(isSymbol('aapl'), false);
   assert.equal(isSymbol(null), false);
+  assert.equal(STOCKS.length, 12);
 });
-test('each simulated quote is deterministic per time slot and has a clear source', () => {
-  for (const stock of STOCKS) {
-    const a = simulatedQuote(stock.symbol, 1795210000);
-    const b = simulatedQuote(stock.symbol, 1795210090);
-    assert.deepEqual(a, b);
-    assert.ok(a.priceCents > 0);
-    assert.equal(a.source, 'simulated');
-    assert.equal(a.stale, false);
-  }
+test('starting balance is virtual $10,000', () => assert.equal(STARTING_CASH_CENTS, 1_000_000));
+test('exchange session respects NY time, DST and major holidays', () => {
+  assert.equal(isUsMarketOpen(et('2026-11-20T15:00:00Z')), true); // Fri 10 AM EST
+  assert.equal(isUsMarketOpen(et('2026-11-20T21:00:00Z')), false); // Fri 4 PM EST
+  assert.equal(isUsMarketOpen(et('2026-07-07T14:00:00Z')), true); // Tue 10 AM EDT
+  assert.equal(isUsMarketOpen(et('2026-11-21T15:00:00Z')), false); // Saturday
+  assert.equal(isUsMarketOpen(et('2026-11-26T15:00:00Z')), false); // Thanksgiving
+  assert.equal(isUsMarketOpen(et('2026-04-03T15:00:00Z')), false); // Good Friday
+  assert.equal(isUsMarketOpen(et('2026-11-27T17:59:00Z')), true); // Black Friday before 1 PM
+  assert.equal(isUsMarketOpen(et('2026-11-27T18:00:00Z')), false); // Early close
 });
-test('time advances market prices', () => {
-  assert.notEqual(simulatedQuote('AAPL', 1795210000).priceCents, simulatedQuote('AAPL', 1795210000 + 900 * 10).priceCents);
+test('valid provider quote contains real source timestamp and correctly computed cents', () => {
+  const now = et('2026-11-20T15:00:00Z');
+  const quote = parseFinnhubQuote('AAPL', { c: 192.345, pc: 190.12, t: now - 15 }, now);
+  assert.equal(quote.priceCents, 19235);
+  assert.equal(quote.previousCloseCents, 19012);
+  assert.equal(quote.fetchedAt, now - 15);
+  assert.equal(quote.source, 'finnhub');
+  assert.equal(quote.stale, false);
+  assert.equal(quote.marketOpen, true);
 });
-test('starting balance is exactly $10,000', () => assert.equal(STARTING_CASH_CENTS, 1_000_000));
-
-test('simulated price history is chronological and agrees with execution quotes', () => {
-  const now = 1795210000;
-  const points = simulatedHistory('AAPL', now);
-  assert.equal(points.length, 49);
-  assert.equal(points[0].at, points.at(-1)!.at - 48 * 900);
-  for (let i = 0; i < points.length; i++) {
-    assert.equal(points[i].priceCents, simulatedQuote('AAPL', points[i].at).priceCents);
-    if (i > 0) assert.equal(points[i].at - points[i - 1].at, 900);
-  }
+test('outdated quotes are marked stale during trading hours', () => {
+  const now = et('2026-11-20T15:00:00Z');
+  assert.equal(parseFinnhubQuote('AAPL', { c: 200, pc: 199, t: now - 3600 }, now).stale, true);
+  assert.equal(parseFinnhubQuote('AAPL', { c: 200, pc: 199, t: now - 900 }, now).stale, false);
+});
+test('invalid or unverifiable provider quotes are never accepted', () => {
+  const now = et('2026-11-20T15:00:00Z');
+  for (const raw of [
+    { c: 0, pc: 190, t: now }, { c: 123, pc: 0, t: now },
+    { c: 123, pc: 120 }, { c: 123, pc: 120, t: now + 120 },
+    { c: 1e12, pc: 120, t: now }, { c: '123', pc: 120, t: now },
+    { c: 123, pc: 120, t: NaN }, { c: 123, pc: 120, t: 0 },
+  ]) assert.throws(() => parseFinnhubQuote('AAPL', raw, now));
 });

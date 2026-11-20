@@ -1,7 +1,7 @@
-# From the Discord Developer Portal. Do NOT commit .dev.vars.
+# Discord credentials. Never commit .dev.vars or send keys to the frontend.
 DISCORD_CLIENT_ID="YOUR_DISCORD_APPLICATION_ID"
 DISCORD_CLIENT_SECRET="YOUR_DISCORD_CLIENT_SECRET"
-# Generate with: openssl rand -hex 32
 SESSION_SECRET="REPLACE_WITH_RANDOM_64_CHARACTER_SECRET"
-# Optional for FINNHUB mode only. Confirm licensing for your audience.
-FINNHUB_API_KEY=""
+# Real prices are the only market source. Obtain Finnhub's written redistribution approval
+# before displaying data to third-party Discord players. No simulated fallback exists.
+FINNHUB_API_KEY="YOUR_APPROVED_PROVIDER_KEY"

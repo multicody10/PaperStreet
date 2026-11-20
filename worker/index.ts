@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { allQuotes, quoteFor, simulatedHistory, type MarketEnv } from './market';
+import { allQuotes, quoteFor, quoteHistory, type MarketEnv } from './market';
 import { createSession, verifySession } from './session';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
 
@@ -27,7 +27,8 @@ app.use('/api/*', async (c, next) => {
 app.get('/api/health', c => c.json({ status: 'ok', service: 'paperstreet' }));
 app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
-  marketMode: c.env.MARKET_MODE === 'finnhub' ? 'finnhub' : 'simulated',
+  provider: 'finnhub',
+  dataConfigured: Boolean(c.env.FINNHUB_API_KEY),
   startingCashCents: STARTING_CASH_CENTS,
 }));
 
@@ -60,16 +61,18 @@ app.post('/api/auth', async c => {
 });
 
 app.get('/api/market', async c => {
+  if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
   const quotes = await allQuotes(c.env);
-  if (!quotes.length) return noStore({ error: 'Market prices are temporarily unavailable' }, 503);
-  return noStore({ quotes, totalSymbols: STOCKS.length, mode: c.env.MARKET_MODE === 'finnhub' ? 'finnhub' : 'simulated' });
+  if (!quotes.length) return noStore({ error: 'Real market prices are temporarily unavailable' }, 503);
+  return noStore({ quotes, totalSymbols: STOCKS.length, provider: 'finnhub' });
 });
 
-app.get('/api/chart', c => {
+app.get('/api/chart', async c => {
   const symbol = c.req.query('symbol');
   if (!isSymbol(symbol)) return noStore({ error: 'Invalid stock symbol' }, 422);
-  if (c.env.MARKET_MODE === 'finnhub') return noStore({ points: [], available: false });
-  return noStore({ points: simulatedHistory(symbol), available: true });
+  if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
+  const points = await quoteHistory(symbol, c.env);
+  return noStore({ points, available: points.length >= 2, source: 'finnhub' });
 });
 
 app.get('/api/portfolio', async c => {
@@ -123,6 +126,7 @@ app.post('/api/trade', async c => {
   const existing = await c.env.DB.prepare('SELECT id FROM trades WHERE user_id=? AND client_order_id=?').bind(userId, input.orderId).first<{ id: number }>();
   if (existing) return noStore({ tradeId: existing.id, duplicate: true });
   const quote = await quoteFor(input.symbol, c.env);
+  if (!quote.marketOpen) return noStore({ error: 'The US stock market is closed. Trading resumes during regular market hours.' }, 409);
   if (quote.stale) return noStore({ error: 'Quote is stale. Trading paused until prices recover.' }, 503);
   if (Math.abs(quote.priceCents / Number(input.expectedPriceCents) - 1) > 0.01) {
     return noStore({ error: 'Price moved by over 1%. Refresh quotes and retry.' }, 409);
