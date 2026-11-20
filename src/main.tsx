@@ -13,7 +13,7 @@ import './style.css';
 
 type Tab = 'market' | 'portfolio' | 'leaderboard' | 'history';
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
-type Account = { id: string; displayName: string };
+type Account = { id: string; displayName: string; avatarUrl: string };
 type Point = { at: number; priceCents: number };
 const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 const signedMoney = (cents: number) => `${cents > 0 ? '+' : ''}${money(cents)}`;
@@ -146,7 +146,7 @@ function App() {
     [quotes, search],
   );
   const gainers = quotes.filter(q => q.changePct > 0).length;
-  const returnPercent = ((portfolio?.profitCents ?? 0) / STARTING_CASH_CENTS) * 100;
+  const returnPercent = ((portfolio?.profitCents ?? 0) / (portfolio?.startingCashCents ?? STARTING_CASH_CENTS)) * 100;
   const refreshNow = () => {
     if (!token || loading) return;
     setFeedback(null);
@@ -187,7 +187,7 @@ function App() {
         <div className="header-actions">
           <span className="market-mode real" title="Real market quotes. Trades are disabled on stale prices or while the US market is closed."><span className="status-dot"/>REAL STOCK PRICES</span>
           <button type="button" className="icon-button" aria-label="Refresh market and portfolio" title="Refresh" disabled={!token || loading} onClick={refreshNow}><RefreshCw size={17} className={loading ? 'spin' : ''}/></button>
-          <div className="user-chip" title={account?.displayName ?? 'Discord user'}><span className="user-avatar">{account?.displayName?.slice(0, 1).toUpperCase() ?? '?'}</span><span className="user-copy"><strong>{short(account?.displayName ?? 'Discord user', 17)}</strong><small><span className="online-dot"/>{authStatus}</small></span></div>
+          <div className="user-chip" title={account?.displayName ?? 'Discord user'}><span className="user-avatar">{account?.avatarUrl ? <img src={account.avatarUrl} alt="" referrerPolicy="no-referrer"/> : account?.displayName?.slice(0, 1).toUpperCase() ?? '?'}</span><span className="user-copy"><strong>{short(account?.displayName ?? 'Discord user', 17)}</strong><small><span className="online-dot"/>{authStatus}</small></span></div>
         </div>
       </header>
       <div className="shell-body">
@@ -229,7 +229,7 @@ function App() {
                 <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canTrade} pending={pending} execute={execute} portfolio={portfolio}/>
                 <div className="dashboard-rail">
                   <section className="panel snapshot-panel"><div className="panel-heading"><h2><Wallet size={18}/> My portfolio</h2><button type="button" className="subtle-link" onClick={() => setTab('portfolio')}>View all <ChevronRight size={14}/></button></div><div className="snapshot-equity"><strong>{portfolio ? money(portfolio.equityCents) : '—'}</strong><span className={returnPercent >= 0 ? 'positive' : 'negative'}>{portfolio ? `${pct(returnPercent)} all time` : 'Waiting for prices'}</span></div><div className="mini-stats"><span>Cash <strong>{money(portfolio?.cashCents ?? 0)}</strong></span><span>Invested <strong>{money(portfolio?.investedCents ?? 0)}</strong></span></div><div className="rail-subhead"><span>TOP HOLDINGS</span><span>VALUE</span></div><div className="holding-list">{portfolio?.positions.slice(0, 5).map(p => <div key={p.symbol} className="holding-row"><span className="holding-name"><span className="ticker-icon tiny">{p.symbol.slice(0, 2)}</span><span><strong>{p.symbol}</strong><small>{p.shares} shares</small></span></span><span className="holding-value"><strong>{money(p.marketValueCents)}</strong><small className={p.profitCents >= 0 ? 'positive' : 'negative'}>{signedMoney(p.profitCents)}</small></span></div>)}{!portfolio?.positions.length && <div className="rail-empty">Your holdings will appear here.</div>}</div></section>
-                  <section className="panel leader-panel"><div className="panel-heading"><h2><Trophy size={19}/> Leaderboard</h2><button type="button" className="subtle-link" onClick={() => setTab('leaderboard')}>Top 25 <ChevronRight size={14}/></button></div><div className="leaderboard-list">{leaders.slice(0, 6).map((leader, i) => <div key={leader.userId} className={`leader-row ${leader.userId === account.id ? 'self' : ''}`}><span className="rank">{i + 1}</span><span className="leader-avatar">{leader.displayName.slice(0, 1).toUpperCase()}</span><span className="leader-name">{short(leader.displayName, 16)}{leader.userId === account.id && <small> YOU</small>}</span><span className={`leader-return ${leader.changeCents >= 0 ? 'positive' : 'negative'}`}>{pct((leader.changeCents / STARTING_CASH_CENTS) * 100)}</span></div>)}{!leaders.length && <div className="rail-empty">No rankings yet.</div>}</div></section>
+                  <section className="panel leader-panel"><div className="panel-heading"><h2><Trophy size={19}/> Leaderboard</h2><button type="button" className="subtle-link" onClick={() => setTab('leaderboard')}>Top 25 <ChevronRight size={14}/></button></div><div className="leaderboard-list">{leaders.slice(0, 6).map((leader, i) => <div key={leader.userId} className={`leader-row ${leader.userId === account.id ? 'self' : ''}`}><span className="rank">{i + 1}</span><span className="leader-avatar">{leader.displayName.slice(0, 1).toUpperCase()}</span><span className="leader-name">{short(leader.displayName, 16)}{leader.userId === account.id && <small> YOU</small>}</span><span className={`leader-return ${leader.changeCents >= 0 ? 'positive' : 'negative'}`}>{pct((leader.changeCents / leader.startingCashCents) * 100)}</span></div>)}{!leaders.length && <div className="rail-empty">No rankings yet.</div>}</div></section>
                 </div>
               </div> : <section className="panel details-panel">
                 <div className="panel-heading details-heading"><div><h2>{tab === 'portfolio' ? 'Open positions' : tab === 'leaderboard' ? 'Global rankings' : 'Executed orders'}</h2><p>{tab === 'portfolio' ? 'Market value and cost basis for your investments.' : tab === 'leaderboard' ? 'Ranked by total portfolio equity, including virtual cash.' : 'Your latest completed market orders.'}</p></div><span className="count-pill">{tab === 'portfolio' ? `${portfolio?.positions.length ?? 0} POSITIONS` : tab === 'leaderboard' ? 'TOP 25' : `${trades.length} TRADES`}</span></div>

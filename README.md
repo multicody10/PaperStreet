@@ -1,6 +1,6 @@
 # PaperStreet
 
-**PaperStreet is a Discord Activity for stock paper trading.** Every player starts with **$10,000 in virtual cash**, builds a portfolio, and competes on a global equity leaderboard. This first version runs as an embedded Discord Activity; the standalone slash command bot can be added later without operating a persistent Discord Gateway connection.
+**PaperStreet is a Discord Activity for stock paper trading.** Each new player starts with **$1,000 in virtual cash**, builds a portfolio, and competes on a global equity leaderboard. This first version runs as an embedded Discord Activity; the standalone slash command bot can be added later without operating a persistent Discord Gateway connection.
 
 The entire stack runs on **Cloudflare Workers Free**: a single Worker for the API, Worker Static Assets for the React interface, and a D1 SQLite database. No always-on servers, queues, paid Workers features, or background jobs are required.
 
@@ -84,6 +84,14 @@ The local UI must be opened from a Discord Activity, not directly in a browser, 
 - Quotes can be delayed, incomplete, or limited to a specific exchange by the provider. A data API's market access and licensing, not the game, determine how recent and complete prices are.
 - Existing virtual holdings/trades are preserved during migration and are revalued using actual quotes. Old simulated trades are *not* retroactively rewritten, so reset competition rankings separately before launching a fair real-price season.
 
+## Starting cash and existing accounts
+
+New Discord-authenticated accounts start with **$1,000** in virtual cash; this value is inserted by the Worker explicitly. Existing accounts retain their original cash and holdings. Migration `0003_starting_cash.sql` preserves the original $10,000 performance baseline for old accounts and records a $1,000 baseline for new ones, so leaderboard and return percentages remain comparable.
+
+To change **one existing player's cash** to $1,000, first verify their exact Discord user ID in the Discord client's Developer Mode. In Cloudflare D1's console run `SELECT user_id,display_name,cash_cents,starting_cash_cents FROM players WHERE user_id='DISCORD_USER_ID';` and confirm the returned account is correct. Then run `UPDATE players SET cash_cents=100000, starting_cash_cents=100000 WHERE user_id='DISCORD_USER_ID';`. Do not commit real user IDs to GitHub. This changes virtual cash and its return baseline only; it does not delete holdings, trading history, or affect anyone else. Existing investments remain in the account's equity.
+
+The top-right avatar is derived from Discord's verified `/users/@me` response, including the correct default avatar when the user has not uploaded one.
+
 ## Resource design and constraints
 
 - Single Worker + static SPA, no separate Pages project or always-running bot process.
@@ -122,7 +130,7 @@ CI groups PR checks in a single job with concurrency control. A separate deploym
 
 Both workflows pin official `actions/checkout` and `actions/setup-node` to reviewed Node 24-compatible commit SHAs. These actions run under Node 24, while the application build still uses Node 22 via `node-version: 22`. The workflows use a minimal read-only `GITHUB_TOKEN` and do not persist checkout credentials; automatic package manager caching is disabled until a reviewed lockfile is committed.
 
-The npm notice `node-domexception@1.0.0: Use your platform's native DOMException instead` is an **upstream transitive dependency** warning, not a runtime error. Do not hide it by reducing npm log output or force a potentially incompatible override. To determine which parent dependency needs upgrading, run `npm explain node-domexception` after `npm install`, then update the owning dependency after compatibility testing.
+The deprecated `node-domexception@1.0.0` transitive package is replaced with a checked-in, Node 22+ native `DOMException` adapter under `vendor/node-domexception`. Its package name/version and ESM default export preserve the API expected by legacy `fetch-blob` consumers; npm direct dependency and override ensure it is selected rather than the deprecated registry package. The regression test verifies the installed adapter exports the native constructor. Remove the adapter once upstream dependencies no longer need the package.
 
 Wrangler can report a **local vs. Cloudflare Dashboard configuration difference** on deploy. Review the exact diff rather than suppressing it: as of the November 20 deployment, the differences were generated static asset metadata and optional D1 `database_name`/`migrations_dir` fields. Keep Wrangler configuration as the source of truth; reconcile any future destructive dashboard differences before merging.
 

@@ -11,7 +11,7 @@ test('stock symbols are strictly allowlisted', () => {
   assert.equal(isSymbol(null), false);
   assert.equal(STOCKS.length, 12);
 });
-test('starting balance is virtual $10,000', () => assert.equal(STARTING_CASH_CENTS, 1_000_000));
+test('new accounts start with virtual $1,000', () => assert.equal(STARTING_CASH_CENTS, 100_000));
 test('exchange session respects NY time, DST and major holidays', () => {
   assert.equal(isUsMarketOpen(et('2026-11-20T15:00:00Z')), true); // Fri 10 AM EST
   assert.equal(isUsMarketOpen(et('2026-11-20T21:00:00Z')), false); // Fri 4 PM EST

@@ -4,6 +4,7 @@ import sqlite3
 import unittest
 
 SQL = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0001_init.sql').read_text()
+STARTING_CASH_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0003_starting_cash.sql').read_text()
 UID = '123456789012345678'
 
 
@@ -41,6 +42,15 @@ class TradeLedgerTest(unittest.TestCase):
             self.order('b', 'SELL', 1)
         self.assertEqual(self.balance(), 1000000)
         self.assertEqual(self.db.execute('SELECT count(*) FROM trades').fetchone()[0], 0)
+
+    def test_starting_cash_migration_preserves_legacy_accounts(self):
+        self.db.executescript(STARTING_CASH_MIGRATION)
+        self.assertEqual(self.db.execute('SELECT cash_cents, starting_cash_cents FROM players WHERE user_id=?', (UID,)).fetchone(), (1000000, 1000000))
+        new_user = '987654321098765432'
+        self.db.execute('INSERT INTO players(user_id,display_name,cash_cents,starting_cash_cents) VALUES (?,?,?,?)', (new_user, 'New Player', 100000, 100000))
+        self.assertEqual(self.db.execute('SELECT cash_cents, starting_cash_cents FROM players WHERE user_id=?', (new_user,)).fetchone(), (100000, 100000))
+        self.db.execute('INSERT INTO players(user_id,display_name,cash_cents,starting_cash_cents) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name', (new_user, 'Updated Player', 100000, 100000))
+        self.assertEqual(self.db.execute('SELECT cash_cents, starting_cash_cents FROM players WHERE user_id=?', (new_user,)).fetchone(), (100000, 100000))
 
     def test_orders_idempotent(self):
         self.order('order-id', 'BUY', 1)

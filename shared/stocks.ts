@@ -1,4 +1,4 @@
-export const STARTING_CASH_CENTS = 1_000_000;
+export const STARTING_CASH_CENTS = 100_000;
 export const STOCKS = [
   { symbol: 'AAPL', name: 'Apple' },
   { symbol: 'MSFT', name: 'Microsoft' },
@@ -24,6 +24,6 @@ export type Quote = {
   changePct: number; fetchedAt: number; source: 'finnhub'; stale: boolean; marketOpen: boolean;
 };
 export type Position = { symbol: SymbolCode; shares: number; costBasisCents: number; marketValueCents: number; profitCents: number; quote: Quote };
-export type Portfolio = { userId: string; displayName: string; cashCents: number; equityCents: number; investedCents: number; profitCents: number; positions: Position[] };
-export type Leader = { userId: string; displayName: string; equityCents: number; changeCents: number };
+export type Portfolio = { userId: string; displayName: string; cashCents: number; startingCashCents: number; equityCents: number; investedCents: number; profitCents: number; positions: Position[] };
+export type Leader = { userId: string; displayName: string; equityCents: number; startingCashCents: number; changeCents: number };
 export type Trade = { id: number; symbol: SymbolCode; side: 'BUY' | 'SELL'; shares: number; priceCents: number; executedAt: number };

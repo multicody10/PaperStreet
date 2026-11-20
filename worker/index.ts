@@ -5,7 +5,7 @@ import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, typ
 
 type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
-type PlayerRow = { user_id: string; display_name: string; cash_cents: number };
+type PlayerRow = { user_id: string; display_name: string; cash_cents: number; starting_cash_cents: number };
 type HoldingRow = { symbol: SymbolCode; shares: number; cost_basis_cents: number };
 const app = new Hono<App>();
 const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 = 200) =>
@@ -51,13 +51,19 @@ app.post('/api/auth', async c => {
     headers: { Authorization: `Bearer ${token.access_token}` }, signal: AbortSignal.timeout(5000),
   });
   if (!userResponse.ok) return noStore({ error: 'Could not verify Discord identity' }, 401);
-  const user = await userResponse.json() as { id?: string; username?: string; global_name?: string | null };
+  const user = await userResponse.json() as { id?: string; username?: string; global_name?: string | null; avatar?: string | null; discriminator?: string };
   if (!user.id || !/^\d{15,22}$/.test(user.id)) return noStore({ error: 'Invalid Discord user' }, 401);
   const displayName = (user.global_name || user.username || 'Trader').slice(0, 48);
-  await c.env.DB.prepare(`INSERT INTO players (user_id,display_name) VALUES (?,?)
-    ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name`).bind(user.id, displayName).run();
+  const avatarHash = user.avatar && /^(?:a_)?[a-f0-9]{32}$/i.test(user.avatar) ? user.avatar : null;
+  const avatarIndex = user.discriminator && /^[0-9]{4}$/.test(user.discriminator) && user.discriminator !== '0'
+    ? Number(user.discriminator) % 5 : Number((BigInt(user.id) >> 22n) % 6n);
+  const avatarUrl = avatarHash
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${avatarHash}.${avatarHash.startsWith('a_') ? 'gif' : 'png'}?size=128`
+    : `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
+  await c.env.DB.prepare(`INSERT INTO players (user_id,display_name,cash_cents,starting_cash_cents) VALUES (?,?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name`).bind(user.id, displayName, STARTING_CASH_CENTS, STARTING_CASH_CENTS).run();
   const session = await createSession(c.env.SESSION_SECRET, user.id);
-  return noStore({ access_token: token.access_token, session, user: { id: user.id, displayName } });
+  return noStore({ access_token: token.access_token, session, user: { id: user.id, displayName, avatarUrl } });
 });
 
 app.get('/api/market', async c => {
@@ -77,7 +83,7 @@ app.get('/api/chart', async c => {
 
 app.get('/api/portfolio', async c => {
   const userId = c.get('userId');
-  const player = await c.env.DB.prepare('SELECT user_id, display_name, cash_cents FROM players WHERE user_id = ?').bind(userId).first<PlayerRow>();
+  const player = await c.env.DB.prepare('SELECT user_id, display_name, cash_cents, starting_cash_cents FROM players WHERE user_id = ?').bind(userId).first<PlayerRow>();
   if (!player) return noStore({ error: 'Player not found. Reopen the Activity.' }, 401);
   const { results } = await c.env.DB.prepare('SELECT symbol, shares, cost_basis_cents FROM holdings WHERE user_id = ? ORDER BY symbol').bind(userId).all<HoldingRow>();
   const quotes = await Promise.all(results.map(h => quoteFor(h.symbol, c.env)));
@@ -89,7 +95,7 @@ app.get('/api/portfolio', async c => {
   });
   const investedCents = positions.reduce((total, position) => total + position.marketValueCents, 0);
   const portfolio: Portfolio = { userId, displayName: player.display_name, cashCents: player.cash_cents,
-    investedCents, equityCents: player.cash_cents + investedCents, profitCents: player.cash_cents + investedCents - STARTING_CASH_CENTS, positions };
+    investedCents, startingCashCents: player.starting_cash_cents, equityCents: player.cash_cents + investedCents, profitCents: player.cash_cents + investedCents - player.starting_cash_cents, positions };
   return noStore({ portfolio });
 });
 
@@ -105,11 +111,11 @@ app.get('/api/leaderboard', async c => {
   const quotes = await allQuotes(c.env);
   if (quotes.length !== STOCKS.length || quotes.some(q => q.stale)) return noStore({ error: 'Leaderboard unavailable while market quotes are stale' }, 503);
   const { results } = await c.env.DB.prepare(`SELECT p.user_id AS userId, p.display_name AS displayName,
-    p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents
+    p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents, p.starting_cash_cents AS startingCashCents
     FROM players p LEFT JOIN holdings h ON h.user_id = p.user_id
     LEFT JOIN quote_cache q ON q.symbol = h.symbol
     GROUP BY p.user_id ORDER BY equityCents DESC, p.created_at ASC LIMIT 25`).all<Omit<Leader, 'changeCents'>>();
-  const leaders: Leader[] = results.map(r => ({ ...r, changeCents: r.equityCents - STARTING_CASH_CENTS }));
+  const leaders: Leader[] = results.map(r => ({ ...r, changeCents: r.equityCents - r.startingCashCents }));
   return noStore({ leaders });
 });
 
