@@ -11,12 +11,12 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
 - Viewport locked desktop trading dashboard with scoped panel scrolling inside Discord, responsive compact navigation, and accessible stock/trade controls.
-- Twelve hour historical charts from the same deterministic simulated pricing model; real quote mode correctly shows no history without a licensed history feed.
+- Twelve hour price charts built from actual provider quote observations recorded in D1. Charts stay empty until two or more genuine observations exist.
 - Mobile responsive dark interface inside Discord, without external browser data APIs.
-- Stock quote caching in D1, a maximum of 12 supported symbols, and only one frontend market refresh every two minutes while the Activity is visible.
-- **Simulated prices** by default, with an optional Finnhub quote integration. These are never presented interchangeably.
+- Stock quote caching in D1 with cross-request refresh leases, 12 supported symbols, and frontend refreshes every two minutes while visible.
+- **Real market quotes only:** Finnhub last-trade prices and previous closes. No fictional quotes, no simulated market mode, and no invented chart data.
 
-> This is a game, not brokerage software. It never trades real securities or handles real money. In simulated mode, all prices are entirely fictional. In Finnhub mode, prices are the provider's last available quotes and may be delayed, stale or unavailable. This initial release does not model market hours, fees, taxes, dividends, splits or corporate actions, so results should not be treated as a realistic financial simulation.
+> This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Trades are disabled outside the US stock market's regular session, during major US market holidays, when data is stale, and when a provider is unavailable. Historical simulated fills are preserved for audit when migrating an existing installation.
 
 ## 1. Discord Developer Portal
 
@@ -40,10 +40,11 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
 4. In [PaperStreet GitHub Actions variables](https://github.com/multicody10/PaperStreet/settings/variables/actions), create one repository **variable**:
    - `PAPERSTREET_D1_DATABASE_ID`: the D1 database UUID from step 1. This identifier is not a credential.
 5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment.
-6. In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
+6. **Before activating the real market** obtain a quote provider key and written approval to display/redistribute its market data to your Discord players (details in section 3). In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
    - `DISCORD_CLIENT_ID`: your Discord Application ID.
    - `DISCORD_CLIENT_SECRET`: your Discord OAuth2 Client Secret.
    - `SESSION_SECRET`: a unique 64-character hexadecimal secret (`openssl rand -hex 32` in Git Bash).
+   - `FINNHUB_API_KEY`: an authorized Finnhub API key, stored as **Secret**. Without this key PaperStreet displays no prices and disables trading.
 7. Configure **Discord Developer Portal → Activities → URL Mappings** with `/` mapped to your deployed Worker hostname as described in section 1. Test launch from Discord.
 
 **Security:** The GitHub token deploys the project and updates the database, but does **not** need your Discord credentials. Set Discord secrets on the **Cloudflare Worker**, not in GitHub or `wrangler.jsonc`. `PAPERSTREET_D1_DATABASE_ID` is substituted into the runner's temporary Wrangler configuration before build; the tracked placeholder is never committed as a real database ID. Deployment secrets are exposed only to the migration and deploy commands, not to dependency installation or tests. Do not separately connect a Cloudflare Workers Builds Git integration to the same Worker; otherwise two deployment systems could race.
@@ -62,33 +63,44 @@ npm run dev
 
 The local UI must be opened from a Discord Activity, not directly in a browser, because the Embedded App SDK requires Discord's iframe context. For local testing, make Vite accessible using `cloudflared tunnel --url http://localhost:5173` and temporarily map `/` to the tunnel hostname in the Discord Developer Portal. The OAuth2 Client Secret remains on the Worker; never expose it through a `VITE_` variable.
 
-## 3. Real quote mode (optional)
+## 3. Real stock market data (required, no simulated fallback)
 
-The default `MARKET_MODE` is `simulated`, which needs no third party API key. For the optional Finnhub integration:
+**All PaperStreet prices come from real US stock market quotes.** The backend fetches Finnhub `GET /api/v1/quote` with a private `FINNHUB_API_KEY`; it validates the quote price, previous close, and provider timestamp before caching anything. No client can supply execution prices, and the frontend never receives the provider key. When data is missing or invalid, the market displays an error instead of generating a fictional quote.
 
-1. Obtain a free Finnhub API key, and check that the provider's free plan and licensing permit your intended audience and redistribution of prices. A publicly playable game can exceed personal use terms.
-2. Run `npx wrangler secret put FINNHUB_API_KEY`.
-3. Change `MARKET_MODE` in `wrangler.jsonc` from `simulated` to `finnhub` and redeploy.
+**Licensing:** [Finnhub's Terms of Service](https://finnhub.io/terms-of-service), under *Redistribution Rights and Personal Use*, expressly forbid sharing or redistributing data (including derived results) with third parties without **written permission**. Its standard website plans are personal-use-only. **An ordinary free API key does not grant rights to publish stock quotes to your Discord Activity users.** Obtain written permission or replace the provider with a service whose license explicitly permits the game's public data display before inviting players. Keep the Activity restricted to authorized testing until resolved. PaperStreet has no paid-tier dependency, but exchange redistribution rights may not be available at $0.
 
-Quotes are fetched **only by the backend** and cached for 90 seconds in D1. A failed provider request can show an old quote with a stale label, but **trades using stale prices are rejected**, and the leaderboard pauses until all quotes are fresh. This guards against stale price arbitrage and protects the API key. Market quotes are not continuously streamed or guaranteed real time. Switching modes does not reset holdings, and equity will be revalued using the new mode's prices; choose a mode before inviting players.
+### Configure market data
+
+1. Obtain a Finnhub key and suitable redistribution permissions for this usage. Store the key in **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets → Add → Secret** as `FINNHUB_API_KEY`, or from Git Bash run `npx wrangler secret put FINNHUB_API_KEY` in a production-bound project.
+2. Run the migration `0002_real_market.sql` (the GitHub Actions deployment applies pending migrations automatically) and deploy the Worker.
+3. Verify `/api/config` reports `dataConfigured: true` and the authenticated `/api/market` endpoint returns quotes with `source: "finnhub"`. Do not share keys or bearer tokens in public logs.
+4. At first launch real price history is empty. The chart builds from actual provider quote observations over time. No paid candles endpoint or fabricated history is used.
+
+### Quote freshness and request limits
+
+- The Worker caches successful responses in D1 for 5 minutes during regular hours and 1 hour while the market is closed. Shared D1 leases prevent concurrent viewers from exhausting upstream rate limits with simultaneous refreshes. In-memory request coalescing also reduces duplication inside a Worker instance.
+- The last trade timestamp reported by Finnhub is retained, and quotes older than 20 minutes while the market is open are marked stale. **Stale prices may be displayed for context but are never executable.** Provider errors return stale labeled data or a temporary error, never simulated prices.
+- The server limits trading to regular NYSE weekday hours (9:30 AM–4:00 PM Eastern), handles common US stock exchange holidays and typical 1 PM early closes, and rejects order execution when the market is closed. Exchange calendar exceptions may require further maintenance.
+- Quotes can be delayed, incomplete, or limited to a specific exchange by the provider. A data API's market access and licensing, not the game, determine how recent and complete prices are.
+- Existing virtual holdings/trades are preserved during migration and are revalued using actual quotes. Old simulated trades are *not* retroactively rewritten, so reset competition rankings separately before launching a fair real-price season.
 
 ## Resource design and constraints
 
 - Single Worker + static SPA, no separate Pages project or always-running bot process.
-- On demand D1 reads; small indexed tables and one shared quote cache. The leaderboard calculates global equity in SQL. No scheduled polling or price history writes.
+- On demand D1 reads; small indexed tables, shared quote cache, refresh leases, and indexed genuine price history observations. No scheduled polling or paid background queues.
 - `GET /api/market` is scoped to a signed account; `POST /api/trade` obtains the execution quote itself rather than accepting a client supplied price. The client supplied expected price is only a slippage guard.
 - Only the 12 preselected symbols are tradeable. Full market search and instant quote streaming would exceed the intended zero cost design.
-- Free tiers have enforceable daily limits. If player volume becomes large, throttling, alternative price licensing and a carefully designed price update strategy will be needed.
+- Free tiers have enforceable limits. If player volume grows, additional HTTP request rate limiting, data rights and provider access may be necessary.
 
 ## API
 
 | Route | Access | Purpose |
 | --- | --- | --- |
 | `GET /api/health` | Public | Health check |
-| `GET /api/config` | Public | Discord application ID and market mode |
+| `GET /api/config` | Public | Discord application ID, real provider and readiness |
 | `POST /api/auth` | OAuth code | Exchange with Discord; issue signed game session |
 | `GET /api/market` | Bearer session | Market quotes |
-| `GET /api/chart?symbol=AAPL` | Bearer session | Deterministic simulated price history (disabled in real quote mode) |
+| `GET /api/chart?symbol=AAPL` | Bearer session | Observed real quote history (no fabricated backfill) |
 | `GET /api/portfolio` | Bearer session | Account equity and positions |
 | `POST /api/trade` | Bearer session | Execute idempotent buy/sell order |
 | `GET /api/leaderboard` | Bearer session | Top 25 by current equity |
@@ -116,4 +128,4 @@ Wrangler can report a **local vs. Cloudflare Dashboard configuration difference*
 
 ## Future roadmap
 
-Dedicated Discord slash commands, per guild competitions with verified guild membership, market hours and more realistic execution models, seasonal tournaments, achievements, user watchlists, historical charts, and richer market data. This first release intentionally ships the core Activity before adding Gateway events or features that would stress Cloudflare's free plan.
+Dedicated Discord slash commands, per guild competitions with verified guild membership, more realistic exchange execution and corporate action accounting, seasonal tournaments, achievements, watchlists, richer historical charts and broader symbol support. This first release intentionally ships the core Activity before adding Gateway events or features that would stress Cloudflare's free plan.
