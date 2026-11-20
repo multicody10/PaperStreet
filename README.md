@@ -10,6 +10,8 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - One click market buys and sells of whole shares from a deliberately limited set of 12 US stocks/ETFs.
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
+- Viewport locked desktop trading dashboard with scoped panel scrolling inside Discord, responsive compact navigation, and accessible stock/trade controls.
+- Twelve hour historical charts from the same deterministic simulated pricing model; real quote mode correctly shows no history without a licensed history feed.
 - Mobile responsive dark interface inside Discord, without external browser data APIs.
 - Stock quote caching in D1, a maximum of 12 supported symbols, and only one frontend market refresh every two minutes while the Activity is visible.
 - **Simulated prices** by default, with an optional Finnhub quote integration. These are never presented interchangeably.
@@ -86,6 +88,7 @@ Quotes are fetched **only by the backend** and cached for 90 seconds in D1. A fa
 | `GET /api/config` | Public | Discord application ID and market mode |
 | `POST /api/auth` | OAuth code | Exchange with Discord; issue signed game session |
 | `GET /api/market` | Bearer session | Market quotes |
+| `GET /api/chart?symbol=AAPL` | Bearer session | Deterministic simulated price history (disabled in real quote mode) |
 | `GET /api/portfolio` | Bearer session | Account equity and positions |
 | `POST /api/trade` | Bearer session | Execute idempotent buy/sell order |
 | `GET /api/leaderboard` | Bearer session | Top 25 by current equity |

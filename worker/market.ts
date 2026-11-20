@@ -18,6 +18,16 @@ export function simulatedQuote(symbol: SymbolCode, now = Math.floor(Date.now() /
     fetchedAt: slot * SLOT_SECONDS, source: 'simulated', stale: false };
 }
 
+// Server-authored history matches the same deterministic simulated quotes used to fill orders.
+// No synthetic chart is ever shown for real quote mode, which has no historical feed.
+export function simulatedHistory(symbol: SymbolCode, now = Math.floor(Date.now() / 1000)) {
+  const end = Math.floor(now / SLOT_SECONDS) * SLOT_SECONDS;
+  return Array.from({ length: 49 }, (_, index) => {
+    const at = end - (48 - index) * SLOT_SECONDS;
+    return { at, priceCents: simulatedQuote(symbol, at).priceCents };
+  });
+}
+
 export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.floor(Date.now() / 1000)): Promise<Quote> {
   const mode = env.MARKET_MODE === 'finnhub' ? 'finnhub' : 'simulated';
   const stock = LOOKUP.get(symbol)!;

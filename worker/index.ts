@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { allQuotes, quoteFor, type MarketEnv } from './market';
+import { allQuotes, quoteFor, simulatedHistory, type MarketEnv } from './market';
 import { createSession, verifySession } from './session';
-import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
+import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type Quote, type SymbolCode } from '../shared/stocks';
 
 type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
@@ -63,6 +63,13 @@ app.get('/api/market', async c => {
   const quotes = await allQuotes(c.env);
   if (!quotes.length) return noStore({ error: 'Market prices are temporarily unavailable' }, 503);
   return noStore({ quotes, totalSymbols: STOCKS.length, mode: c.env.MARKET_MODE === 'finnhub' ? 'finnhub' : 'simulated' });
+});
+
+app.get('/api/chart', c => {
+  const symbol = c.req.query('symbol');
+  if (!isSymbol(symbol)) return noStore({ error: 'Invalid stock symbol' }, 422);
+  if (c.env.MARKET_MODE === 'finnhub') return noStore({ points: [], available: false });
+  return noStore({ points: simulatedHistory(symbol), available: true });
 });
 
 app.get('/api/portfolio', async c => {
