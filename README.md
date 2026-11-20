@@ -90,7 +90,7 @@ New Discord-authenticated accounts start with **$1,000** in virtual cash; this v
 
 To change **one existing player's cash** to $1,000, first verify their exact Discord user ID in the Discord client's Developer Mode. In Cloudflare D1's console run `SELECT user_id,display_name,cash_cents,starting_cash_cents FROM players WHERE user_id='DISCORD_USER_ID';` and confirm the returned account is correct. Then run `UPDATE players SET cash_cents=100000, starting_cash_cents=100000 WHERE user_id='DISCORD_USER_ID';`. Do not commit real user IDs to GitHub. This changes virtual cash and its return baseline only; it does not delete holdings, trading history, or affect anyone else. Existing investments remain in the account's equity.
 
-The top-right avatar is derived from Discord's verified `/users/@me` response, including the correct default avatar when the user has not uploaded one.
+Discord avatars are displayed in the account header, compact leaderboard, and full leaderboard. On each verified Discord OAuth login, the Worker saves the player's validated avatar hash and legacy discriminator in D1; every leaderboard response builds a Discord CDN URL from this server-controlled metadata. Default Discord avatars are shown for accounts without custom pictures. Existing players' custom pictures will appear after they next sign in; until then, a default Discord avatar is displayed. Avatar updates never change balances, holdings, or trades.
 
 ## Resource design and constraints
 

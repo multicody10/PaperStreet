@@ -25,5 +25,5 @@ export type Quote = {
 };
 export type Position = { symbol: SymbolCode; shares: number; costBasisCents: number; marketValueCents: number; profitCents: number; quote: Quote };
 export type Portfolio = { userId: string; displayName: string; cashCents: number; startingCashCents: number; equityCents: number; investedCents: number; profitCents: number; positions: Position[] };
-export type Leader = { userId: string; displayName: string; equityCents: number; startingCashCents: number; changeCents: number };
+export type Leader = { userId: string; displayName: string; avatarUrl: string; equityCents: number; startingCashCents: number; changeCents: number };
 export type Trade = { id: number; symbol: SymbolCode; side: 'BUY' | 'SELL'; shares: number; priceCents: number; executedAt: number };

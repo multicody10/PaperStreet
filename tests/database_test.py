@@ -5,6 +5,7 @@ import unittest
 
 SQL = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0001_init.sql').read_text()
 STARTING_CASH_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0003_starting_cash.sql').read_text()
+AVATAR_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0004_player_avatars.sql').read_text()
 UID = '123456789012345678'
 
 
@@ -51,6 +52,29 @@ class TradeLedgerTest(unittest.TestCase):
         self.assertEqual(self.db.execute('SELECT cash_cents, starting_cash_cents FROM players WHERE user_id=?', (new_user,)).fetchone(), (100000, 100000))
         self.db.execute('INSERT INTO players(user_id,display_name,cash_cents,starting_cash_cents) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name', (new_user, 'Updated Player', 100000, 100000))
         self.assertEqual(self.db.execute('SELECT cash_cents, starting_cash_cents FROM players WHERE user_id=?', (new_user,)).fetchone(), (100000, 100000))
+
+    def test_avatar_metadata_sync_preserves_existing_balance_and_positions(self):
+        self.order('before-avatar', 'BUY', 2)
+        self.db.executescript(STARTING_CASH_MIGRATION)
+        self.db.executescript(AVATAR_MIGRATION)
+        self.assertEqual(self.db.execute('SELECT avatar_hash, avatar_discriminator FROM players WHERE user_id=?', (UID,)).fetchone(), (None, None))
+        self.db.execute("""
+            INSERT INTO players(user_id,display_name,cash_cents,starting_cash_cents,avatar_hash,avatar_discriminator)
+            VALUES (?,?,?,?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,
+            avatar_hash=excluded.avatar_hash, avatar_discriminator=excluded.avatar_discriminator
+        """, (UID, 'Renamed Trader', 100000, 100000, 'f' * 32, '1234'))
+        self.assertEqual(self.db.execute('SELECT display_name,cash_cents,starting_cash_cents,avatar_hash,avatar_discriminator FROM players WHERE user_id=?', (UID,)).fetchone(),
+                         ('Renamed Trader', 980000, 1000000, 'f' * 32, '1234'))
+        self.assertEqual(self.holding(), (2, 20000))
+        self.db.execute("""
+            INSERT INTO players(user_id,display_name,cash_cents,starting_cash_cents,avatar_hash,avatar_discriminator)
+            VALUES (?,?,?,?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,
+            avatar_hash=excluded.avatar_hash, avatar_discriminator=excluded.avatar_discriminator
+        """, (UID, 'Renamed Trader', 100000, 100000, None, None))
+        self.assertEqual(self.db.execute('SELECT avatar_hash,avatar_discriminator FROM players WHERE user_id=?', (UID,)).fetchone(), (None, None))
+        self.assertEqual(self.balance(), 980000)
 
     def test_orders_idempotent(self):
         self.order('order-id', 'BUY', 1)

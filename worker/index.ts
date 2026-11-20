@@ -1,12 +1,14 @@
 import { Hono } from 'hono';
 import { allQuotes, quoteFor, quoteHistory, type MarketEnv } from './market';
 import { createSession, verifySession } from './session';
+import { discordAvatarUrl } from './avatar';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
 
 type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
 type PlayerRow = { user_id: string; display_name: string; cash_cents: number; starting_cash_cents: number };
 type HoldingRow = { symbol: SymbolCode; shares: number; cost_basis_cents: number };
+type LeaderRow = Omit<Leader, 'changeCents' | 'avatarUrl'> & { avatarHash: string | null; avatarDiscriminator: string | null };
 const app = new Hono<App>();
 const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
@@ -54,14 +56,13 @@ app.post('/api/auth', async c => {
   const user = await userResponse.json() as { id?: string; username?: string; global_name?: string | null; avatar?: string | null; discriminator?: string };
   if (!user.id || !/^\d{15,22}$/.test(user.id)) return noStore({ error: 'Invalid Discord user' }, 401);
   const displayName = (user.global_name || user.username || 'Trader').slice(0, 48);
-  const avatarHash = user.avatar && /^(?:a_)?[a-f0-9]{32}$/i.test(user.avatar) ? user.avatar : null;
-  const avatarIndex = user.discriminator && /^[0-9]{4}$/.test(user.discriminator) && user.discriminator !== '0'
-    ? Number(user.discriminator) % 5 : Number((BigInt(user.id) >> 22n) % 6n);
-  const avatarUrl = avatarHash
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${avatarHash}.${avatarHash.startsWith('a_') ? 'gif' : 'png'}?size=128`
-    : `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
-  await c.env.DB.prepare(`INSERT INTO players (user_id,display_name,cash_cents,starting_cash_cents) VALUES (?,?,?,?)
-    ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name`).bind(user.id, displayName, STARTING_CASH_CENTS, STARTING_CASH_CENTS).run();
+  const avatarHash = user.avatar && /^(?:a_)?[a-f0-9]{32}$/i.test(user.avatar) ? user.avatar.toLowerCase() : null;
+  const avatarDiscriminator = user.discriminator && /^\d{4}$/.test(user.discriminator) && user.discriminator !== '0000' ? user.discriminator : null;
+  const avatarUrl = discordAvatarUrl(user.id, avatarHash, avatarDiscriminator);
+  await c.env.DB.prepare(`INSERT INTO players (user_id,display_name,cash_cents,starting_cash_cents,avatar_hash,avatar_discriminator)
+    VALUES (?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,
+    avatar_hash=excluded.avatar_hash, avatar_discriminator=excluded.avatar_discriminator`)
+    .bind(user.id, displayName, STARTING_CASH_CENTS, STARTING_CASH_CENTS, avatarHash, avatarDiscriminator).run();
   const session = await createSession(c.env.SESSION_SECRET, user.id);
   return noStore({ access_token: token.access_token, session, user: { id: user.id, displayName, avatarUrl } });
 });
@@ -111,11 +112,15 @@ app.get('/api/leaderboard', async c => {
   const quotes = await allQuotes(c.env);
   if (quotes.length !== STOCKS.length || quotes.some(q => q.stale)) return noStore({ error: 'Leaderboard unavailable while market quotes are stale' }, 503);
   const { results } = await c.env.DB.prepare(`SELECT p.user_id AS userId, p.display_name AS displayName,
-    p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents, p.starting_cash_cents AS startingCashCents
+    p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents, p.starting_cash_cents AS startingCashCents,
+    p.avatar_hash AS avatarHash, p.avatar_discriminator AS avatarDiscriminator
     FROM players p LEFT JOIN holdings h ON h.user_id = p.user_id
     LEFT JOIN quote_cache q ON q.symbol = h.symbol
-    GROUP BY p.user_id ORDER BY equityCents DESC, p.created_at ASC LIMIT 25`).all<Omit<Leader, 'changeCents'>>();
-  const leaders: Leader[] = results.map(r => ({ ...r, changeCents: r.equityCents - r.startingCashCents }));
+    GROUP BY p.user_id ORDER BY equityCents DESC, p.created_at ASC LIMIT 25`).all<LeaderRow>();
+  const leaders: Leader[] = results.map(({ avatarHash, avatarDiscriminator, ...row }) => ({
+    ...row, avatarUrl: discordAvatarUrl(row.userId, avatarHash, avatarDiscriminator),
+    changeCents: row.equityCents - row.startingCashCents,
+  }));
   return noStore({ leaders });
 });
 
