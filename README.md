@@ -21,11 +21,14 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 
 ## 1. Discord Developer Portal
 
-1. Create a Discord application at <https://discord.com/developers/applications> and note its **Application ID** and **OAuth2 Client Secret**. Enabling Activities creates a default **Launch** entry point, so no interaction webhook or Gateway session is needed for this release.
+1. Open your application in the [Discord Developer Portal](https://discord.com/developers/applications). Copy the **Application ID** and **Public Key** from General Information. The **Client Secret** is under OAuth2.
 2. Under **OAuth2**, add `https://127.0.0.1` as a redirect URI. The Embedded App SDK manages the Activity's authorize redirect automatically.
 3. Under **Activities → Settings**, enable Activities.
 4. Under **Activities → URL Mappings**, configure `/` to the hostname of your deployed Worker, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, no `https://`). The browser sends all `/api/*` calls through the same mapped origin. **No other mappings are necessary.**
-5. Configure application installation settings so it can be launched using the Discord App Launcher and test it from your server. You do not need to configure a Discord interactions endpoint for the automatic Launch handler.
+5. Configure your application's installation settings for the Discord App Launcher. Deploy the Worker with `DISCORD_CLIENT_ID` and `DISCORD_PUBLIC_KEY` set (see section 2).
+6. Under **General Information → Interactions Endpoint URL**, save `https://<your-worker-hostname>/api/discord/interactions`. Discord verifies the endpoint by sending a signed ping.
+7. Once Discord accepts the URL, run `node --env-file=.dev.vars scripts/configure-launch.mjs` locally from the repository root with the application's ID and OAuth2 client secret in your gitignored `.dev.vars`. This one-time command uses the `applications.commands.update` scope to switch the existing Play entry point to PaperStreet's handler. The default Discord handler posts a channel invitation. PaperStreet's handler returns only the Activity launch callback. [Discord entry point handlers](https://docs.discord.com/developers/interactions/application-commands#entry-point-handlers)
+8. Click **Play** in Discord. Verify that the game opens and that the channel contains no new invitation.
 
 ## 2. Automatic Cloudflare deployment with GitHub Actions
 
@@ -43,6 +46,7 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
 5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment.
 6. **Before activating the real market** obtain a quote provider key and written approval to display/redistribute its market data to your Discord players (details in section 3). In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
    - `DISCORD_CLIENT_ID`: your Discord Application ID.
+   - `DISCORD_PUBLIC_KEY`: the 64-character hexadecimal Public Key from Discord General Information, used to verify signed launch requests.
    - `DISCORD_CLIENT_SECRET`: your Discord OAuth2 Client Secret.
    - `SESSION_SECRET`: a unique 64-character hexadecimal secret (`openssl rand -hex 32` in Git Bash).
    - `FINNHUB_API_KEY`: an authorized Finnhub API key, stored as **Secret**. Without this key PaperStreet displays no prices and disables trading.
