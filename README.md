@@ -16,7 +16,7 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - Stock quote caching in D1 with cross-request refresh leases, 12 supported symbols, and frontend refreshes every two minutes while visible.
 - **Real market quotes only:** Finnhub last-trade prices and previous closes. No fictional quotes, no simulated market mode, and no invented chart data.
 
-> This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Trades are disabled outside the US stock market's regular session, during major US market holidays, when data is stale, and when a provider is unavailable. Historical simulated fills are preserved for audit when migrating an existing installation.
+> This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Virtual trades are available 24/7, including evenings, weekends and holidays, using the last verified provider quote. Prices may remain unchanged outside exchange hours. Orders are blocked only when market data is missing, invalid or older than the freshness limit. Historical simulated fills are preserved for audit when migrating an existing installation.
 
 ## 1. Discord Developer Portal
 
@@ -79,8 +79,8 @@ The local UI must be opened from a Discord Activity, not directly in a browser, 
 ### Quote freshness and request limits
 
 - The Worker caches successful responses in D1 for 5 minutes during regular hours and 1 hour while the market is closed. Shared D1 leases prevent concurrent viewers from exhausting upstream rate limits with simultaneous refreshes. In-memory request coalescing also reduces duplication inside a Worker instance.
-- The last trade timestamp reported by Finnhub is retained, and quotes older than 20 minutes while the market is open are marked stale. **Stale prices may be displayed for context but are never executable.** Provider errors return stale labeled data or a temporary error, never simulated prices.
-- The server limits trading to regular NYSE weekday hours (9:30 AM–4:00 PM Eastern), handles common US stock exchange holidays and typical 1 PM early closes, and rejects order execution when the market is closed. Exchange calendar exceptions may require further maintenance.
+- The last trade timestamp reported by Finnhub is retained. During exchange hours, quotes older than 20 minutes cannot be traded; outside exchange hours, the last verified provider quote can be traded for up to 7 days. **Stale prices may be displayed for context but are never executable.** Provider errors or concurrent refreshes can reuse a still-valid cached quote rather than unnecessarily stopping virtual trades; missing or expired quotes still block execution. Prices are never simulated.
+- PaperStreet's **virtual exchange is always open**. The US stock exchange calendar is used only to determine whether the source price should be actively updating (20-minute freshness limit) or is an after-hours last-trade price (7-day freshness limit). Every order is filled at the server validated last verified Finnhub quote with the existing 1% expected-price guard. This is a game, not a real after-hours brokerage execution.
 - Quotes can be delayed, incomplete, or limited to a specific exchange by the provider. A data API's market access and licensing, not the game, determine how recent and complete prices are.
 - Existing virtual holdings/trades are preserved during migration and are revalued using actual quotes. Old simulated trades are *not* retroactively rewritten, so reset competition rankings separately before launching a fair real-price season.
 

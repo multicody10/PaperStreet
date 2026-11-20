@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { allQuotes, quoteFor, quoteHistory, type MarketEnv } from './market';
+import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, type MarketEnv } from './market';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
@@ -137,8 +137,7 @@ app.post('/api/trade', async c => {
   const existing = await c.env.DB.prepare('SELECT id FROM trades WHERE user_id=? AND client_order_id=?').bind(userId, input.orderId).first<{ id: number }>();
   if (existing) return noStore({ tradeId: existing.id, duplicate: true });
   const quote = await quoteFor(input.symbol, c.env);
-  if (!quote.marketOpen) return noStore({ error: 'The US stock market is closed. Trading resumes during regular market hours.' }, 409);
-  if (quote.stale) return noStore({ error: 'Quote is stale. Trading paused until prices recover.' }, 503);
+  if (!isQuoteExecutable(quote)) return noStore({ error: 'A verified market quote is unavailable or too old. Trading resumes when valid data returns.' }, 503);
   if (Math.abs(quote.priceCents / Number(input.expectedPriceCents) - 1) > 0.01) {
     return noStore({ error: 'Price moved by over 1%. Refresh quotes and retry.' }, 409);
   }

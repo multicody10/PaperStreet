@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isUsMarketOpen, parseFinnhubQuote } from '../worker/market';
+import { isUsMarketOpen, isQuoteExecutable, parseFinnhubQuote } from '../worker/market';
 import { STOCKS, isSymbol, STARTING_CASH_CENTS } from '../shared/stocks';
 
 const et = (date: string) => Math.floor(Date.parse(date) / 1000);
@@ -37,6 +37,39 @@ test('outdated quotes are marked stale during trading hours', () => {
   assert.equal(parseFinnhubQuote('AAPL', { c: 200, pc: 199, t: now - 3600 }, now).stale, true);
   assert.equal(parseFinnhubQuote('AAPL', { c: 200, pc: 199, t: now - 900 }, now).stale, false);
 });
+test('virtual trades use verified Finnhub prices around the clock', () => {
+  const fridayClose = et('2026-11-20T20:59:00Z');
+  const price = { c: 192.35, pc: 190.12, t: fridayClose };
+  for (const at of [
+    et('2026-11-20T22:00:00Z'), // Friday after hours
+    et('2026-11-21T15:00:00Z'), // Saturday
+    et('2026-11-22T15:00:00Z'), // Sunday
+    et('2026-11-23T14:00:00Z'), // Monday premarket
+  ]) {
+    const quote = parseFinnhubQuote('AAPL', price, at);
+    assert.equal(quote.marketOpen, false);
+    assert.equal(quote.stale, false);
+    assert.equal(isQuoteExecutable(quote), true);
+    assert.equal(quote.fetchedAt, fridayClose);
+  }
+});
+
+test('very old prices cannot execute even on weekends or holidays', () => {
+  const now = et('2026-11-28T15:00:00Z'); // Saturday, eight days after the last trade
+  const quote = parseFinnhubQuote('AAPL', { c: 192.35, pc: 190.12, t: et('2026-11-20T20:59:00Z') }, now);
+  assert.equal(quote.marketOpen, false);
+  assert.equal(quote.stale, true);
+  assert.equal(isQuoteExecutable(quote), false);
+});
+
+test('a stale quote during a live session cannot execute', () => {
+  const now = et('2026-11-20T15:00:00Z');
+  const quote = parseFinnhubQuote('AAPL', { c: 200, pc: 199, t: now - 3600 }, now);
+  assert.equal(quote.marketOpen, true);
+  assert.equal(quote.stale, true);
+  assert.equal(isQuoteExecutable(quote), false);
+});
+
 test('invalid or unverifiable provider quotes are never accepted', () => {
   const now = et('2026-11-20T15:00:00Z');
   for (const raw of [

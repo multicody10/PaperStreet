@@ -6,7 +6,8 @@ type ProviderPayload = { c?: unknown; pc?: unknown; t?: unknown };
 const STOCK_NAMES = new Map<SymbolCode, string>(STOCKS.map(s => [s.symbol, s.name]));
 const MARKET_CACHE_SECONDS = 300;
 const CLOSED_CACHE_SECONDS = 3600;
-const MAX_TRADE_AGE_SECONDS = 20 * 60; // Permit delayed feeds, but never fill on an old session quote.
+const MAX_TRADE_AGE_SECONDS = 20 * 60; // During exchange hours, avoid fills against outdated quotes.
+const MAX_OFFHOURS_AGE_SECONDS = 7 * 86400; // Last verified exchange price can be used on weekends and holidays.
 const LEASE_SECONDS = 12;
 const MAX_PRICE_CENTS = 100_000_000;
 
@@ -79,8 +80,12 @@ export function parseFinnhubQuote(symbol: SymbolCode, body: ProviderPayload, now
   const marketOpen = isUsMarketOpen(now);
   return { symbol, name: STOCK_NAMES.get(symbol)!, priceCents, previousCloseCents,
     changePct: Math.round((priceCents / previousCloseCents - 1) * 10000) / 100,
-    fetchedAt: t, source: 'finnhub', stale: now - t > (marketOpen ? MAX_TRADE_AGE_SECONDS : 7 * 86400), marketOpen };
+    fetchedAt: t, source: 'finnhub', stale: now - t > (marketOpen ? MAX_TRADE_AGE_SECONDS : MAX_OFFHOURS_AGE_SECONDS), marketOpen };
 }
+
+// The virtual exchange remains available after hours; only quote validity controls execution.
+export const isQuoteExecutable = (quote: Quote): boolean =>
+  quote.source === 'finnhub' && !quote.stale && Number.isSafeInteger(quote.priceCents) && quote.priceCents > 0;
 
 const inflight = new Map<SymbolCode, Promise<Quote>>();
 export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.floor(Date.now() / 1000)): Promise<Quote> {
@@ -94,7 +99,7 @@ export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.fl
       previousCloseCents: row.previous_close_cents,
       changePct: Math.round((row.price_cents / row.previous_close_cents - 1) * 10000) / 100,
       fetchedAt: row.provider_at, source: 'finnhub',
-      stale: now - row.provider_at > (marketOpen ? MAX_TRADE_AGE_SECONDS : 7 * 86400), marketOpen };
+      stale: now - row.provider_at > (marketOpen ? MAX_TRADE_AGE_SECONDS : MAX_OFFHOURS_AGE_SECONDS), marketOpen };
   };
   const previous = cached();
   if (previous && now - row!.fetched_at < (previous.marketOpen ? MARKET_CACHE_SECONDS : CLOSED_CACHE_SECONDS)) return previous;
@@ -107,7 +112,7 @@ export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.fl
       WHERE quote_refresh_lock.lease_until <= ? RETURNING symbol`)
       .bind(symbol, leaseUntil, now).first<{ symbol: string }>();
     if (!lock) {
-      if (previous) return { ...previous, stale: true };
+      if (previous) return previous;
       throw new Error('Market quote is being refreshed');
     }
     try {
@@ -126,7 +131,7 @@ export async function quoteFor(symbol: SymbolCode, env: MarketEnv, now = Math.fl
         .bind(symbol, quote.fetchedAt, quote.priceCents).run();
       return quote;
     } catch {
-      if (previous) return { ...previous, stale: true };
+      if (previous) return previous;
       throw new Error(`Real quote unavailable for ${symbol}`);
     } finally {
       await env.DB.prepare('UPDATE quote_refresh_lock SET lease_until=0 WHERE symbol=? AND lease_until=?')
