@@ -10,7 +10,8 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - One click market buys and sells of whole shares from a deliberately limited set of 12 US stocks/ETFs.
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
-- Viewport locked desktop trading dashboard with scoped panel scrolling inside Discord, responsive compact navigation, and accessible stock/trade controls.
+- Separate **Dashboard**, **Trade**, and **individual stock pages**, all responsive and viewport locked inside Discord. Dashboard displays portfolio value, positions, completed orders, leaderboard, and a read-only market snapshot; it contains no order ticket or trade execution controls.
+- The Trade page contains searchable Finnhub stock quotes, market breadth, and largest movers. Selecting a symbol opens its dedicated stock page with verified quote details, observed history and buy/sell ticket. Trading remains available 24/7 at verified provider prices.
 - Twelve hour price charts built from actual provider quote observations recorded in D1. Charts stay empty until two or more genuine observations exist.
 - Mobile responsive dark interface inside Discord, without external browser data APIs.
 - Stock quote caching in D1 with cross-request refresh leases, 12 supported symbols, and frontend refreshes every two minutes while visible.
@@ -91,6 +92,14 @@ New Discord-authenticated accounts start with **$1,000** in virtual cash; this v
 To change **one existing player's cash** to $1,000, first verify their exact Discord user ID in the Discord client's Developer Mode. In Cloudflare D1's console run `SELECT user_id,display_name,cash_cents,starting_cash_cents FROM players WHERE user_id='DISCORD_USER_ID';` and confirm the returned account is correct. Then run `UPDATE players SET cash_cents=100000, starting_cash_cents=100000 WHERE user_id='DISCORD_USER_ID';`. Do not commit real user IDs to GitHub. This changes virtual cash and its return baseline only; it does not delete holdings, trading history, or affect anyone else. Existing investments remain in the account's equity.
 
 Discord avatars are displayed in the account header, compact leaderboard, and full leaderboard. On each verified Discord OAuth login, the Worker saves the player's validated avatar hash and legacy discriminator in D1; every leaderboard response builds a Discord CDN URL from this server-controlled metadata. Default Discord avatars are shown for accounts without custom pictures. Existing players' custom pictures will appear after they next sign in; until then, a default Discord avatar is displayed. Avatar updates never change balances, holdings, or trades.
+
+## Navigation and page responsibilities
+
+- `#/dashboard` is the default landing screen. It provides **read-only** portfolio metrics, holdings, recent fills, rankings, and market snapshot. The buy/sell form is not mounted on this screen.
+- `#/trade` is the dedicated market overview, with symbol search, real quote lists, market breadth and biggest movers. Selecting any symbol opens its individual stock page instead of placing a trade from the list.
+- `#/trade/AAPL` (or any of the 12 allowlisted symbols) is a dedicated stock detail and trading screen. It contains the provider timestamp, last/previous price, recorded chart, owned position, and order ticket. Portfolio trade shortcuts navigate to this screen with Sell selected.
+- `#/portfolio`, `#/leaderboard`, and `#/history` remain dedicated information pages. Hash routes support direct links and browser Back/Forward without leaving the Discord Activity. Only the stock detail screen mounts the order form.
+- All views stay within the Discord iframe. On small screens, long content scrolls inside the workspace rather than creating an outer page scrollbar.
 
 ## Resource design and constraints
 
