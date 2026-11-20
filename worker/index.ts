@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { discordInteraction } from './interactions';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
 
-type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
+type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_PUBLIC_KEY: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
 type PlayerRow = { user_id: string; display_name: string; cash_cents: number; starting_cash_cents: number };
 type HoldingRow = { symbol: SymbolCode; shares: number; cost_basis_cents: number };
@@ -13,6 +15,11 @@ type LeaderRow = Omit<Leader, 'changeCents' | 'avatarUrl'> & { avatarHash: strin
 const app = new Hono<App>();
 const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+
+// Discord authenticates this callback with its signature, before a player has a session.
+app.post('/api/discord/interactions',
+  bodyLimit({ maxSize: 64 * 1024, onError: c => c.text('Payload too large', 413) }),
+  c => discordInteraction(c.req.raw, c.env));
 
 app.use('/api/*', async (c, next) => {
   if (!['/api/config', '/api/auth', '/api/health'].includes(c.req.path)) {
