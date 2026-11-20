@@ -106,6 +106,14 @@ npm run build
 
 CI groups PR checks in a single job with concurrency control. A separate deployment workflow runs only on pushes to `main` or manual dispatch, verifies all checks, applies remote D1 migrations, and deploys with secrets supplied by GitHub Actions. Deployment requires the one-time Cloudflare and GitHub configuration in section 2.
 
+### GitHub Actions runtime and warning triage
+
+Both workflows pin official `actions/checkout` and `actions/setup-node` to reviewed Node 24-compatible commit SHAs. These actions run under Node 24, while the application build still uses Node 22 via `node-version: 22`. The workflows use a minimal read-only `GITHUB_TOKEN` and do not persist checkout credentials; automatic package manager caching is disabled until a reviewed lockfile is committed.
+
+The npm notice `node-domexception@1.0.0: Use your platform's native DOMException instead` is an **upstream transitive dependency** warning, not a runtime error. Do not hide it by reducing npm log output or force a potentially incompatible override. To determine which parent dependency needs upgrading, run `npm explain node-domexception` after `npm install`, then update the owning dependency after compatibility testing.
+
+Wrangler can report a **local vs. Cloudflare Dashboard configuration difference** on deploy. Review the exact diff rather than suppressing it: as of the November 20 deployment, the differences were generated static asset metadata and optional D1 `database_name`/`migrations_dir` fields. Keep Wrangler configuration as the source of truth; reconcile any future destructive dashboard differences before merging.
+
 ## Future roadmap
 
 Dedicated Discord slash commands, per guild competitions with verified guild membership, market hours and more realistic execution models, seasonal tournaments, achievements, user watchlists, historical charts, and richer market data. This first release intentionally ships the core Activity before adding Gateway events or features that would stress Cloudflare's free plan.
