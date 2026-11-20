@@ -163,3 +163,83 @@ h1,h2,h3,p{margin:0}
   .stock-head,.stock-row{padding:0 8px;gap:5px;grid-template-columns:minmax(80px,1fr) minmax(63px,.7fr) minmax(55px,.6fr)}.stock-price,.change{font-size:10px}.ticket-body{padding:11px}
 }
 @media(prefers-reduced-motion:reduce){.spin{animation:none}*{scroll-behavior:auto!important}}
+
+
+/* Separate read-only dashboard, market discovery and individual stock detail workspaces. */
+.overview-layout,.trade-overview,.stock-workspace{display:grid;gap:12px;flex:1;min-height:0;min-width:0;overflow:hidden}
+.overview-layout{grid-template-columns:minmax(0,1.42fr) minmax(270px,.9fr);grid-template-rows:minmax(0,1.05fr) minmax(0,.95fr)}
+.overview-layout>.panel{min-height:0}
+.overview-positions .holding-list,.overview-leaders .leaderboard-list,.overview-activity .activity-list,.overview-pulse .pulse-list{flex:1;min-height:0;overflow:auto;scrollbar-width:none}
+.activity-list::-webkit-scrollbar,.pulse-list::-webkit-scrollbar,.trade-overview::-webkit-scrollbar,.stock-workspace::-webkit-scrollbar,.overview-layout::-webkit-scrollbar{display:none}
+.activity-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid var(--line);font-size:11px}
+.activity-row>span:first-child{display:flex;align-items:center;gap:10px;min-width:0}
+.activity-row strong{display:block;color:#e6f4ef;font-size:11px}
+.activity-row small{display:block;color:#839ca3;font-size:9px;margin-top:4px}
+.activity-row>span:last-child{text-align:right;white-space:nowrap}
+.activity-action{display:inline-block;min-width:34px;border-radius:5px;padding:5px 6px;text-align:center;font-size:9px;font-weight:850}
+.activity-action.buy{background:#173d2c;color:var(--mint)}
+.activity-action.sell{background:#47242c;color:#ffa6b1}
+.overview-pulse .pulse-summary,.trade-breadth .pulse-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:13px 15px}
+.pulse-stat{border:1px solid #2d4048;background:#131f25;border-radius:9px;padding:12px}
+.pulse-stat span{display:block;color:#8fa9ad;font-size:10px}
+.pulse-stat strong{display:block;font-size:22px;font-weight:850;margin-top:5px}
+.pulse-list{padding:0 12px 12px}
+.pulse-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 4px;border-top:1px solid #26353c}
+.pulse-row strong{font-size:11px}.pulse-row small{font-size:10px;color:#9baab2}
+.pulse-row .change{font-size:11px}
+.read-only-note{font-size:10px;color:#89a9a2;padding:9px 14px;border-top:1px solid var(--line)}
+.trade-overview{grid-template-columns:minmax(0,1.6fr) minmax(255px,.78fr)}
+.trade-universe .stock-row{height:55px;gap:10px}
+.trade-universe .stock-row .stock-name strong{font-size:12px}
+.trade-universe .stock-row .stock-name small{font-size:10px}
+.trade-universe .stock-list{overflow:auto;scrollbar-width:none}
+.trade-universe .stock-list::-webkit-scrollbar,.trade-insights .panel-scroll::-webkit-scrollbar{display:none}
+.trade-universe .stock-row:hover{box-shadow:inset 3px 0 var(--mint)}
+.trade-universe .stock-row:focus-visible{outline:2px solid var(--mint);outline-offset:-2px}
+.trade-insights{display:grid;grid-template-rows:minmax(0,.83fr) minmax(0,1.17fr);min-width:0;min-height:0;gap:12px}
+.trade-insights .panel-scroll{overflow:auto;scrollbar-width:none;min-height:0;flex:1}
+.market-brief{margin:0 15px 12px;font-size:11px;color:#9bb1b6;line-height:1.65}
+.market-brief strong{color:#e2f7eb}
+.market-mover{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;color:inherit;padding:12px 15px;text-align:left;gap:10px}
+.market-mover:hover{background:#1a2928}
+.market-mover strong{font-size:12px}
+.market-mover small{display:block;font-size:10px;color:#9cb1b8;margin-top:4px}
+.market-mover .change{font-size:11px}
+.stock-workspace{grid-template-columns:minmax(0,1.7fr) minmax(260px,.7fr)}
+.stock-research{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;min-height:0;min-width:0}
+.stock-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:31px}
+.stock-back{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:#9cd8b7;font-size:11px;font-weight:800;padding:6px 0}
+.stock-back:hover{color:var(--mint)}
+.stock-nav>span{font-size:9px;font-weight:800;letter-spacing:.5px;color:#819ca3}
+.stock-workspace .chart-panel{min-height:0}
+.stock-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));min-width:0}
+.stock-fact{display:flex;flex-direction:column;gap:6px;padding:13px 14px;border-right:1px solid var(--line)}
+.stock-fact:last-child{border-right:0}
+.stock-fact span{font-size:9px;letter-spacing:.5px;color:#8da4ab;font-weight:750}
+.stock-fact strong{font-size:12px;color:#e9f5ee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-fact small{font-size:9px;color:#84a29a}
+.stock-workspace .trade-panel{min-height:0}
+@media(max-width:1100px){
+  .overview-layout{grid-template-columns:minmax(0,1.1fr) minmax(230px,.9fr)}
+  .trade-overview{grid-template-columns:minmax(0,1.3fr) minmax(215px,.85fr)}
+  .stock-workspace{grid-template-columns:minmax(0,1.1fr) minmax(248px,.8fr)}
+  .stock-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stock-fact:nth-child(2){border-right:0}
+  .stock-fact:nth-child(-n+2){border-bottom:1px solid var(--line)}
+}
+@media(max-width:760px){
+  .overview-layout,.trade-overview,.stock-workspace{display:flex;flex-direction:column;overflow:auto;scrollbar-width:none}
+  .overview-layout>.panel{min-height:225px;flex:none}
+  .overview-layout>.overview-positions{min-height:260px}
+  .trade-overview>.trade-universe{min-height:395px;flex:none}
+  .trade-insights{display:flex;flex-direction:column;min-height:0;flex:none}
+  .trade-insights>.panel{min-height:180px;flex:none}
+  .stock-research{min-height:440px;flex:none;grid-template-rows:auto minmax(280px,1fr) auto}
+  .stock-workspace>.trade-panel{min-height:510px;flex:none}
+  .stock-workspace .ticket-body{overflow:auto}
+}
+@media(max-width:490px){
+  .overview-pulse .pulse-summary,.trade-breadth .pulse-summary{padding:9px}
+  .stock-nav>span{display:none}
+  .stock-fact{padding:10px}
+}
