@@ -18,7 +18,7 @@ const STATUS_VALUES = new Set([
   'discord_update_rejected', 'discord_verification_failed', 'worker_error',
 ]);
 export function launchConfigurationIssue(env: LaunchSyncEnv): string | null {
-  if (!env.DISCORD_CLIENT_ID || !/^\\d{15,22}$/.test(env.DISCORD_CLIENT_ID)) return 'missing_app_id';
+  if (!env.DISCORD_CLIENT_ID || !/^\d{15,22}$/.test(env.DISCORD_CLIENT_ID)) return 'missing_app_id';
   if (!env.DISCORD_CLIENT_SECRET) return 'missing_client_secret';
   if (!/^[0-9a-f]{64}$/i.test(env.DISCORD_PUBLIC_KEY ?? '')) return 'missing_public_key';
   return null;
