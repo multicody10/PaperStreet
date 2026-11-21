@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import {
@@ -14,6 +14,7 @@ import { DayRange, money, PriceChart } from './PriceChart';
 import { Challenges, OrderList } from './Challenges';
 import { StockPredictions } from './StockPredictions';
 import { TradingDashboard } from './TradingDashboard';
+import { TradeTerminal } from './TradeTerminal';
 import { FitPager, SectionTabs } from './FitPager';
 import type { Achievement, OrderKind, Prediction, PredictionDirection, QueuedOrder } from '../shared/gameplay';
 import './style.css';
@@ -25,6 +26,7 @@ import './fit.css';
 import './desktop-cards.css';
 import './stock-predictions.css';
 import './terminal.css';
+import './trade-terminal.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -80,11 +82,9 @@ function App() {
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null);
-  const [search, setSearch] = useState('');
   const [quickSearch,setQuickSearch] = useState('');
   const [history, setHistory] = useState<{ key: string; data?: ChartHistory; error?: string }>();
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
-  const [tradePane, setTradePane] = useState<'stocks'|'movers'>('stocks');
   const [stockPane, setStockPane] = useState<'chart'|'order'|'facts'|'predict'>('chart');
   const [portfolioPane, setPortfolioPane] = useState<'positions'|'orders'>('positions');
   const historyKey = `${selectedSymbol}:${historyRange}`;
@@ -125,7 +125,7 @@ function App() {
     const jobs: Promise<void>[] = [];
     if (view === 'dashboard' || view === 'trade' || view === 'stock' || view === 'challenges')
       jobs.push(request<{ quotes: Quote[] }>('/api/market', session).then(({ quotes }) => setQuotes(quotes)));
-    if (view === 'dashboard' || view === 'portfolio' || view === 'stock')
+    if (view === 'dashboard' || view === 'trade' || view === 'portfolio' || view === 'stock')
       jobs.push(request<{ portfolio: Portfolio }>('/api/portfolio', session).then(({ portfolio }) => setPortfolio(portfolio)));
     if (view === 'dashboard' || view === 'leaderboard')
       jobs.push(request<{ leaders: Leader[] }>('/api/leaderboard', session).then(({ leaders }) => setLeaders(leaders)));
@@ -195,7 +195,7 @@ function App() {
   }, [token, pending, tab, refresh]);
 
   useEffect(() => {
-    if (!token || (tab !== 'stock' && tab !== 'dashboard')) return;
+    if (!token || (tab !== 'stock' && tab !== 'trade' && tab !== 'dashboard')) return;
     const controller = new AbortController();
     request<ChartHistory>(`/api/chart?symbol=${selectedSymbol}&range=${historyRange}`, token, { signal: controller.signal })
       .then(data => { if (!controller.signal.aborted) setHistory({ key: historyKey, data }); })
@@ -217,11 +217,6 @@ function App() {
   const validTrigger = Number.isSafeInteger(triggerCents) && triggerCents > 0 && triggerCents <= 100_000_000;
   const canSubmitOrder = effectiveOrderKind === 'IMMEDIATE' ? canTrade :
     !!selected && validQuantity && (effectiveOrderKind === 'MARKET' || validTrigger);
-  const shown = useMemo(
-    () => quotes.filter(q => `${q.symbol} ${q.name}`.toLowerCase().includes(search.toLowerCase().trim())),
-    [quotes, search],
-  );
-  const gainers = quotes.filter(q => q.changePct > 0).length;
   const refreshNow = () => {
     if (!token || loading) return;
     setFeedback(null);
@@ -230,7 +225,7 @@ function App() {
   };
 
   async function execute() {
-    if ((tab !== 'stock' && tab !== 'dashboard') || !canSubmitOrder || !selected || !token || pending) return;
+    if ((tab !== 'stock' && tab !== 'trade') || !canSubmitOrder || !selected || !token || pending) return;
     setPending(true);
     setFeedback(null);
     try {
@@ -344,13 +339,11 @@ function App() {
         </aside>
         <main className="main-content">
           <div className="content-wrap">
-            {tab !== 'stock' && tab !== 'dashboard' && <div className="headline"><h1>{title}</h1></div>}
+            {tab !== 'stock' && tab !== 'dashboard' && tab !== 'trade' && <div className="headline"><h1>{title}</h1></div>}
             {!account ? <section className="welcome-panel"><div className="welcome-icon"><BarChart3 size={30}/></div><h2>Start with {money(STARTING_CASH_CENTS)}</h2><p>Connect through the Discord App Launcher to start trading stocks using virtual cash.</p><div className="auth-status" role="status">{authError || authStatus}</div><small>PaperStreet is a game. No real money is exchanged.</small></section> : <>
               {!config?.dataConfigured && <div className="feedback error" role="alert"><span><X size={17}/> Market data is not configured. The operator must add FINNHUB_API_KEY as a Cloudflare Worker secret.</span></div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
 
-              {tab === 'trade' && <SectionTabs label="Trade panels" value={tradePane} onChange={setTradePane}
-                items={[{id:'stocks',label:'Stocks'},{id:'movers',label:'Movers'}]}/>}
               {tab === 'stock' && <div className="stock-page-controls">
                 <button type="button" className="stock-back" onClick={() => goToPage('trade')}><ArrowLeft size={16}/> All stocks</button>
                 <SectionTabs label="Stock panels" value={stockPane} onChange={setStockPane}
@@ -364,36 +357,15 @@ function App() {
                 onOpenStock={symbol=>openStock(symbol)} onNavigate={goToPage}
                 selected={selected} history={currentHistory?.data} historyError={currentHistory?.error}
                 range={historyRange} setRange={setHistoryRange}
+              /> : tab === 'trade' ? <TradeTerminal
+                quotes={quotes} selectedSymbol={selectedSymbol} setSelectedSymbol={setSelectedSymbol}
+                openStock={openStock} history={currentHistory?.data} historyError={currentHistory?.error}
+                range={historyRange} setRange={setHistoryRange} portfolio={portfolio}
                 side={side} setSide={setSide} shares={shares} setShares={setShares}
-                orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice}
+                orderKind={effectiveOrderKind} setOrderKind={setOrderKind}
+                triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice}
                 total={total} canSubmit={canSubmitOrder} pending={pending} execute={()=>void execute()}
-              /> : tab === 'trade' ? <div className="trade-overview" data-pane={tradePane} aria-label="Market overview and stock selection">
-                <section className="panel market-panel trade-universe">
-                  <div className="panel-heading"><h2><BarChart3 size={18}/> Stocks</h2><label className="search-field"><Search size={15}/><input aria-label="Search market symbols" placeholder="Search stocks" value={search} onChange={event => setSearch(event.target.value)}/></label></div>
-                  <div className="stock-head"><span>COMPANY</span><span>LAST PRICE</span><span>DAY RANGE</span><span>CHANGE</span></div>
-                  <FitPager items={shown} rowHeight={70} compactRowHeight={74} empty={quotes.length?'No matching stocks.':'Market quotes unavailable.'}
-                    render={items=><div className="stock-list">{items.map(quote=><button type="button" key={quote.symbol} className="stock-row" onClick={()=>openStock(quote.symbol)}>
-                      <span className="stock-name"><span className="ticker-icon">{quote.symbol.slice(0,2)}</span><span><strong>{quote.symbol}</strong><small>{quote.name}{quote.stale?' · Stale':''}</small></span></span>
-                      <strong className="stock-price">{money(quote.priceCents)}</strong>
-                      <span className="day-range-cell"><DayRange quote={quote}/></span>
-                      <span className={quote.changePct>=0?'change positive':'change negative'}>{pct(quote.changePct)}</span>
-                    </button>)}</div>}/>
-                </section>
-                <div className="trade-insights">
-                  <section className="panel trade-breadth">
-                    <div className="panel-heading"><h2><TrendingUp size={18}/> Market overview</h2><span className="count-pill">{quotes.length} SYMBOLS</span></div>
-                    <div className="pulse-summary"><div className="pulse-stat"><span>Advancing</span><strong className="positive">{gainers}</strong></div><div className="pulse-stat"><span>Declining</span><strong className="negative">{quotes.filter(q => q.changePct < 0).length}</strong></div></div>
-                  </section>
-                  <section className="panel trade-movers">
-                    <div className="panel-heading"><h2><BarChart3 size={18}/> Biggest movers</h2></div>
-                    <FitPager items={[...quotes].sort((a,b)=>Math.abs(b.changePct)-Math.abs(a.changePct))} rowHeight={72} compactRowHeight={76} empty="No market data."
-                      render={items=><div className="panel-scroll">{items.map(quote=><button type="button" className="market-mover" key={quote.symbol} onClick={()=>openStock(quote.symbol)}>
-                        <span><strong>{quote.symbol}</strong><small>{quote.name}</small></span>
-                        <span className={quote.changePct>=0?'change positive':'change negative'}>{pct(quote.changePct)}</span>
-                      </button>)}</div>}/>
-                  </section>
-                </div>
-              </div> : tab === 'stock' ? <div className="stock-workspace" data-pane={stockPane} aria-label={'Stock details and trading for ' + selectedSymbol}>
+              /> : tab === 'stock' ? <div className="stock-workspace" data-pane={stockPane} aria-label={'Stock details and trading for ' + selectedSymbol}>
                 <div className="stock-research">
                   
                   <section className="panel chart-panel" aria-label={selectedSymbol + ' price history'}>

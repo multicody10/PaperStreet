@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { Activity, ArrowDownLeft, ArrowRight, BarChart3, BriefcaseBusiness, CheckCircle2, ChevronRight, Target, Wallet, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, CheckCircle2, ChevronRight, Target, Wallet } from 'lucide-react';
 import { STARTING_CASH_CENTS, STOCKS, type ChartHistory, type HistoryRange, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
-import type { Achievement, OrderKind } from '../shared/gameplay';
+import type { Achievement } from '../shared/gameplay';
 import { FitPager, SectionTabs } from './FitPager';
 import { money, PriceChart } from './PriceChart';
 
@@ -11,11 +11,6 @@ export type DashboardProps = {
   onOpenStock:(symbol:SymbolCode)=>void;onNavigate:(page:'portfolio'|'history'|'challenges'|'trade')=>void;
   selected?:Quote;history?:ChartHistory;historyError?:string;
   range:HistoryRange;setRange:(range:HistoryRange)=>void;
-  side:'BUY'|'SELL';setSide:(side:'BUY'|'SELL')=>void;
-  shares:string;setShares:(shares:string)=>void;
-  orderKind:'IMMEDIATE'|OrderKind;setOrderKind:(kind:'AUTO'|'IMMEDIATE'|OrderKind)=>void;
-  triggerPrice:string;setTriggerPrice:(value:string)=>void;
-  total:number;canSubmit:boolean;pending:boolean;execute:()=>void;
 };
 const percentage = (x:number)=>`${x>0?'+':''}${x.toFixed(2)}%`;
 const DAY_COLORS=['#18b9ff','#967cff','#41d49b','#f6b85c','#fb7193','#94b5f4'];
@@ -54,50 +49,8 @@ function Allocation({portfolio}:{portfolio:Portfolio|null}) {
   </div>;
 }
 
-function DashTicket({selected,side,setSide,shares,setShares,orderKind,setOrderKind,triggerPrice,setTriggerPrice,total,canSubmit,pending,execute}:Pick<DashboardProps,
-  'selected'|'side'|'setSide'|'shares'|'setShares'|'orderKind'|'setOrderKind'|'triggerPrice'|'setTriggerPrice'|'total'|'canSubmit'|'pending'|'execute'>) {
-  const queue=orderKind!=='IMMEDIATE';
-  const kind: 'IMMEDIATE'|OrderKind=orderKind;
-  return <div className="terminal-ticket">
-    <div className="terminal-ticket-side side-selector">
-      <button type="button" className={side==='BUY'?'current buy':''} onClick={()=>setSide('BUY')} aria-pressed={side==='BUY'}>Buy</button>
-      <button type="button" className={side==='SELL'?'current sell':''} onClick={()=>setSide('SELL')} aria-pressed={side==='SELL'}>Sell</button>
-    </div>
-    <div className="terminal-ticket-field">
-      <label htmlFor="dash-order-symbol">Symbol</label>
-      <div className="terminal-ticket-symbol" id="dash-order-symbol"><strong>{selected?.symbol??'—'}</strong><span>{selected?.name??'Select a stock'}</span></div>
-    </div>
-    <div className="terminal-ticket-field">
-      <label htmlFor="dash-order-shares">Quantity</label>
-      <input type="number" id="dash-order-shares" min="1" step="1" max="100000" value={shares}
-        onChange={event=>setShares(event.target.value)} inputMode="numeric"/>
-    </div>
-    <div className="terminal-ticket-field">
-      <label>Order type</label>
-      <div className="terminal-order-types" role="group" aria-label="Order type">
-        {(['MARKET','LIMIT','STOP'] as const).map(k=>{
-          const active=k==='MARKET'?(kind==='IMMEDIATE'||kind==='MARKET'):kind===k;
-          return <button type="button" key={k} className={active?'active':''} aria-pressed={active} onClick={()=>{
-            setOrderKind(k==='MARKET'?(selected?.marketOpen?'IMMEDIATE':'MARKET'):k);
-          }}>{k==='MARKET'?'Market':k==='LIMIT'?'Limit':'Stop'}</button>;
-        })}
-      </div>
-    </div>
-    {(orderKind==='LIMIT'||orderKind==='STOP')&&<div className="terminal-ticket-field">
-      <label htmlFor="dash-order-trigger">{orderKind==='LIMIT'?'Limit price':'Stop price'}</label>
-      <input id="dash-order-trigger" type="number" inputMode="decimal" min="0.01" step="0.01" placeholder="0.00"
-        value={triggerPrice} onChange={event=>setTriggerPrice(event.target.value)}/>
-    </div>}
-    <div className="terminal-ticket-total"><span>{queue?'Indicative value':'Estimated total'} (Paper)</span><strong>{money(total)}</strong></div>
-    <button type="button" className={'execute-button '+side.toLowerCase()} disabled={!canSubmit||pending} onClick={execute}>
-      {pending?'Processing…':(queue?'Queue ':'Submit ')+(side==='BUY'?'Buy':'Sell')+' Order (Paper)'}
-    </button>
-    <div className="terminal-ticket-foot">{selected?.stale?'Updated quote required.':queue?'Executes against fresh quotes during market hours.':'Virtual trades only. No real money.'}</div>
-  </div>;
-}
-
 export function TradingDashboard(p:DashboardProps) {
-  const [section,setSection]=useState<'market'|'ticket'|'positions'|'activity'>('market');
+  const [section,setSection]=useState<'market'|'chart'|'positions'|'activity'>('market');
   const selected=p.selected;
   const initial=p.portfolio?.startingCashCents??STARTING_CASH_CENTS;
   const equity=p.portfolio?.equityCents??initial;
@@ -122,14 +75,9 @@ export function TradingDashboard(p:DashboardProps) {
         <div className="terminal-progress"><span style={{width:goalProgress+'%'}}/></div>
         <span className="terminal-muted">{p.portfolio?money(equity):'—'} / {money(goal)} · 10% return target</span>
       </div>
-      <div className="panel terminal-summary-card terminal-count">
-        <span className="terminal-kicker"><Zap size={18}/> Recent trades</span>
-        <strong className="terminal-big-number">{p.trades.length}</strong>
-        <span className="terminal-muted">Recorded fills in recent history</span>
-      </div>
     </div>
     <SectionTabs value={section} onChange={setSection} label="Dashboard sections"
-      items={[{id:'market',label:'Market'},{id:'ticket',label:'Order'},{id:'positions',label:'Portfolio'},{id:'activity',label:'Activity'}]}/>
+      items={[{id:'market',label:'Watchlist'},{id:'chart',label:'Chart'},{id:'positions',label:'Portfolio'},{id:'activity',label:'Activity'}]}/>
     <div className="terminal-middle" data-section={section}>
       <DashCard className="terminal-watch" title="Market watch" icon={<BarChart3 size={18}/>}
         action={<button className="terminal-more" type="button" onClick={()=>p.onNavigate('trade')}>All stocks <ChevronRight size={14}/></button>}>
@@ -137,7 +85,7 @@ export function TradingDashboard(p:DashboardProps) {
         <FitPager items={sortedQuotes} rowHeight={46} compactRowHeight={43} empty="Quotes unavailable"
           render={items=><div className="terminal-watch-list">
             {items.map(q=><button key={q.symbol} type="button" className={'terminal-watch-row '+(selected?.symbol===q.symbol?'selected':'')}
-              onClick={()=>{p.setSelectedSymbol(q.symbol);if(window.matchMedia('(max-width:760px)').matches)setSection('ticket')}} aria-pressed={selected?.symbol===q.symbol}>
+              onClick={()=>{p.setSelectedSymbol(q.symbol);if(window.matchMedia('(max-width:760px)').matches)setSection('chart')}} aria-pressed={selected?.symbol===q.symbol}>
               <span className="terminal-market-symbol"><i>{q.symbol.slice(0,2)}</i><strong>{q.symbol}</strong></span>
               <span className="terminal-quote">{money(q.priceCents)}</span>
               <span className={'terminal-quote-change '+(q.changePct>=0?'up':'down')}>{percentage(q.changePct)}</span>
@@ -162,12 +110,7 @@ export function TradingDashboard(p:DashboardProps) {
         </div>
         <PriceChart key={p.selectedSymbol+':'+p.range} history={p.history} quote={selected} range={p.range} error={p.historyError}/>
       </section>
-      <DashCard className="terminal-order" title="Order entry" icon={<ArrowDownLeft size={18}/>}
-        action={<button className="terminal-more" type="button" onClick={()=>p.onOpenStock(p.selectedSymbol)}>Full ticket <ChevronRight size={14}/></button>}>
-        <DashTicket selected={selected} side={p.side} setSide={p.setSide} shares={p.shares} setShares={p.setShares}
-          orderKind={p.orderKind} setOrderKind={p.setOrderKind} triggerPrice={p.triggerPrice} setTriggerPrice={p.setTriggerPrice}
-          total={p.total} canSubmit={p.canSubmit} pending={p.pending} execute={p.execute}/>
-      </DashCard>
+
     </div>
     <div className="terminal-lower" data-section={section}>
       <DashCard className="terminal-bottom-goals" title="Goals & achievements" icon={<Target size={18}/>}
