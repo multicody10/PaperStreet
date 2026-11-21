@@ -37,8 +37,10 @@ import './viewport-fit.css';
 import './dashboard-reference.css';
 import './unified-dark-theme.css';
 import './viewport-header-repair.css';
+import './market-schedule.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
+import { MarketSchedule } from './MarketSchedule';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -303,9 +305,7 @@ function App() {
           <span className="brand-words"><strong>Paper<span>Street</span></strong></span>
         </div>
         <div className="header-market" aria-label="Market status and selected real quotes">
-          <div className={'header-market-status '+(quotes.length&&quotes.some(q=>q.marketOpen)?'open':'closed')}>
-            <span className="status-dot"/>{!quotes.length?'Quotes pending':quotes.some(q=>q.marketOpen)?'Markets Open':'Markets Closed'}
-          </div>
+          <MarketSchedule marketOpen={quotes.length ? quotes.some(q => q.marketOpen) : null}/>
           {(['SPY','AAPL','NVDA'] as SymbolCode[]).map(symbol=>{
             const quote=quotes.find(q=>q.symbol===symbol);
             return quote?<div className="header-ticker" key={symbol}><strong>{symbol}</strong><span>{money(quote.priceCents)}</span>

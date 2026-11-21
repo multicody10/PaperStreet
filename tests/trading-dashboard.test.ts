@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const app=read('src/main.tsx');
+const calendar=read('src/MarketSchedule.tsx');
 const dashboard=read('src/TradingDashboard.tsx');
 const terminal=read('src/terminal.css');
 const goals=read('src/Challenges.tsx');
@@ -69,8 +70,10 @@ test('header search and tickers use supported symbols and verified quotes only',
   assert.match(app,/STOCKS\.filter\(q=>/);
   assert.match(app,/onKeyDown=\{event=>\{/);
   assert.match(app,/openStock\(q\.symbol\)/);
-  assert.match(app,/Quotes pending/);
-  assert.match(app,/Markets Closed/);
+  assert.match(app,/<MarketSchedule marketOpen=/);
+  assert.match(calendar,/Quotes pending/);
+  assert.match(calendar,/Markets Closed/);
+  assert.match(calendar,/nextMarketOpening\(now\)/);
 });
 
 test('mobile dashboard remains viewport locked with operational section selection',()=>{
