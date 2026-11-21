@@ -4,7 +4,7 @@ import { STARTING_CASH_CENTS, STOCKS, type ChartHistory, type HistoryRange, type
 import type { Achievement } from '../shared/gameplay';
 import { FitPager, SectionTabs } from './FitPager';
 import { money, PriceChart } from './PriceChart';
-import { StockMark } from './OverviewPanels';
+import { StockMark } from './StockMark';
 
 export type DashboardProps = {
   portfolio:Portfolio|null;quotes:Quote[];trades:Trade[];achievements:Achievement[];

@@ -38,6 +38,7 @@ import './dashboard-reference.css';
 import './unified-dark-theme.css';
 import './viewport-header-repair.css';
 import './market-schedule.css';
+import './stock-logos.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 import { MarketSchedule } from './MarketSchedule';

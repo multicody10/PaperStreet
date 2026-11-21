@@ -9,50 +9,56 @@
 .app-shell.activity-theme .market-schedule-trigger:focus-visible svg{opacity:1}
 .app-shell.activity-theme .market-schedule-trigger:focus-visible{outline:2px solid #67b6bb;outline-offset:2px;border-radius:4px}
 .market-hours-popover{
-  position:fixed;z-index:10000;width:min(340px,calc(100vw - 16px));
-  max-height:calc(100dvh - 80px);overflow-y:auto;overscroll-behavior:contain;
-  border:1px solid #415163;border-radius:12px;padding:14px 15px 13px;
+  position:fixed;z-index:10000;width:min(446px,calc(100vw - 16px));
+  max-height:calc(100dvh - 76px);overflow-y:auto;overscroll-behavior:contain;
+  border:1px solid #415163;border-radius:13px;padding:17px 19px 16px;
   background:#0d1219;color:#f0f3f7;box-shadow:0 16px 55px #000a;
-  font:12px/1.4 Roboto,Arial,sans-serif;text-align:left;
+  font:14px/1.45 Roboto,Arial,sans-serif;text-align:left;
 }
 .market-hours-heading,.market-hours-month{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.market-hours-heading>span{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:750}
+.market-hours-heading>span{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:750}
 .market-hours-heading>span svg{color:#a4b6c8}
 .market-hours-heading button,.market-hours-month button{
-  display:grid;place-items:center;width:27px;height:27px;flex:none;color:#c4cdd7;
+  display:grid;place-items:center;width:32px;height:32px;flex:none;color:#c4cdd7;
   background:#1b2632;border:1px solid #39495b;border-radius:6px;cursor:pointer
 }
 .market-hours-heading button:hover,.market-hours-month button:hover{background:#2b3947;color:#fff}
 .market-hours-heading button:focus-visible,.market-hours-month button:focus-visible,
 .market-hours-source:focus-visible{outline:2px solid #8fc6d4;outline-offset:2px}
-.market-hours-description{margin:2px 0 10px;color:#9cabbc;font-size:11px}
-.market-hours-next{display:flex;flex-direction:column;gap:2px;padding:9px 11px;
+.market-hours-description{margin:3px 0 13px;color:#a9b9c9;font-size:13px}
+.market-hours-next{display:flex;flex-direction:column;gap:4px;padding:12px 14px;
   border:1px solid #314f4b;background:#122421;border-radius:8px}
-.market-hours-next>span{font-size:10px;color:#aabeb8;letter-spacing:.05em;text-transform:uppercase;font-weight:650}
-.market-hours-next strong{color:#a5f1ca;font-size:13px}
-.market-hours-month{margin:12px 0 10px}
-.market-hours-month strong{font-size:13px}
-.market-hours-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;text-align:center}
-.market-hours-weekday{padding:2px 0 4px;color:#9ba9b8;font-size:10px;font-weight:750}
-.market-hours-date,.market-hours-blank{height:31px;display:grid;place-items:center;border-radius:6px;
-  font-size:11px;border:1px solid transparent}
+.market-hours-next>span{font-size:12px;color:#aabeb8;letter-spacing:.05em;text-transform:uppercase;font-weight:650}
+.market-hours-next strong{color:#a5f1ca;font-size:16px}
+.market-hours-month{margin:14px 0 12px}
+.market-hours-month strong{font-size:16px}
+.market-hours-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}
+.market-hours-weekday{padding:3px 0 6px;color:#a4b3c3;font-size:13px;font-weight:750}
+.market-hours-date,.market-hours-blank{height:40px;display:grid;place-items:center;border-radius:6px;
+  font-size:14px;border:1px solid transparent}
 .market-hours-date.regular{background:#142a24;color:#9be0b5}
 .market-hours-date.closed{background:#171c23;color:#798795}
 .market-hours-date.early{background:#3a2b16;color:#f2ca80}
 .market-hours-date.today{outline:2px solid #f0f3f7;outline-offset:-2px;font-weight:800}
 .market-hours-date.next{border-color:#62cfa0}
-.market-hours-legend{display:flex;justify-content:space-between;gap:8px;margin:10px 0 9px;color:#a9b9c8;font-size:10px}
+.market-hours-legend{display:flex;justify-content:space-between;gap:10px;margin:14px 0 11px;color:#b6c7d6;font-size:13px}
 .market-hours-legend span{display:flex;align-items:center;gap:5px;white-space:nowrap}
-.market-hours-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.market-hours-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
 .market-hours-legend .regular{background:#3f956c}
 .market-hours-legend .closed{background:#576371}
 .market-hours-legend .early{background:#c29a51}
-.market-hours-explain{color:#b4c0cb;font-size:11px;line-height:1.55}
+.market-hours-explain{color:#c4d0dc;font-size:14px;line-height:1.6}
 .market-hours-explain strong{color:#f0f3f7}
-.market-hours-source{display:inline-block;margin-top:8px;color:#91bdd5;font-size:10px;text-decoration:underline;text-underline-offset:3px}
-@media(max-height:520px){
-  .market-hours-popover{padding:9px 12px}
-  .market-hours-date,.market-hours-blank{height:24px}
-  .market-hours-month{margin:6px 0}
-  .market-hours-legend{margin:6px 0}
+.market-hours-source{display:inline-block;margin-top:11px;color:#a5d3ed;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+@media(max-height:620px){
+  .market-hours-popover{padding:11px 13px}
+  .market-hours-date,.market-hours-blank{height:31px}
+  .market-hours-month{margin:7px 0}
+  .market-hours-legend{margin:7px 0}
+}
+@media(max-width:480px){
+  .market-hours-popover{padding:13px}
+  .market-hours-date,.market-hours-blank{height:36px}
+  .market-hours-legend{gap:5px;font-size:12px}
+  .market-hours-explain{font-size:13px}
 }

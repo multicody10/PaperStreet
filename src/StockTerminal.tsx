@@ -6,6 +6,7 @@ import { FitPager } from './FitPager';
 import { money, PriceChart } from './PriceChart';
 import { StockPredictions } from './StockPredictions';
 import { STOCK_PROFILES } from './stockProfiles';
+import { StockMark } from './StockMark';
 
 export type StockPane = 'chart'|'order'|'facts'|'predict';
 export type StockTerminalProps = {
@@ -80,7 +81,7 @@ function RelatedStocks({symbol,quotes,openStock}:{symbol:SymbolCode;quotes:Quote
     <FitPager items={rows} rowHeight={43} compactRowHeight={42} empty="Related quotes unavailable"
       render={items=><div className="stock-terminal-related-list">{items.map(q=><button type="button"
         key={q.symbol} className="stock-terminal-related-row" onClick={()=>openStock(q.symbol)}>
-        <span className="stock-terminal-peer-badge">{q.symbol.slice(0,2)}</span><strong>{q.symbol}</strong>
+        <StockMark symbol={q.symbol} className="stock-terminal-peer-badge"/><strong>{q.symbol}</strong>
         <span>{money(q.priceCents)}</span>
         <b className={q.changePct>=0?'positive':'negative'}>{signedPercent(q.changePct)}</b>
         <ChevronRight size={13}/>
@@ -131,7 +132,7 @@ export function StockTerminal(p:StockTerminalProps){
     </div>
     <header className="stock-terminal-hero">
       <div className="stock-terminal-hero-title">
-        <span className="stock-terminal-logo">{p.symbol.slice(0,2)}</span>
+        <StockMark symbol={p.symbol} className="stock-terminal-logo"/>
         <div className="stock-terminal-name">
           <div className="stock-terminal-name-row">
             <h1 title={profile.companyName}>{profile.companyName}</h1>

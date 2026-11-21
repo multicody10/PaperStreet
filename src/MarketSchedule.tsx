@@ -48,7 +48,7 @@ export function MarketSchedule({marketOpen}: Props) {
   const place = useCallback(() => {
     if (!trigger.current) return;
     const rect = trigger.current.getBoundingClientRect();
-    const width = Math.min(340, window.innerWidth - 16);
+    const width = Math.min(446, window.innerWidth - 16);
     setPosition({top: rect.bottom + 8, left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))});
   }, []);
   useEffect(() => {

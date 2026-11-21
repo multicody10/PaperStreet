@@ -1,8 +1,9 @@
 import { STOCKS, HISTORY_RANGES, type Candle, type ChartHistory, type HistoryRange, type Quote, type SymbolCode } from '../shared/stocks';
 import { memoized, invalidateMemo } from './memo';
 import { easternMarketClock, marketSessionOn } from '../shared/marketCalendar';
+import { historicalCandles } from './history';
 
-export interface MarketEnv { DB: D1Database; FINNHUB_API_KEY?: string }
+export interface MarketEnv { DB: D1Database; FINNHUB_API_KEY?: string; ALPHA_VANTAGE_API_KEY?: string }
 type CacheRow = { price_cents: number; previous_close_cents: number; fetched_at: number; provider_at: number | null; mode: string;
   open_cents: number | null; high_cents: number | null; low_cents: number | null };
 type ProviderPayload = { c?: unknown; pc?: unknown; t?: unknown; o?: number; h?: number; l?: number };
@@ -184,6 +185,10 @@ export async function quoteHistory(
 ): Promise<ChartHistory> {
   if (!env.FINNHUB_API_KEY) throw new Error('Real market data is not configured');
   return memoized('history:' + symbol + ':' + range, 90000, async () => {
+    // For longer ranges prefer actual daily/weekly OHLC from the optional
+    // backfill provider; preserve Finnhub's original observations as fallback.
+    const archived = await historicalCandles(symbol,range,env,now);
+    if (archived) return archived;
     // The WITHOUT ROWID table is indexed by (symbol, observed_at). All points are retained.
     const oldest = await env.DB.prepare(`SELECT observed_at AS at FROM quote_history
       WHERE symbol=? ORDER BY observed_at ASC LIMIT 1`).bind(symbol).first<{ at: number }>();
