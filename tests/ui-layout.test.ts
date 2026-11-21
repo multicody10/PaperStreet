@@ -49,7 +49,7 @@ test('screen-fit stylesheet owns viewport sizing and disables scrolling',()=>{
 
 test('every screen uses switches and paginated finite lists',()=>{
   assert.ok(app.includes('Portfolio panels'));
-  assert.match(stock,/Stock panels/);
+  assert.doesNotMatch(stock,/<SectionTabs|Stock panels/);
   assert.match(dashboard,/label="Dashboard sections"/);
   assert.match(trade,/label="Trade sections"/);
   assert.match(tradeTheme,/@media\(max-width:760px\)/);
@@ -63,8 +63,9 @@ test('every screen uses switches and paginated finite lists',()=>{
   assert.match(challenges,/Goals panels/);
   assert.match(challenges,/Goal categories/);
   assert.doesNotMatch(challenges,/const \[review,setReview\]|prediction-panel|prediction-history/);
-  assert.match(stock,/label="Stock panels"/);
-  assert.match(stock,/\{id:'predict',label:'Predict'\}/);
+  assert.match(stock,/className="stock-terminal-header-actions"/);
+  assert.match(stock,/className="stock-terminal-menu"/);
+  assert.match(stock,/p\.setPane\('predict'\)/);
   assert.match(stock,/import \{ StockPredictions \} from '\.\/StockPredictions'/);
   assert.match(stock,/<StockOrderTicket symbol=\{p\.symbol\}/);
   assert.match(stockCss,/@media\(max-width:760px\)/);

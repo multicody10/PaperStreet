@@ -69,8 +69,13 @@ test('stock desktop and mobile panels remain viewport locked and forecasts acces
   for(const item of ['stock-terminal-hero','stock-terminal-quote-summary','stock-terminal-chart','stock-terminal-ticket',
     'stock-terminal-bottom','stock-terminal-about','stock-terminal-metrics','stock-terminal-related','stock-terminal-activity'])
     assert.ok(stock.includes(item),item);
-  assert.match(stock,/label="Stock panels"/);
-  assert.match(stock,/\{id:'predict',label:'Predict'\}/);
+  assert.doesNotMatch(stock,/<SectionTabs|label="Stock panels"/);
+  assert.match(stock,/className="stock-terminal-header-actions"/);
+  assert.match(stock,/className="stock-terminal-menu"/);
+  assert.match(stock,/p\.setPane\('order'\)/);
+  assert.match(stock,/p\.setPane\('facts'\)/);
+  assert.match(stock,/p\.setPane\('predict'\)/);
+  assert.match(stock,/p\.setPane\('chart'\)/);
   assert.match(styles,/\.stock-terminal\s*\{[\s\S]*?overflow:hidden/);
   assert.match(styles,/@media\(max-width:760px\)/);
   assert.match(styles,/\.stock-terminal\[data-pane="chart"\] \.stock-terminal-chart/);

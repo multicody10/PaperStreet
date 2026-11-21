@@ -36,6 +36,7 @@ import './activity-unified.css';
 import './viewport-fit.css';
 import './dashboard-reference.css';
 import './unified-dark-theme.css';
+import './viewport-header-repair.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 
@@ -390,7 +391,7 @@ function App() {
                 quotes={quotes} selectedSymbol={selectedSymbol} openStock={symbol=>openStock(symbol)}
                 history={currentHistory?.data} historyError={currentHistory?.error}
                 range={historyRange} setRange={setHistoryRange}
-              /> : tab === 'stock' ? <StockTerminal
+              /> : tab === 'stock' ? <StockTerminal key={selectedSymbol}
                 symbol={selectedSymbol} quote={selected} quotes={quotes} portfolio={portfolio} trades={trades}
                 history={currentHistory?.data} historyError={currentHistory?.error}
                 range={historyRange} setRange={setHistoryRange} pane={stockPane} setPane={setStockPane}

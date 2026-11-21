@@ -35,7 +35,7 @@ export function TradeTerminal(p:TradeTerminalProps) {
   return <div className="trade-terminal" data-section={section} aria-label="Stock discovery and market overview">
     <div className="trade-terminal-main">
       <div className="trade-terminal-title">
-        <h1>Trade</h1><p>Browse verified market quotes. Select any stock to open its trading page.</p>
+        <h1>Markets</h1><p>Browse verified market quotes. Select any stock to open its trading page.</p>
       </div>
       <div className="trade-terminal-strip" aria-label="Tracked market prices">
         {snapshotSymbols.map(symbol=>{
