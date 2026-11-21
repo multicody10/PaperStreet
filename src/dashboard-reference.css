@@ -1,0 +1,497 @@
+/*
+ * PaperStreet dashboard: screenshot-inspired navy trading workstation.
+ * Dashboard only. All values and candles come from existing API data.
+ * The order ticket deliberately remains on individual stock pages.
+ */
+.app-shell.activity-theme:has(.reference-dashboard){
+  --dashboard-bg:#080e18;
+  --dashboard-card:#111927;
+  --dashboard-line:#2a374b;
+  --dashboard-cyan:#1abef4;
+  --dashboard-gain:#31d98e;
+  --dashboard-loss:#f26979;
+  --dashboard-muted:#a1afc2;
+  --cyan:#1abef4;
+  --gain:#31d98e;
+  --mint:#1abef4;
+  --red:#f26979;
+  background:var(--dashboard-bg)!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) :is(.global-header,.sidebar){
+  background:linear-gradient(180deg,#111724 0%,#0a111d 100%)!important;
+  border-color:#263448!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .main-content{
+  background:var(--dashboard-bg)!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .global-header{
+  border-bottom:1px solid #253247!important;
+  grid-template-columns:minmax(190px,205px) minmax(0,1fr) minmax(285px,auto)!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .brand{
+  border-right:1px solid #263448!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .brand-words strong{
+  color:#f5f7fc!important;font-size:21px!important;font-weight:700!important;letter-spacing:-.055em;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .brand-words strong span{
+  color:#f5f7fc!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-market{
+  min-width:0;gap:clamp(8px,1.2vw,21px);overflow:hidden;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-ticker{
+  min-width:0;border-color:#2a3548!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-ticker :is(strong,span){
+  color:#e7ecf5!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-market-status.open{
+  color:var(--dashboard-gain)!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-market-status.open .status-dot{
+  background:var(--dashboard-gain)!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-search{
+  background:#0c1421!important;border:1px solid #324058!important;border-radius:9px!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .header-actions .icon-button{
+  color:#c8d7e9!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .shell-body{
+  grid-template-columns:106px minmax(0,1fr)!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar{
+  width:106px!important;min-width:0;max-width:106px;
+  padding:12px 7px!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar nav{
+  display:flex!important;flex-direction:column!important;gap:9px!important;
+  padding:0!important;width:100%;min-height:0;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button{
+  width:100%!important;height:71px!important;min-height:71px!important;
+  flex:none!important;flex-direction:column!important;justify-content:center!important;
+  gap:7px!important;padding:7px 4px!important;
+  border:1px solid transparent!important;border-radius:10px!important;
+  color:#abb9d0!important;background:transparent!important;
+  box-shadow:none!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button span:first-of-type{
+  display:block!important;color:inherit!important;font-size:11px!important;font-weight:550!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button .full-label{
+  display:none!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button svg{
+  color:inherit!important;width:24px;height:24px;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button:hover{
+  background:#172638!important;color:#e6f7ff!important;
+}
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button.active{
+  background:#123049!important;color:#33c8ff!important;
+  border-color:#194566!important;box-shadow:inset 0 0 0 1px #0c354f!important;
+}
+/* Match the 3 / 2 / 4 card hierarchy in the supplied reference. */
+.app-shell.activity-theme .reference-dashboard{
+  --terminal-gap:clamp(7px,.75vw,12px);
+  display:grid!important;flex:1;min-width:0;min-height:0;height:100%;max-height:100%;
+  grid-template-rows:minmax(95px,.75fr) minmax(0,2.35fr) minmax(0,1.39fr)!important;
+  gap:var(--terminal-gap)!important;overflow:hidden!important;
+  color:#f1f5fb;
+}
+.app-shell.activity-theme .reference-dashboard :is(.terminal-summary,.terminal-middle,.terminal-lower){
+  display:grid;min-width:0;min-height:0;gap:var(--terminal-gap)!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-summary{
+  grid-template-columns:minmax(0,1.44fr) minmax(0,1.72fr) minmax(210px,.94fr)!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-middle{
+  grid-template-columns:minmax(250px,.86fr) minmax(0,2.43fr)!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-lower{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+.app-shell.activity-theme .reference-dashboard :is(.terminal-summary-card,.terminal-card,.terminal-chart-panel){
+  background:linear-gradient(155deg,#131c2b,#0f1724)!important;
+  border:1px solid var(--dashboard-line)!important;
+  border-radius:12px!important;box-shadow:none!important;
+  min-width:0;min-height:0!important;overflow:hidden!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-summary-card{
+  padding:clamp(9px,1.1vw,19px)!important;
+  gap:clamp(3px,.55vh,8px);
+}
+.app-shell.activity-theme .reference-dashboard .terminal-kicker{
+  color:#d5dfed!important;font-size:clamp(11px,.92vw,14px)!important;
+  font-weight:650!important;
+}
+.app-shell.activity-theme .reference-dashboard :is(.terminal-kicker svg,.terminal-card-title svg){
+  color:var(--dashboard-cyan)!important;filter:none!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-big-number{
+  color:#f7f9fe!important;font-size:clamp(21px,2.12vw,34px)!important;
+  font-weight:750;line-height:1.12;letter-spacing:-.035em;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-performance{
+  color:var(--dashboard-gain);gap:8px;font-size:clamp(11px,.96vw,14px)!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-performance.negative{
+  color:var(--dashboard-loss)!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-performance small{
+  color:#9aaac0;font-weight:500;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-sparkline{
+  position:absolute;right:3%;bottom:18%;width:39%;height:50%;
+  pointer-events:none;color:#22db96;opacity:.95;
+  filter:drop-shadow(0 0 6px #1abc7c30);
+}
+.app-shell.activity-theme .reference-dashboard .terminal-equity{
+  isolation:isolate;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-equity :is(.terminal-kicker,.terminal-big-number,.terminal-performance){
+  position:relative;z-index:1;max-width:71%;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-goal-content strong{
+  color:#eef4fc;font-size:clamp(14px,1.35vw,21px)!important;white-space:normal;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-goal-content>span{
+  color:#ecf7ff;font-size:clamp(12px,1vw,16px);
+}
+.app-shell.activity-theme .reference-dashboard .terminal-progress{
+  background:#2b384c!important;height:12px;border-radius:9px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-progress>span{
+  background:linear-gradient(90deg,#159ac9,#1cc8fa)!important;
+  border-radius:9px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-muted{
+  color:#a1aec1!important;white-space:normal;font-size:clamp(10px,.77vw,12px);
+}
+.app-shell.activity-theme .reference-dashboard .terminal-activity-stat .terminal-big-number{
+  display:flex;gap:8px;align-items:baseline;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-activity-stat .terminal-big-number small{
+  color:#c5d1e0;font-weight:550;font-size:clamp(10px,.83vw,13px);letter-spacing:0;
+}
+/* Chart stays the main focal element. No buy/sell panel is mounted here. */
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel{
+  display:flex;flex-direction:column;min-width:0;min-height:0;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-header{
+  min-height:47px;padding:6px 14px!important;
+  border-bottom:1px solid #2b3b50!important;
+  background:#131c2a!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-identity{
+  flex:1;gap:10px;min-width:0;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-identity .stock-mark{
+  width:28px;height:28px;border-radius:7px;flex:none;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-identity>strong{
+  color:#f0f4fa;font-size:clamp(15px,1.2vw,20px);
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-identity>small{
+  font-size:clamp(10px,.78vw,13px);color:#aebdd1;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-quote{
+  margin-left:6px;gap:8px;white-space:nowrap;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-quote>strong{
+  font-size:clamp(15px,1.4vw,22px);color:#f3f6fc;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-quote>span{
+  font-size:clamp(11px,.9vw,14px);
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .chart-range-bar{
+  flex:none;justify-content:flex-start;gap:6px;padding:5px 13px!important;
+  background:#0e1726!important;border-bottom:1px solid #25344a!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .chart-range-bar button{
+  min-height:28px;padding:4px 10px!important;font-size:11px;
+  border-radius:7px;color:#b4c0d0;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .chart-range-bar button.active{
+  background:#075680!important;color:#daf5ff!important;border-color:#126e9d!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-chart{
+  flex:1;min-width:0;min-height:0;padding:5px 9px 3px!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-plot{
+  background:#0b1421!important;
+  background-image:linear-gradient(#2431461c 1px,transparent 1px),
+    linear-gradient(90deg,#2431461c 1px,transparent 1px)!important;
+  background-size:15% 25%!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-grid{stroke:#2a394d!important}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-guide{stroke:#346480!important}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-scale{
+  color:#b0bfd2!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-times{color:#a4b3c8!important}
+.app-shell.activity-theme .reference-dashboard .terminal-details-link{
+  color:#b7eaff!important;border:1px solid #30536d!important;
+  background:#142a3f!important;
+}
+/* Watchlist reference: icons, readable ticker, right-aligned change chips. */
+.app-shell.activity-theme .reference-dashboard .terminal-card-heading{
+  background:#121b29!important;min-height:39px!important;
+  border-bottom:1px solid #29394d!important;
+  padding:8px 12px!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-card-title h2{
+  font-size:clamp(12px,.98vw,15px)!important;font-weight:650;color:#f0f4fa!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-more{
+  color:#77d7fc!important;font-size:11px;
+  white-space:nowrap;display:flex;align-items:center;gap:3px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-more:hover{
+  color:#e1f8ff!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-watch-head{
+  height:28px;min-height:28px;
+  background:#101927!important;color:#a8b6ca!important;border-color:#29384c!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-watch-row{
+  height:46px!important;min-height:46px!important;
+  padding:3px 10px;gap:5px;border-color:#243246!important;
+  background:transparent!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-watch-row:hover{
+  background:#182a40!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-watch-row.selected{
+  background:#152a41!important;box-shadow:inset 3px 0 #19baf0!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-market-symbol .stock-mark{
+  height:24px;width:24px;border-radius:6px;font-size:13px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-market-symbol strong{
+  color:#f0f4f8;font-size:12px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-quote{
+  color:#e7edf6;font-size:11px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-quote-change.up{
+  background:#174934!important;color:#68e2a3!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-quote-change.down{
+  background:#4a2632!important;color:#ff9ca9!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-card .fit-pager{
+  flex:1;min-height:0;
+}
+.app-shell.activity-theme .reference-dashboard .fit-pager-controls{
+  height:27px;min-height:27px;background:#0e1725!important;
+  color:#a5b7c9!important;border-color:#27374a!important;
+}
+.app-shell.activity-theme .reference-dashboard .fit-pager-controls button{
+  background:#172a3e!important;color:#a9dff4!important;
+  border-color:#30495c!important;
+}
+/* Four informational cards: achievements, positions, executions, allocation. */
+.app-shell.activity-theme .reference-dashboard .terminal-goal-row{
+  min-height:0;padding:5px 9px;border-color:#26344a!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-goal-icon{
+  border-color:#36566c!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-goal-row.complete .terminal-goal-icon{
+  background:#145c42!important;color:#8af3bd!important;border-color:#2e956a!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-goal-desc i{
+  background:#29384a!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-goal-desc i b{
+  background:#22baf0!important;
+}
+.app-shell.activity-theme .reference-dashboard :is(.terminal-position-head,.terminal-trades-head){
+  background:#101927!important;border-color:#2d3c50!important;
+  color:#a7b7cb!important;
+}
+.app-shell.activity-theme .reference-dashboard :is(.terminal-position-row,.terminal-trades-row){
+  border-color:#263449!important;color:#e4edf7;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-position-symbol{
+  display:flex;align-items:center;gap:5px;min-width:0;
+  color:#e9f1f9!important;overflow:hidden;white-space:nowrap;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-position-symbol .stock-mark{
+  width:18px;height:18px;font-size:11px;border-radius:4px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-trades-row b.buy{
+  background:#153e30!important;color:#7beab5!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-trades-row b.sell{
+  background:#482633!important;color:#ff9cac!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-allocation{
+  display:flex;min-height:0;padding:7px;gap:10px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-donut{
+  width:min(47%,140px);max-height:93%;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-donut:before{
+  background:#111927!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-legend{gap:5px}
+.app-shell.activity-theme .reference-dashboard .terminal-legend>div{
+  font-size:10px;gap:4px;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-legend strong{font-size:10px}
+.app-shell.activity-theme .reference-dashboard .terminal-swatch{
+  width:9px;height:9px;border-radius:3px;
+}
+/* Dense 1544x768 target, then shrink gracefully. */
+@media(min-width:1400px) and (max-width:1700px) and (min-height:690px) and (max-height:850px){
+  .app-shell.activity-theme .reference-dashboard{
+    grid-template-rows:minmax(105px,.74fr) minmax(0,2.37fr) minmax(0,1.44fr)!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-middle{
+    grid-template-columns:minmax(260px,.83fr) minmax(0,2.54fr)!important;
+  }
+}
+@media(min-width:761px) and (max-width:1199px){
+  .app-shell.activity-theme:has(.reference-dashboard) .shell-body{
+    grid-template-columns:78px minmax(0,1fr)!important;
+  }
+  .app-shell.activity-theme:has(.reference-dashboard) .sidebar{
+    width:78px!important;max-width:78px;
+  }
+  .app-shell.activity-theme:has(.reference-dashboard) .sidebar .nav-button{
+    height:59px!important;min-height:59px!important;gap:4px!important;
+  }
+  .app-shell.activity-theme:has(.reference-dashboard) .global-header{
+    grid-template-columns:170px minmax(0,1fr) minmax(235px,auto)!important;
+  }
+  .app-shell.activity-theme .reference-dashboard{
+    grid-template-rows:minmax(83px,.63fr) minmax(0,2.2fr) minmax(0,1.65fr)!important;
+    --terminal-gap:7px;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-summary{
+    grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) minmax(160px,.8fr)!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-middle{
+    grid-template-columns:minmax(195px,.81fr) minmax(0,2.1fr)!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-lower{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-template-rows:repeat(2,minmax(0,1fr));
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-lower .terminal-card-heading{
+    min-height:28px!important;padding:5px 8px!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-activity-stat .terminal-muted{
+    display:none;
+  }
+}
+@media(min-width:761px) and (max-height:689px){
+  .app-shell.activity-theme .reference-dashboard{
+    grid-template-rows:minmax(67px,.62fr) minmax(0,2.27fr) minmax(0,1.3fr)!important;
+    --terminal-gap:6px;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-summary-card{
+    padding:7px 10px!important;gap:2px;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-big-number{font-size:20px!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-sparkline{height:43%}
+  .app-shell.activity-theme .reference-dashboard .terminal-card-heading{min-height:31px!important;padding:5px 8px!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-watch-row{height:40px!important;min-height:40px!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-header{min-height:34px;padding:4px 8px!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-panel .chart-range-bar{padding:2px 6px!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-heading,
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-foot{display:none}
+}
+@media(max-width:940px) and (min-width:761px){
+  .app-shell.activity-theme .reference-dashboard .terminal-activity-stat{display:none!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-summary{
+    grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-identity>small{
+    max-width:130px;
+  }
+}
+@media(max-width:760px){
+  .app-shell.activity-theme .reference-dashboard{
+    display:flex!important;flex-direction:column;min-height:0;gap:5px!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-summary{
+    display:grid;flex:none;min-height:0;height:clamp(72px,14vh,105px);
+    grid-template-columns:1.2fr 1fr!important;grid-template-rows:minmax(0,1fr);
+    gap:5px!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-activity-stat{
+    display:none!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-big-number{
+    font-size:clamp(14px,3.6vw,19px)!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-kicker{
+    font-size:10px!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-equity :is(.terminal-kicker,.terminal-big-number,.terminal-performance){
+    max-width:100%;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-sparkline{display:none}
+  .app-shell.activity-theme .reference-dashboard .terminal-goal-content strong{font-size:11px!important}
+  .app-shell.activity-theme .reference-dashboard .terminal-progress{height:7px}
+  .app-shell.activity-theme .reference-dashboard>.screen-tabs{
+    display:flex!important;flex:none;min-height:31px;gap:2px;padding:2px;
+  }
+  .app-shell.activity-theme .reference-dashboard>.screen-tabs button{
+    flex:1;min-width:0;min-height:25px;
+    padding:3px 1px;font-size:clamp(8px,2.45vw,10px);
+  }
+  .app-shell.activity-theme .reference-dashboard :is(.terminal-middle,.terminal-lower){
+    display:none;flex:1;min-height:0;min-width:0;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-middle[data-section="market"],
+  .app-shell.activity-theme .reference-dashboard .terminal-middle[data-section="chart"],
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="positions"],
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="activity"],
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="goals"],
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="insights"]{
+    display:flex!important;flex-direction:column;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-middle>.terminal-card,
+  .app-shell.activity-theme .reference-dashboard .terminal-middle>.terminal-chart-panel,
+  .app-shell.activity-theme .reference-dashboard .terminal-lower>.terminal-card{
+    display:none!important;flex:1;min-height:0;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-middle[data-section="market"]>.terminal-watch,
+  .app-shell.activity-theme .reference-dashboard .terminal-middle[data-section="chart"]>.terminal-chart-panel,
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="positions"]>.terminal-bottom-positions,
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="activity"]>.terminal-bottom-activity,
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="goals"]>.terminal-bottom-goals,
+  .app-shell.activity-theme .reference-dashboard .terminal-lower[data-section="insights"]>.terminal-bottom-allocation{
+    display:flex!important;flex:1;min-height:0;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-header{
+    padding:5px 8px!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-identity>small{
+    max-width:100px;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-panel .chart-range-bar{
+    overflow:hidden;gap:2px;padding:4px!important;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-panel .chart-range-bar button{
+    flex:1;min-width:0;min-height:25px;padding:3px!important;font-size:10px;
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-donut{width:min(44%,155px)}
+}
+@media(max-width:760px) and (max-height:560px){
+  .app-shell.activity-theme .reference-dashboard .terminal-summary{
+    height:clamp(61px,13vh,79px);
+  }
+  .app-shell.activity-theme .reference-dashboard .terminal-summary .terminal-muted{display:none}
+  .app-shell.activity-theme .reference-dashboard .terminal-chart-header{min-height:31px}
+  .app-shell.activity-theme .reference-dashboard .terminal-card-heading{min-height:30px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .app-shell.activity-theme .reference-dashboard *{animation:none!important;transition:none!important}
+}

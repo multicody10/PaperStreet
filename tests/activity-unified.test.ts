@@ -10,15 +10,14 @@ const panels=read('src/OverviewPanels.tsx');
 const trade=read('src/TradeTerminal.tsx');
 const stock=read('src/StockTerminal.tsx');
 
-test('Codex overview is restored without losing the advanced dashboard',()=>{
+test('the restored Overview remains available to guests; signed-in users see the chart dashboard',()=>{
   assert.match(main,/import '\.\/overview\.css';\s*import '\.\/activity-shell\.css';\s*import '\.\/activity-unified\.css';/);
   assert.match(main,/className="app-shell activity-theme"/);
   assert.match(main,/<Overview key=\{tab\}/);
   assert.match(main,/brandMark/);
-  assert.match(main,/const \[analytics, setAnalytics\] = useState\(false\)/);
-  assert.match(main,/onAnalytics=\{\(\)=>setAnalytics\(true\)\}/);
-  assert.match(main,/className="analytics-return"/);
-  assert.match(main,/setAnalytics\(false\)/);
+  assert.match(main,/const overview = !account && \(tab === 'dashboard' \|\| tab === 'trade'\)/);
+  assert.match(main,/onAnalytics=\{\(\)=>goToPage\('dashboard'\)\}/);
+  assert.doesNotMatch(main,/setAnalytics|className="analytics-return"/);
   assert.match(main,/tab === 'dashboard' \? <TradingDashboard/);
   assert.match(overview,/MarketList/);
   assert.match(panels,/const stocks = STOCKS\.map/);
