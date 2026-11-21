@@ -10,51 +10,16 @@ const fullDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric
 const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: et });
 const fields = [['Open', 'openCents'], ['High', 'highCents'], ['Low', 'lowCents'], ['Close', 'closeCents']] as const;
 
-const historyMessages = {
-  not_configured: 'Historical data key not configured',
-  intraday_only: '1D uses observed intraday prices only',
-  pending: 'Historical import pending',
-  imported: '',
-  burst_limited: 'Waiting for history request slot',
-  rate_limited: 'Alpha Vantage daily request limit reached',
-  premium_required: 'History endpoint requires a paid provider plan',
-  invalid_key: 'History provider rejected API key',
-  provider_error: 'History provider rejected the request',
-  invalid_response: 'History provider returned no usable candles',
-  quota_exhausted: 'Daily free history request budget reached',
-  http_error: 'History provider HTTP error',
-  network_error: 'History provider network error',
-  storage_error: 'Historical data storage error',
-} as const;
-// Kept outside .candle-heading: responsive terminal styles hide that heading.
+// Historical ranges use only Finnhub quote observations collected by PaperStreet.
 export function chartDataStatus(history?: ChartHistory, range: HistoryRange = '1W', error?: string) {
   if (error) return {text:'Price history request failed', warning:true};
-  if (!history) return {text:'Loading price history…', warning:false};
-  if (range === '1D') return {text:'1D · recorded intraday trades only; no backfill', warning:false};
-  if (history.source === 'alphavantage') {
-    const unit = history.resolution === 'weekly' ? 'weekly' : 'daily';
-    return {text:`Alpha Vantage history · ${history.candles.length} ${unit} bars`, warning:false};
-  }
-  const message = historyBackfillMessage(history);
-  if (message) return {text:message, warning:true};
-  return {text:history.candles.length
-    ? `Finnhub · ${history.candles.length} recorded candle(s)`
-    : 'No historical prices recorded yet', warning:false};
+  if (!history) return {text:'Loading recorded prices…', warning:false};
+  if (!history.candles.length) return {
+    text: range === '1D' ? 'No intraday prices recorded yet' : 'No prices recorded for this period yet',
+    warning:false,
+  };
+  return {text:`Finnhub observations · ${history.candles.length} ${history.candles.length===1?'candle':'candles'}`,warning:false};
 }
-
-function historyBackfillMessage(history?: ChartHistory): string | null {
-  if (!history?.backfill || history.source === 'alphavantage') return null;
-  const {code,nextAttemptAt}=history.backfill;
-  const message=historyMessages[code];
-  if(!message) return null;
-  const retry=nextAttemptAt && nextAttemptAt>Date.now()/1000 &&
-    !['not_configured','intraday_only'].includes(code)
-    ? (['rate_limited','quota_exhausted'].includes(code)?' · Next check ':' · Retry ')
-      +new Date(nextAttemptAt*1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})
-    : '';
-  return message+retry;
-}
-
 
 export function DayRange({ quote }: { quote: Quote }) {
   const bar = quote.sessionBar;
@@ -79,15 +44,11 @@ export function PriceChart({ history, quote, range, error }: {
 }) {
   const [inspectedAt, setInspectedAt] = useState<number | null>(null);
   const recorded = history?.candles ?? [];
-  const backfillMessage = historyBackfillMessage(history);
   const dataStatus = chartDataStatus(history,range,error);
   const count = recorded.reduce((total, bar) => total + bar.samples, 0);
-  const provider = history?.source === 'alphavantage';
-  const session = !provider && count < 2 && quote?.sessionBar;
+  const session = count < 2 && quote?.sessionBar;
   let bars = recorded;
-  let caption = provider
-    ? `Verified historical ${history?.resolution === 'weekly' ? 'weekly' : 'daily'} OHLC`
-    : `${intervalLabel(history?.bucketSeconds ?? 900)} sampled candles`;
+  let caption = `${intervalLabel(history?.bucketSeconds ?? 900)} sampled candles`;
   if (session && quote) {
     bars = [{ ...session, firstAt: quote.fetchedAt, lastAt: quote.fetchedAt, samples: 0 }];
     caption = 'Latest session candle';
@@ -132,13 +93,9 @@ export function PriceChart({ history, quote, range, error }: {
   }
   const singlePrint = !session && active.samples === 1;
   const chartStatus = error ? 'History unavailable' : !history ? 'Loading history…' :
-    provider ? `${bars.length.toLocaleString()} historical bars in ${range}` :
     `${count.toLocaleString()} ${count === 1 ? 'sample' : 'samples'} in ${range}`;
   return <div className="candle-chart">
-    <div className="candle-heading"><strong>{caption}</strong>
-      <span className={backfillMessage ? 'history-backfill-status' : undefined}
-        title={backfillMessage ?? chartStatus}>{backfillMessage ?? chartStatus}</span>
-    </div>
+    <div className="candle-heading"><strong>{caption}</strong><span>{chartStatus}</span></div>
     <div className={'chart-data-status'+(dataStatus.warning?' warning':'')}
       role="status" aria-live="polite" title={dataStatus.text}>
       {dataStatus.text}
@@ -174,6 +131,6 @@ export function PriceChart({ history, quote, range, error }: {
     </div>
     <div className="candle-times">{[...new Set([0, Math.floor(lastIndex / 2), lastIndex])].map(i =>
       <span key={i} style={{ left: x(i) + '%', transform: bars.length === 1 ? 'translateX(-50%)' : i === 0 ? 'none' : i === lastIndex ? 'translateX(-100%)' : 'translateX(-50%)' }}>{axisDate(bars[i])}</span>)}</div>
-    <div className="candle-foot"><span>{atLabel}</span><span>{session ? 'Finnhub session OHLC' : provider ? 'Alpha Vantage · historical OHLC' : singlePrint ? 'Single observation' : `${active.samples} observations in candle`}</span></div>
+    <div className="candle-foot"><span>{atLabel}</span><span>{session ? 'Finnhub session OHLC' : singlePrint ? 'Single observation' : `${active.samples} observations in candle`}</span></div>
   </div>;
 }

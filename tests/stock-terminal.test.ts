@@ -84,7 +84,7 @@ test('stock desktop and mobile panels remain viewport locked and forecasts acces
   assert.match(styles,/\.stock-terminal\[data-pane="chart"\] \.stock-terminal-chart/);
   assert.match(styles,/\.stock-terminal\[data-pane="order"\] \.stock-terminal-ticket/);
   assert.match(read('src/stock-page-cleanup.css'),/grid-template-rows:/);
-  assert.match(read('src/stock-page-cleanup.css'),/\.stock-terminal>\.stock-terminal-stage\{grid-area:3\/1/);
+  assert.match(read('src/stock-page-cleanup.css'),/\.stock-terminal>\.stock-terminal-stage\{\s*grid-area:3\/1\/4\/2!important/);
   assert.match(read('src/main.tsx'),/import '\.\/stock-page-cleanup\.css'/);
   assert.match(styles,/\.stock-terminal\[data-pane="predict"\] \.stock-prediction-panel/);
   assert.match(styles,/@media\(min-width:761px\) and \(max-height:735px\)/);

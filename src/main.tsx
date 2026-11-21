@@ -39,7 +39,7 @@ import './unified-dark-theme.css';
 import './viewport-header-repair.css';
 import './market-schedule.css';
 import './stock-logos.css';
-import './history-status.css';
+import './chart-status.css';
 import './stock-page-cleanup.css';
 import './dashboard-goals-fix.css';
 import './paperstreet-black.css';
@@ -47,7 +47,7 @@ import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 import { MarketSchedule } from './MarketSchedule';
 
-type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; historyConfigured: boolean; startingCashCents: number };
+type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
 const signedMoney = (cents: number) => `${cents > 0 ? '+' : ''}${money(cents)}`;
 const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
@@ -102,7 +102,6 @@ function App() {
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null);
   const [quickSearch,setQuickSearch] = useState('');
   const [history, setHistory] = useState<{ key: string; data?: ChartHistory; error?: string }>();
-  const [historyRetryNonce, setHistoryRetryNonce] = useState(0);
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
   const [stockPane, setStockPane] = useState<'chart'|'order'|'predict'>('chart');
   const [portfolioPane, setPortfolioPane] = useState<'positions'|'orders'|'history'>(()=>window.location.hash==='#/history'?'history':'positions');
@@ -221,21 +220,8 @@ function App() {
       .then(data => { if (!controller.signal.aborted) setHistory({ key: historyKey, data }); })
       .catch(error => { if (!controller.signal.aborted) setHistory({ key: historyKey, error: errorMessage(error) }); });
     return () => controller.abort();
-  }, [selectedSymbol, historyRange, historyKey, tab, token, historyRetryNonce,
+  }, [selectedSymbol, historyRange, historyKey, tab, token,
     quotes.find(quote => quote.symbol === selectedSymbol)?.fetchedAt]);
-
-  // A failed historical import has a bounded, server-authoritative retry time.
-  // Refresh this chart at that time without hammering the free provider quota.
-  useEffect(() => {
-    if (!token || (tab !== 'stock' && tab !== 'trade' && tab !== 'dashboard')) return;
-    const result = currentHistory?.data?.backfill;
-    if (!result?.nextAttemptAt || result.code === 'imported') return;
-    const delay = Math.max(1500, Math.min(2_147_483_647,
-      result.nextAttemptAt * 1000 - Date.now() + 1500));
-    const handle = window.setTimeout(() => setHistoryRetryNonce(n => n + 1), delay);
-    return () => window.clearTimeout(handle);
-  }, [token, tab, historyKey, currentHistory?.data?.backfill?.code,
-    currentHistory?.data?.backfill?.nextAttemptAt]);
 
   const selected = quotes.find(q => q.symbol === selectedSymbol);
   const quantity = Number(shares);
