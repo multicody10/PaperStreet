@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import {
   ArrowLeft, ArrowLeftRight, ArrowUpRight, BarChart3, CheckCircle2,
-  ChevronRight, LayoutDashboard,
+  ChevronRight, Clock3, LayoutDashboard,
   LoaderCircle, RefreshCw, Search, TrendingDown,
   TrendingUp, Trophy, Wallet, Award, X,
 } from 'lucide-react';
