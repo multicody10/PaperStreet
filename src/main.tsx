@@ -34,6 +34,7 @@ import './overview.css';
 import './activity-shell.css';
 import './activity-unified.css';
 import './viewport-fit.css';
+import './dashboard-reference.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 
@@ -90,7 +91,6 @@ function App() {
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null);
-  const [analytics, setAnalytics] = useState(false);
   const [quickSearch,setQuickSearch] = useState('');
   const [history, setHistory] = useState<{ key: string; data?: ChartHistory; error?: string }>();
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
@@ -100,7 +100,6 @@ function App() {
   const currentHistory = history?.key === historyKey ? history : undefined;
 
   function goToPage(page: Page) {
-    if (page === 'dashboard') setAnalytics(false);
     setTab(page);
     window.history.pushState(null, '', appHash(page));
   }
@@ -118,7 +117,6 @@ function App() {
     const syncRoute = () => {
       const route = parseAppHash(window.location.hash);
       setTab(route.view);
-      if (route.view === 'dashboard') setAnalytics(false);
       if(window.location.hash==='#/history')setPortfolioPane('history');
       setSelectedSymbol(route.symbol);
     };
@@ -287,7 +285,7 @@ function App() {
     finally { setCancelingOrder(null); }
   }
 
-  const overview = (tab === 'dashboard' && (!account || !analytics)) || (!account && tab === 'trade');
+  const overview = !account && (tab === 'dashboard' || tab === 'trade');
   const title = tab === 'dashboard' ? 'Dashboard' :
     tab === 'trade' ? 'Trade' :
     tab === 'portfolio' ? 'Portfolio' :
@@ -358,8 +356,8 @@ function App() {
               {account && !config?.dataConfigured && <div className="feedback error" role="alert"><span><X size={17}/> Market data is not configured. Set FINNHUB_API_KEY in the Worker.</span></div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
               <Overview key={tab} markets={tab === 'trade'} portfolio={portfolio} quotes={quotes} trades={trades} leaders={leaders}
-                userId={account?.id} startingCash={config?.startingCashCents ?? STARTING_CASH_CENTS}
-                onStock={openStock} onMarkets={()=>goToPage('trade')} onAnalytics={()=>setAnalytics(true)}
+                userId={undefined} startingCash={config?.startingCashCents ?? STARTING_CASH_CENTS}
+                onStock={openStock} onMarkets={()=>goToPage('trade')} onAnalytics={()=>goToPage('dashboard')}
                 onPortfolio={()=>goToPage('portfolio')} onRankings={()=>goToPage('leaderboard')}
                 onHistory={()=>{setPortfolioPane('history');goToPage('portfolio')}}/>
             </> : !account ? <section className="welcome-panel"><div className="welcome-icon"><BarChart3 size={30}/></div><h2>{tab === 'stock' ? selectedSymbol + ' · ' + STOCKS.find(s=>s.symbol===selectedSymbol)?.name : 'Your trading account'}</h2><p>Connect through the Discord App Launcher to start trading stocks using virtual cash.</p><div className="auth-status" role="status">{authError || authStatus}</div><button className="small-action" type="button" onClick={()=>goToPage('trade')}>Browse markets</button><small>PaperStreet is a game. No real money is exchanged.</small></section> : <>
@@ -380,7 +378,6 @@ function App() {
                </section>}
                {tab === 'portfolio' && <SectionTabs label="Portfolio panels" value={portfolioPane} onChange={setPortfolioPane}
                 items={[{id:'positions',label:'Positions'},{id:'orders',label:'Queued orders'},{id:'history',label:'History'}]}/>}
-              {tab === 'dashboard' && analytics && <button className="analytics-return" type="button" onClick={()=>setAnalytics(false)}><ArrowLeftRight size={15}/> Back to overview</button>}
               {tab === 'dashboard' ? <TradingDashboard
                 portfolio={portfolio} quotes={quotes} trades={trades} achievements={achievements}
                 selectedSymbol={selectedSymbol} setSelectedSymbol={setSelectedSymbol}

@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, CheckCircle2, ChevronRight, Target, Wallet } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, CheckCircle2, ChevronRight, Target, Trophy, Wallet } from 'lucide-react';
 import { STARTING_CASH_CENTS, STOCKS, type ChartHistory, type HistoryRange, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
 import type { Achievement } from '../shared/gameplay';
 import { FitPager, SectionTabs } from './FitPager';
 import { money, PriceChart } from './PriceChart';
+import { StockMark } from './OverviewPanels';
 
 export type DashboardProps = {
   portfolio:Portfolio|null;quotes:Quote[];trades:Trade[];achievements:Achievement[];
@@ -13,7 +14,8 @@ export type DashboardProps = {
   range:HistoryRange;setRange:(range:HistoryRange)=>void;
 };
 const percentage = (x:number)=>`${x>0?'+':''}${x.toFixed(2)}%`;
-const DAY_COLORS=['#18b9ff','#967cff','#41d49b','#f6b85c','#fb7193','#94b5f4'];
+const currencyDelta = (cents:number)=>`${cents>0?'+':''}${money(cents)}`;
+const DAY_COLORS=['#13bdf3','#8e71fb','#38ce8b','#e6b564','#f07899','#8195ba'];
 
 function DashCard({className='',title,icon,action,children}:{
   className?:string;title:string;icon:ReactNode;action?:ReactNode;children:ReactNode;
@@ -50,7 +52,7 @@ function Allocation({portfolio}:{portfolio:Portfolio|null}) {
 }
 
 export function TradingDashboard(p:DashboardProps) {
-  const [section,setSection]=useState<'market'|'chart'|'positions'|'activity'>('market');
+  const [section,setSection]=useState<'market'|'chart'|'positions'|'activity'|'goals'|'insights'>('chart');
   const selected=p.selected;
   const initial=p.portfolio?.startingCashCents??STARTING_CASH_CENTS;
   const equity=p.portfolio?.equityCents??initial;
@@ -61,13 +63,26 @@ export function TradingDashboard(p:DashboardProps) {
   const sortedQuotes=STOCKS.map(stock=>p.quotes.find(q=>q.symbol===stock.symbol)).filter((q):q is Quote=>!!q);
   const openPositions=p.portfolio?.positions??[];
   const activeAchievements=p.achievements.slice(0,8);
-  return <div className="terminal-dashboard" aria-label="Trading dashboard">
+  // The sparkline uses verified selected stock history, not synthetic portfolio performance.
+  const closes=(p.history?.candles ?? []).slice(-100).map(c=>c.closeCents);
+  const low=Math.min(...closes),high=Math.max(...closes);
+  const sparkline=closes.length>1?closes.map((price,i)=>{
+    const x=i/(closes.length-1)*178+1;
+    const y=50-(price-low)/Math.max(1,high-low)*46;
+    return x.toFixed(2)+','+y.toFixed(2);
+  }).join(' '):'';
+  return <div className="terminal-dashboard reference-dashboard" aria-label="Trading dashboard">
     <div className="terminal-summary">
       <div className="panel terminal-summary-card terminal-equity">
         <span className="terminal-kicker"><Wallet size={17}/> Portfolio (Paper)</span>
         <strong className="terminal-big-number">{p.portfolio?money(equity):'—'}</strong>
-        <span className={'terminal-performance '+(change>=0?'positive':'negative')}>{p.portfolio?money(change):'—'} <b>{p.portfolio?percentage(changePercent):''}</b><small>All time</small></span>
-        <div className="terminal-graphic" aria-hidden="true"><i/><i/><i/><i/><i/><i/></div>
+        <span className={'terminal-performance '+(change>=0?'positive':'negative')}>{p.portfolio?currencyDelta(change):'—'} <b>{p.portfolio?percentage(changePercent):''}</b><small>All time</small></span>
+        {sparkline && <svg className="terminal-sparkline" role="img"
+          aria-label={'Price trend of '+p.selectedSymbol+', not portfolio performance'}
+          viewBox="0 0 180 54" preserveAspectRatio="none">
+          <polyline points={sparkline} fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>}
       </div>
       <div className="panel terminal-summary-card terminal-goal">
         <span className="terminal-kicker"><Target size={18}/> Equity milestone</span>
@@ -75,18 +90,23 @@ export function TradingDashboard(p:DashboardProps) {
         <div className="terminal-progress"><span style={{width:goalProgress+'%'}}/></div>
         <span className="terminal-muted">{p.portfolio?money(equity):'—'} / {money(goal)} · 10% return target</span>
       </div>
+      <div className="panel terminal-summary-card terminal-activity-stat">
+        <span className="terminal-kicker"><Trophy size={18}/> Trading activity</span>
+        <strong className="terminal-big-number">{p.trades.length} <small>filled trades</small></strong>
+        <span className="terminal-muted">{openPositions.length} open {openPositions.length===1?'position':'positions'} · Virtual funds only</span>
+      </div>
     </div>
     <SectionTabs value={section} onChange={setSection} label="Dashboard sections"
-      items={[{id:'market',label:'Watchlist'},{id:'chart',label:'Chart'},{id:'positions',label:'Portfolio'},{id:'activity',label:'Activity'}]}/>
+      items={[{id:'market',label:'Watchlist'},{id:'chart',label:'Chart'},{id:'positions',label:'Holdings'},{id:'activity',label:'Trades'},{id:'goals',label:'Goals'},{id:'insights',label:'Insights'}]}/>
     <div className="terminal-middle" data-section={section}>
-      <DashCard className="terminal-watch" title="Market watch" icon={<BarChart3 size={18}/>}
+      <DashCard className="terminal-watch" title="Watchlist" icon={<BarChart3 size={18}/>}
         action={<button className="terminal-more" type="button" onClick={()=>p.onNavigate('trade')}>All stocks <ChevronRight size={14}/></button>}>
         <div className="terminal-watch-head"><span>Symbol</span><span>Last</span><span>Change</span></div>
         <FitPager items={sortedQuotes} rowHeight={46} compactRowHeight={43} empty="Quotes unavailable"
           render={items=><div className="terminal-watch-list">
             {items.map(q=><button key={q.symbol} type="button" className={'terminal-watch-row '+(selected?.symbol===q.symbol?'selected':'')}
               onClick={()=>{p.setSelectedSymbol(q.symbol);if(window.matchMedia('(max-width:760px)').matches)setSection('chart')}} aria-pressed={selected?.symbol===q.symbol}>
-              <span className="terminal-market-symbol"><i>{q.symbol.slice(0,2)}</i><strong>{q.symbol}</strong></span>
+              <span className="terminal-market-symbol"><StockMark symbol={q.symbol}/><strong>{q.symbol}</strong></span>
               <span className="terminal-quote">{money(q.priceCents)}</span>
               <span className={'terminal-quote-change '+(q.changePct>=0?'up':'down')}>{percentage(q.changePct)}</span>
             </button>)}
@@ -94,7 +114,7 @@ export function TradingDashboard(p:DashboardProps) {
       </DashCard>
       <section className="panel terminal-chart-panel">
         <div className="terminal-chart-header">
-          <div className="terminal-chart-identity"><span className="terminal-stock-logo">{selected?.symbol.slice(0,1)??'S'}</span>
+          <div className="terminal-chart-identity">{selected && <StockMark symbol={selected.symbol}/>} 
             <strong>{selected?.symbol??'—'}</strong><small>{selected?.name??'Select a stock'}</small></div>
           <div className="terminal-chart-quote">
             <strong>{selected?money(selected.priceCents):'—'}</strong>
@@ -127,8 +147,8 @@ export function TradingDashboard(p:DashboardProps) {
         <div className="terminal-position-head"><span>Symbol</span><span>Qty</span><span>Last</span><span>P/L</span></div>
         <FitPager items={openPositions} rowHeight={40} compactRowHeight={43} empty="No open positions"
           render={items=><div className="terminal-position-list">{items.map(pos=><div key={pos.symbol} className="terminal-position-row">
-            <strong>{pos.symbol}</strong><span>{pos.shares}</span><span>{money(pos.quote.priceCents)}</span>
-            <strong className={pos.profitCents>=0?'positive':'negative'}>{money(pos.profitCents)}</strong>
+            <strong className="terminal-position-symbol"><StockMark symbol={pos.symbol}/>{pos.symbol}</strong><span>{pos.shares}</span><span>{money(pos.quote.priceCents)}</span>
+            <strong className={pos.profitCents>=0?'positive':'negative'}>{currencyDelta(pos.profitCents)}</strong>
           </div>)}</div>}/>
       </DashCard>
       <DashCard className="terminal-bottom-activity" title="Recent paper trades" icon={<Activity size={18}/>}
