@@ -37,9 +37,11 @@ test('legacy source modules no longer request or expose third-party historical d
   assert.doesNotMatch(src,/ALPHA_VANTAGE|alphavantage|backfillHistoricalBars|historyBackfillStatus/);
  }
  const route=read('worker/index.ts');
- assert.match(route,/const history = await quoteHistory\(symbol, c\.env, range\)/);
- assert.match(route,/source: 'finnhub'/);
- assert.doesNotMatch(route,/historyConfigured|backfill,/);
+ assert.match(route,/const alpaca = await alpacaHistory\(symbol, c\.env, range\)/);
+ assert.match(route,/await quoteHistory\(symbol, c\.env, range\)/);
+ assert.match(route,/source: history\.source \?\? 'finnhub'/);
+ assert.match(route,/historyConfigured: Boolean/);
+ assert.doesNotMatch(route,/backfill,/);
  assert.match(read('src/main.tsx'),/import '\.\/chart-status\.css'/);
  assert.match(read('src/chart-status.css'),/chart-data-status/);
 });

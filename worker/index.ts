@@ -5,13 +5,14 @@ import { deployPortfolioCommand } from './registration';
 import { inspectProductionDeployIdentity } from './deploy-identity';
 import { loadPortfolio } from './portfolio';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
+import { alpacaHistory, type AlpacaHistoryEnv } from './alpaca-history';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
 import { listOrders, queueOrder, cancelOrder, listPredictions, getPredictionSummary, submitPrediction, getAchievements, processQueuedOrders, settlePredictions } from './gameplay';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader } from '../shared/stocks';
 
-type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; DISCORD_PUBLIC_KEY?: string; SESSION_SECRET: string };
+type Bindings = MarketEnv & AlpacaHistoryEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; DISCORD_PUBLIC_KEY?: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
 type LeaderRow = Omit<Leader, 'changeCents' | 'avatarUrl'> & { avatarHash: string | null; avatarDiscriminator: string | null };
 const app = new Hono<App>();
@@ -71,6 +72,7 @@ app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
   provider: 'finnhub',
   dataConfigured: Boolean(c.env.FINNHUB_API_KEY),
+  historyConfigured: Boolean(c.env.ALPACA_API_KEY_ID && c.env.ALPACA_API_SECRET_KEY),
   startingCashCents: STARTING_CASH_CENTS,
 }));
 
@@ -121,10 +123,13 @@ app.get('/api/chart', async c => {
   if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
   const range = c.req.query('range') ?? '1W';
   if (!isHistoryRange(range)) return noStore({ error: 'Unsupported chart time range' }, 422);
-  const history = await quoteHistory(symbol, c.env, range);
+  // Alpaca data is read-only chart history. Paper fills keep using verified Finnhub quotes.
+  const alpaca = await alpacaHistory(symbol, c.env, range).catch(() => null);
+  const history = alpaca?.candles.length ? alpaca : await quoteHistory(symbol, c.env, range);
   const points = history.candles.map(bar => ({ at: bar.lastAt, priceCents: bar.closeCents }));
   return noStore({ ...history, points, available: points.length >= 2,
-    range, source: 'finnhub' });
+    range, source: history.source ?? 'finnhub',
+    warning: alpaca?.warning });
 });
 
 app.get('/api/portfolio', async c => {
