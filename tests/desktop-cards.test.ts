@@ -35,24 +35,31 @@ test('dashboard matches trading terminal reference with simultaneous live cards'
   assert.match(app,/<TradeTerminal/);
   assert.match(tradeTheme,/\.trade-terminal\s*\{[^}]*display:grid/);
   assert.match(tradeTheme,/\.trade-terminal-main\s*\{[^}]*display:grid/);
-  assert.match(tradeTheme,/\.trade-terminal-rail\s*\{[^}]*display:grid/);
+  assert.match(source('src/stock-terminal.css'),/\.trade-terminal\{display:flex!important/);
   assert.ok(trade.includes('trade-market-overview'));
   assert.ok(trade.includes('trade-market-list'));
-  assert.ok(trade.includes('trade-market-movers'));
-  assert.ok(trade.includes('trade-terminal-ticket'));
+  assert.doesNotMatch(trade,/trade-market-movers|trade-market-breadth|trade-terminal-ticket/);
+  assert.match(trade,/onClick=\{\(\)=>choose\(q\.symbol\)\}/);
   assert.ok((app.match(/<FitPager /g)??[]).length>=2);
   assert.ok((dashboard.match(/<FitPager /g)??[]).length>=4);
 });
-test('stock has chart, quote facts and full desktop ticket without mobile wizard steps',()=>{
-  assert.match(cards,/\.stock-workspace\s*\{[^}]*grid-template-columns/);
-  assert.match(cards,/\.stock-workspace\[data-pane\] > \.stock-research\s*\{[^}]*display:contents!important/);
-  assert.match(cards,/\.stock-workspace > \.trade-panel:not\(\.trade-panel-desktop\)\s*\{[^}]*display:none!important/);
-  assert.match(cards,/\.stock-workspace > \.trade-panel-desktop,[\s\S]*?display:flex!important/);
-  assert.match(app,/function DesktopTradeTicket\(/);
-  assert.match(app,/function TradeTicket\(/);
-  for(const id of ['desktop-order-kind','desktop-trigger-price','desktop-shares'])
-    assert.ok(app.includes(id));
-  assert.match(cards,/@media \(max-width:760px\)\s*\{[\s\S]*?\.stock-workspace > \.trade-panel-desktop\{display:none!important\}/);
+test('every allowed ticker uses the reference-inspired stock workspace',()=>{
+  const stock=source('src/StockTerminal.tsx');
+  const css=source('src/stock-terminal.css');
+  assert.match(app,/tab === 'stock' \? <StockTerminal/);
+  assert.match(app,/import '\.\/stock-terminal\.css'/);
+  assert.match(stock,/data-pane=\{p\.pane\}/);
+  for(const section of ['stock-terminal-hero','stock-terminal-quote-summary','stock-terminal-hero-facts',
+    'stock-terminal-chart','stock-terminal-ticket','stock-terminal-about','stock-terminal-metrics',
+    'stock-terminal-related','stock-terminal-activity'])
+    assert.ok(stock.includes(section),section);
+  assert.match(stock,/<StockPredictions key=\{p\.symbol\}/);
+  assert.match(css,/\.stock-terminal\s*\{/);
+  assert.match(css,/\.stock-terminal-stage\s*\{/);
+  assert.match(css,/\.stock-terminal-rail\s*\{/);
+  assert.match(css,/@media\(max-width:760px\)/);
+  assert.match(css,/\.stock-terminal\[data-pane="predict"\] \.stock-prediction-panel/);
+  assert.doesNotMatch(app,/function DesktopTradeTicket|function TradeTicket/);
 });
 
 test('Goals follows the reference with live cards and history is below orders',()=>{
@@ -76,7 +83,7 @@ test('Goals follows the reference with live cards and history is below orders',(
   assert.match(goals,/label="Goals panels"/);
   assert.match(theme,/\.goals-body\{display:grid/);
   assert.match(theme,/\.goals-featured-grid\{display:grid/);
-  assert.match(app,/<StockPredictions key=\{selectedSymbol\}/);
+  assert.match(source('src/StockTerminal.tsx'),/<StockPredictions key=\{p\.symbol\}/);
   assert.match(forecast,/predictionsForStock\(predictions,symbol\)/);
   assert.match(stockCss,/@media \(min-width:761px\)/);
 });
@@ -87,7 +94,7 @@ test('no-scroll viewport and mobile section controls remain intact',()=>{
   assert.match(fit,/\.fit-pager-controls/);
   assert.match(source('src/TradingDashboard.tsx'),/label="Dashboard sections"/);
   assert.match(source('src/TradeTerminal.tsx'),/label="Trade sections"/);
-  assert.match(app,/label="Stock panels"/);
+  assert.match(source('src/StockTerminal.tsx'),/label="Stock panels"/);
   assert.match(app,/label="Portfolio panels"/);
   assert.match(challenge,/label="Goals panels"/);
   assert.match(cards,/\.content-wrap > \.screen-tabs,[\s\S]*?display:none!important/);

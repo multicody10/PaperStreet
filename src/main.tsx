@@ -2,18 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import {
-  ArrowLeft, ArrowLeftRight, ArrowUpRight, BarChart3, CheckCircle2,
-  ChevronRight, Clock3, LayoutDashboard,
-  LoaderCircle, RefreshCw, Search, TrendingDown,
+  ArrowLeftRight, ArrowUpRight, BarChart3, CheckCircle2,
+  LayoutDashboard, RefreshCw, Search, TrendingDown,
   TrendingUp, Trophy, Wallet, Award, X,
 } from 'lucide-react';
 import type { ChartHistory, HistoryRange, Leader, Portfolio, Quote, SymbolCode, Trade } from '../shared/stocks';
-import { HISTORY_RANGES, STARTING_CASH_CENTS, STOCKS } from '../shared/stocks';
+import { STARTING_CASH_CENTS, STOCKS } from '../shared/stocks';
 import { appHash, parseAppHash, type Page, type View } from './navigation';
-import { DayRange, money, PriceChart } from './PriceChart';
+import { money } from './PriceChart';
 import { Challenges, OrderList } from './Challenges';
 import { PortfolioHistory } from './PortfolioHistory';
-import { StockPredictions } from './StockPredictions';
+import { StockTerminal } from './StockTerminal';
 import { TradingDashboard } from './TradingDashboard';
 import { TradeTerminal } from './TradeTerminal';
 import { FitPager, SectionTabs } from './FitPager';
@@ -29,6 +28,7 @@ import './stock-predictions.css';
 import './terminal.css';
 import './trade-terminal.css';
 import './goals-portfolio.css';
+import './stock-terminal.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -127,11 +127,11 @@ function App() {
     const jobs: Promise<void>[] = [];
     // The market ticker is global, including when Goals or Portfolio opens directly.
     jobs.push(request<{ quotes: Quote[] }>('/api/market', session).then(({ quotes }) => setQuotes(quotes)));
-    if (view === 'dashboard' || view === 'trade' || view === 'portfolio' || view === 'stock' || view === 'challenges')
+    if (view === 'dashboard' || view === 'portfolio' || view === 'stock' || view === 'challenges')
       jobs.push(request<{ portfolio: Portfolio }>('/api/portfolio', session).then(({ portfolio }) => setPortfolio(portfolio)));
     if (view === 'dashboard' || view === 'leaderboard')
       jobs.push(request<{ leaders: Leader[] }>('/api/leaderboard', session).then(({ leaders }) => setLeaders(leaders)));
-    if (view === 'dashboard' || view === 'portfolio')
+    if (view === 'dashboard' || view === 'portfolio' || view === 'stock')
       jobs.push(request<{ trades: Trade[] }>('/api/history', session).then(({ trades }) => setTrades(trades)));
     if (view === 'dashboard' || view === 'stock' || view === 'portfolio')
       jobs.push(request<{ orders: QueuedOrder[] }>('/api/orders', session).then(({ orders }) => setOrders(orders)));
@@ -227,7 +227,7 @@ function App() {
   };
 
   async function execute() {
-    if ((tab !== 'stock' && tab !== 'trade') || !canSubmitOrder || !selected || !token || pending) return;
+    if (tab !== 'stock' || !canSubmitOrder || !selected || !token || pending) return;
     setPending(true);
     setFeedback(null);
     try {
@@ -346,11 +346,6 @@ function App() {
               {!config?.dataConfigured && <div className="feedback error" role="alert"><span><X size={17}/> Market data is not configured. The operator must add FINNHUB_API_KEY as a Cloudflare Worker secret.</span></div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
 
-              {tab === 'stock' && <div className="stock-page-controls">
-                <button type="button" className="stock-back" onClick={() => goToPage('trade')}><ArrowLeft size={16}/> All stocks</button>
-                <SectionTabs label="Stock panels" value={stockPane} onChange={setStockPane}
-                  items={[{id:'chart',label:'Chart'},{id:'order',label:'Order'},{id:'facts',label:'Details'},{id:'predict',label:'Predict'}]}/>
-              </div>}
               {tab === 'portfolio' && <SectionTabs label="Portfolio panels" value={portfolioPane} onChange={setPortfolioPane}
                 items={[{id:'positions',label:'Positions'},{id:'orders',label:'Queued orders'},{id:'history',label:'History'}]}/>}
               {tab === 'dashboard' ? <TradingDashboard
@@ -361,36 +356,19 @@ function App() {
                 selected={selected} history={currentHistory?.data} historyError={currentHistory?.error}
                 range={historyRange} setRange={setHistoryRange}
               /> : tab === 'trade' ? <TradeTerminal
-                quotes={quotes} selectedSymbol={selectedSymbol} setSelectedSymbol={setSelectedSymbol}
-                openStock={openStock} history={currentHistory?.data} historyError={currentHistory?.error}
-                range={historyRange} setRange={setHistoryRange} portfolio={portfolio}
+                quotes={quotes} selectedSymbol={selectedSymbol} openStock={symbol=>openStock(symbol)}
+                history={currentHistory?.data} historyError={currentHistory?.error}
+                range={historyRange} setRange={setHistoryRange}
+              /> : tab === 'stock' ? <StockTerminal
+                symbol={selectedSymbol} quote={selected} quotes={quotes} portfolio={portfolio} trades={trades}
+                history={currentHistory?.data} historyError={currentHistory?.error}
+                range={historyRange} setRange={setHistoryRange} pane={stockPane} setPane={setStockPane}
+                onBack={()=>goToPage('trade')} openStock={symbol=>openStock(symbol)} openPortfolio={()=>goToPage('portfolio')}
                 side={side} setSide={setSide} shares={shares} setShares={setShares}
-                orderKind={effectiveOrderKind} setOrderKind={setOrderKind}
-                triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice}
+                orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice}
                 total={total} canSubmit={canSubmitOrder} pending={pending} execute={()=>void execute()}
-              /> : tab === 'stock' ? <div className="stock-workspace" data-pane={stockPane} aria-label={'Stock details and trading for ' + selectedSymbol}>
-                <div className="stock-research">
-                  
-                  <section className="panel chart-panel" aria-label={selectedSymbol + ' price history'}>
-                    <div className="chart-top"><div className="symbol-badge">{selectedSymbol.slice(0, 2)}</div><div className="chart-identity"><h1>{selectedSymbol}</h1><span>{selected?.name ?? 'Loading…'}</span></div><span className="chart-source" title={selected ? 'Provider last trade: ' + new Date(selected.fetchedAt * 1000).toLocaleString() : undefined}>FINNHUB · LAST TRADE</span></div>
-                    <div className="chart-price"><strong>{selected ? money(selected.priceCents) : '—'}</strong><span className={selected && selected.changePct < 0 ? 'negative' : 'positive'}>{selected ? <>{selected.changePct >= 0 ? <TrendingUp size={15}/> : <TrendingDown size={15}/>} {pct(selected.changePct)}</> : 'Waiting for prices'}</span></div>
-                    <div className="chart-range-bar" role="group" aria-label="Select stock history time range">
-                      {HISTORY_RANGES.map(range => <button key={range} type="button" className={historyRange === range ? 'active' : ''} aria-pressed={historyRange === range} onClick={() => setHistoryRange(range)}>{range}</button>)}
-                    </div>
-                    <PriceChart key={historyKey} history={currentHistory?.data} quote={selected} range={historyRange} error={currentHistory?.error}/>
-                  </section>
-                  <section className="panel stock-quote-facts" aria-label="Stock quote details"><div className="stock-facts">
-                    <div className="stock-fact"><span>SESSION RANGE</span>{selected?.sessionBar ? <DayRange quote={selected}/> : <strong>—</strong>}</div>
-                    <div className="stock-fact"><span>PREVIOUS CLOSE</span><strong>{selected ? money(selected.previousCloseCents) : '—'}</strong></div>
-                    <div className="stock-fact"><span>YOUR POSITION</span><strong>{position?.shares ?? 0} shares</strong><small>{position ? money(position.marketValueCents) : 'No holdings'}</small></div>
-                    <div className="stock-fact"><span>LAST TRADE TIME</span><strong>{selected ? new Date(selected.fetchedAt * 1000).toLocaleString() : '—'}</strong>{selected?.stale && <small>Quote outdated</small>}</div>
-                  </div></section>
-                </div>
-                <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
-                <DesktopTradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
-                <StockPredictions key={selectedSymbol} symbol={selectedSymbol} quote={selected} predictions={predictions}
-                  pending={forecastPending} submit={(symbol,direction)=>void submitForecast(symbol,direction)}/>
-              </div> : tab === 'challenges' ? <Challenges achievements={achievements} portfolio={portfolio}/> : <div className={tab === 'portfolio' ? 'details-stack portfolio-stack' : 'details-stack'} data-pane={tab === 'portfolio' ? portfolioPane : 'positions'}>
+                predictions={predictions} forecastPending={forecastPending} submitForecast={(symbol,direction)=>void submitForecast(symbol,direction)}
+              /> : tab === 'challenges' ? <Challenges achievements={achievements} portfolio={portfolio}/> : <div className={tab === 'portfolio' ? 'details-stack portfolio-stack' : 'details-stack'} data-pane={tab === 'portfolio' ? portfolioPane : 'positions'}>
                 {tab === 'portfolio' && <OrderList orders={orders} onCancel={id => void cancelQueuedOrder(id)} canceling={cancelingOrder}/>}
                  {tab === 'portfolio' && <PortfolioHistory trades={trades}/>}
                 <section className="panel details-panel">
@@ -437,102 +415,6 @@ function App() {
       </nav>
     </div>
   );
-}
-
-function TradeTicket({selected,side,setSide,shares,setShares,total,positionShares,canTrade,pending,execute,portfolio,orderKind,setOrderKind,triggerPrice,setTriggerPrice,viewOrders}:{
-  selected?:Quote;side:'BUY'|'SELL';setSide:(v:'BUY'|'SELL')=>void;shares:string;setShares:(v:string)=>void;
-  total:number;positionShares:number;canTrade:boolean;pending:boolean;execute:()=>void;portfolio:Portfolio|null;
-  orderKind:'IMMEDIATE'|OrderKind;setOrderKind:(v:'AUTO'|'IMMEDIATE'|OrderKind)=>void;
-  triggerPrice:string;setTriggerPrice:(v:string)=>void;viewOrders:()=>void;
-}) {
-  const [step,setStep]=useState<0|1|2>(0);
-  const max=side==='BUY'&&selected?Math.min(100_000,Math.floor((portfolio?.cashCents??0)/selected.priceCents)):Math.min(100_000,positionShares);
-  const queued=orderKind!=='IMMEDIATE';
-  const heading=['Order type','Quantity','Review order'][step];
-  return <section className="panel trade-panel">
-    <div className="panel-heading"><h2><ArrowLeftRight size={19}/> {heading}</h2><span className="trade-tag">{queued?'QUEUED':'IMMEDIATE'}</span></div>
-    <div className="ticket-body staged-ticket">
-      {step===0 && <>
-        <div className="side-selector"><button type="button" className={side==='BUY'?'current buy':''} aria-pressed={side==='BUY'} onClick={()=>setSide('BUY')}>Buy</button>
-          <button type="button" className={side==='SELL'?'current sell':''} aria-pressed={side==='SELL'} onClick={()=>setSide('SELL')}>Sell</button></div>
-        <div className="ticket-order-control"><label htmlFor="order-kind">ORDER TYPE</label>
-          <select id="order-kind" className="trade-kind" value={orderKind} onChange={e=>setOrderKind(e.target.value as 'IMMEDIATE'|OrderKind)}>
-            {selected?.marketOpen && <option value="IMMEDIATE">Immediate market order</option>}
-            <option value="MARKET">Queue market order</option>
-            <option value="LIMIT">Queue limit order</option>
-            <option value="STOP">Queue stop order</option>
-          </select></div>
-        <button type="button" className="execute-button buy" disabled={!selected} onClick={()=>setStep(1)}>Next <ChevronRight size={17}/></button>
-      </>}
-      {step===1 && <>
-        <label className="field-label" htmlFor="shares">SHARES <span>{side==='BUY'?'CASH':'OWNED'}: {side==='BUY'?money(portfolio?.cashCents??0):positionShares}</span></label>
-        <div className="quantity-wrapper"><input id="shares" type="number" inputMode="numeric" min="1" max="100000" step="1" value={shares} onChange={e=>setShares(e.target.value)}/><span>SHARES</span></div>
-        <div className="quantity-presets">{[1,5,10].map(n=><button type="button" key={n} onClick={()=>setShares(String(n))} disabled={n>max}>{n}</button>)}<button type="button" onClick={()=>setShares(String(max))} disabled={max<1}>Max</button></div>
-        {(orderKind==='LIMIT'||orderKind==='STOP') && <div className="ticket-trigger"><label htmlFor="trigger-price">{orderKind==='LIMIT'?'LIMIT USD':'STOP USD'}</label>
-          <input id="trigger-price" className="trigger-input" type="number" min=".01" step=".01" inputMode="decimal" placeholder="0.00" value={triggerPrice} onChange={e=>setTriggerPrice(e.target.value)}/></div>}
-        <div className="ticket-step-actions"><button type="button" className="subtle-link" onClick={()=>setStep(0)}><ArrowLeft size={16}/> Back</button>
-          <button type="button" className="execute-button buy" disabled={!canTrade} onClick={()=>setStep(2)}>Review <ChevronRight size={16}/></button></div>
-      </>}
-      {step===2 && <>
-        <div className="ticket-asset"><span className="ticket-asset-name"><span className="ticker-icon">{selected?.symbol.slice(0,2)??'??'}</span><strong>{side} {shares} {selected?.symbol??'stock'}</strong></span>
-          <strong>{selected?money(selected.priceCents):'—'}</strong></div>
-        <div className="ticket-breakdown"><div className="ticket-total"><span>{queued?'Estimated value':'Estimated '+(side==='BUY'?'cost':'proceeds')}</span><strong>{money(total)}</strong></div></div>
-        <p className="ticket-disclaimer">{queued?'Executes when the market reopens or conditions match. Funds checked at execution.':'Immediate fills use verified regular-session prices.'}</p>
-        <button type="button" className={'execute-button '+side.toLowerCase()} disabled={!canTrade||pending} onClick={execute}>
-          {pending?<LoaderCircle size={17} className="spin"/>:<Clock3 size={17}/>}
-          {pending?'Processing…':(queued?'Queue ':'')+(side==='BUY'?'Buy ':'Sell ')+(selected?.symbol??'shares')}
-        </button>
-        <div className="ticket-step-actions"><button type="button" className="subtle-link" onClick={()=>setStep(1)}><ArrowLeft size={16}/> Back</button>
-          <button type="button" className="subtle-link" onClick={viewOrders}>Queued orders <ChevronRight size={15}/></button></div>
-      </>}
-    </div>
-  </section>;
-}
-
-function DesktopTradeTicket({selected,side,setSide,shares,setShares,total,positionShares,canTrade,pending,execute,portfolio,orderKind,setOrderKind,triggerPrice,setTriggerPrice,viewOrders}:{
-  selected?:Quote;side:'BUY'|'SELL';setSide:(v:'BUY'|'SELL')=>void;shares:string;setShares:(v:string)=>void;
-  total:number;positionShares:number;canTrade:boolean;pending:boolean;execute:()=>void;portfolio:Portfolio|null;
-  orderKind:'IMMEDIATE'|OrderKind;setOrderKind:(v:'AUTO'|'IMMEDIATE'|OrderKind)=>void;
-  triggerPrice:string;setTriggerPrice:(v:string)=>void;viewOrders:()=>void;
-}) {
-  const max=side==='BUY'&&selected?Math.min(100_000,Math.floor((portfolio?.cashCents??0)/selected.priceCents)):Math.min(100_000,positionShares);
-  const queued=orderKind!=='IMMEDIATE';
-  return <section className="panel trade-panel trade-panel-desktop" aria-label="Desktop order ticket">
-    <div className="panel-heading"><h2><ArrowLeftRight size={19}/> Order ticket</h2><span className="trade-tag">{queued?'QUEUED':'IMMEDIATE'}</span></div>
-    <div className="ticket-body">
-      <div className="side-selector">
-        <button type="button" className={side==='BUY'?'current buy':''} aria-pressed={side==='BUY'} onClick={()=>setSide('BUY')}>Buy</button>
-        <button type="button" className={side==='SELL'?'current sell':''} aria-pressed={side==='SELL'} onClick={()=>setSide('SELL')}>Sell</button>
-      </div>
-      <div className="ticket-order-control">
-        <label htmlFor="desktop-order-kind">ORDER TYPE</label>
-        <select id="desktop-order-kind" className="trade-kind" value={orderKind} onChange={e=>setOrderKind(e.target.value as 'IMMEDIATE'|OrderKind)}>
-          {selected?.marketOpen&&<option value="IMMEDIATE">Immediate market order</option>}
-          <option value="MARKET">Queue market order</option>
-          <option value="LIMIT">Queue limit order</option>
-          <option value="STOP">Queue stop order</option>
-        </select>
-      </div>
-      {(orderKind==='LIMIT'||orderKind==='STOP')&&<div className="ticket-trigger">
-        <label htmlFor="desktop-trigger-price">{orderKind==='LIMIT'?'LIMIT PRICE (USD)':'STOP PRICE (USD)'}</label>
-        <input id="desktop-trigger-price" className="trigger-input" type="number" min=".01" step=".01" inputMode="decimal"
-          placeholder="0.00" value={triggerPrice} onChange={e=>setTriggerPrice(e.target.value)}/>
-      </div>}
-      <label className="field-label" htmlFor="desktop-shares">SHARES <span>{side==='BUY'?'CASH':'OWNED'}: {side==='BUY'?money(portfolio?.cashCents??0):positionShares}</span></label>
-      <div className="quantity-wrapper"><input id="desktop-shares" type="number" inputMode="numeric" min="1" max="100000" step="1"
-        value={shares} onChange={e=>setShares(e.target.value)}/><span>SHARES</span></div>
-      <div className="quantity-presets">
-        {[1,5,10].map(n=><button type="button" key={n} onClick={()=>setShares(String(n))} disabled={n>max}>{n}</button>)}
-        <button type="button" onClick={()=>setShares(String(max))} disabled={max<1}>Max</button>
-      </div>
-      <div className="ticket-breakdown"><div className="ticket-total"><span>{queued?'Estimated value':'Estimated '+(side==='BUY'?'cost':'proceeds')}</span><strong>{money(total)}</strong></div></div>
-      <button type="button" className={'execute-button '+side.toLowerCase()} disabled={!canTrade||pending} onClick={execute}>
-        {pending?<LoaderCircle size={17} className="spin"/>:<ArrowLeftRight size={17}/>}
-        {pending?'Processing…':(queued?'Queue ':'')+(side==='BUY'?'Buy ':'Sell ')+(selected?.symbol??'shares')}
-      </button>
-      <button type="button" className="subtle-link" onClick={viewOrders}>Queued orders <ChevronRight size={15}/></button>
-    </div>
-  </section>;
 }
 
 function ProfileAvatar({ url, name, className }: { url?: string | null; name: string; className: 'user-avatar' | 'leader-avatar' }) {

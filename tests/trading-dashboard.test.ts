@@ -10,6 +10,7 @@ const goals=read('src/Challenges.tsx');
 const stocks=read('src/StockPredictions.tsx');
 const trade=read('src/TradeTerminal.tsx');
 const tradeCss=read('src/trade-terminal.css');
+const stock=read('src/StockTerminal.tsx');
 const dark=read('src/goals-portfolio.css');
 
 test('the supplied reference drives a unified dark navy and cyan UI across all routes',()=>{
@@ -43,27 +44,27 @@ test('terminal dashboard shows all screenshot-inspired sections with real-backed
   assert.match(dashboard,/p\.achievements/);
   assert.match(dashboard,/<PriceChart key=\{p\.selectedSymbol\+':'\+p\.range\}/);
   assert.doesNotMatch(dashboard,/terminal-count|terminal-order|DashTicket|Recent trades/);
-  assert.match(trade,/className="panel trade-terminal-ticket"/);
-  assert.match(trade,/onClick=\{p\.execute\}/);
+  assert.match(stock,/className="panel stock-terminal-ticket"/);
+  assert.match(stock,/onClick=\{p\.execute\}/);
   assert.doesNotMatch(dashboard,/mock|fake|simulated|Math\.random\(/);
   assert.doesNotMatch(app,/S&P 500|NASDAQ|DOW|Trading Streak/);
 });
 
-test('paper order ticket exists on Trade instead of the Dashboard',()=>{
-  assert.match(app,/\(tab !== 'stock' && tab !== 'trade'\) \|\| !canSubmitOrder/);
+test('paper order tickets exist only on dedicated stock pages',()=>{
+  assert.match(app,/if \(tab !== 'stock' \|\| !canSubmitOrder/);
   assert.match(app,/await refresh\(token, tab\)/);
-  assert.match(app,/tab === 'trade' \? <TradeTerminal/);
+  assert.match(app,/tab === 'stock' \? <StockTerminal/);
   assert.match(app,/canSubmit=\{canSubmitOrder\}/);
-  assert.match(trade,/setOrderKind\(kind==='MARKET'\?\(p\.quote\?\.marketOpen\?'IMMEDIATE':'MARKET'\):kind\)/);
-  assert.match(trade,/disabled=\{!p\.canSubmit\|\|p\.pending\}/);
+  assert.match(stock,/value=\{p\.orderKind\}/);
+  assert.match(stock,/disabled=\{!p\.canSubmit\|\|p\.pending\}/);
   assert.match(app,/request\('\/api\/orders'/);
   assert.match(app,/request<\{ fillPriceCents\?: number; duplicate\?: boolean \}>\('\/api\/trade'/);
   assert.doesNotMatch(dashboard,/execute:|orderKind:|canSubmit:|DashTicket|terminal-order/);
-  assert.match(tradeCss,/\.trade-terminal-rail/);
+  assert.doesNotMatch(trade,/TradeOrderTicket|trade-terminal-ticket|trade-market-movers|trade-market-breadth/);
 });
 
 test('header search and tickers use supported symbols and verified quotes only',()=>{
-  assert.match(app,/import \{ HISTORY_RANGES, STARTING_CASH_CENTS, STOCKS \}/);
+  assert.match(app,/import \{ STARTING_CASH_CENTS, STOCKS \}/);
   assert.match(app,/quotes\.find\(q=>q\.symbol===symbol\)/);
   assert.match(app,/STOCKS\.filter\(q=>/);
   assert.match(app,/onKeyDown=\{event=>\{/);
@@ -84,10 +85,10 @@ test('mobile dashboard remains viewport locked with operational section selectio
 });
 
 test('existing stock forecasts, Goals, and dedicated trading pages are retained',()=>{
-  assert.match(app,/<StockPredictions key=\{selectedSymbol\}/);
+  assert.match(stock,/<StockPredictions key=\{p\.symbol\}/);
   assert.match(stocks,/predictionsForStock\(predictions,symbol\)/);
   assert.match(goals,/Goals panels/);
   assert.match(app,/<TradeTerminal/);
-  assert.match(app,/className="stock-workspace"/);
+  assert.match(app,/<StockTerminal/);
   assert.match(app,/className=\{tab === 'portfolio' \? 'details-stack portfolio-stack' : 'details-stack'\}/);
 });

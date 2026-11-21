@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { Quote, SymbolCode } from '../shared/stocks';
-import { selectTradeQuotes, selectTradeMovers } from '../src/TradeTerminal';
+import { selectTradeQuotes } from '../src/TradeTerminal';
 
 const quote=(symbol:SymbolCode,priceCents:number,changePct:number):Quote=>({
   symbol,name:symbol==='AAPL'?'Apple':symbol==='MSFT'?'Microsoft':symbol==='NVDA'?'NVIDIA':symbol==='SPY'?'S&P 500 ETF':symbol,
@@ -25,12 +25,15 @@ test('sorting uses actual prices and changes without modifying source',()=>{
   assert.deepEqual(selectTradeQuotes(quotes,'all','', 'price').map(x=>x.symbol),['SPY','MSFT','AAPL','NVDA']);
   assert.deepEqual(quotes.map(x=>x.symbol),['NVDA','MSFT','AAPL','SPY']);
 });
-test('movers tabs use current quote percent change',()=>{
-  assert.deepEqual(selectTradeMovers(quotes,'gainers').map(x=>x.symbol),['NVDA','AAPL','SPY']);
-  assert.deepEqual(selectTradeMovers(quotes,'losers').map(x=>x.symbol),['MSFT']);
-  assert.deepEqual(selectTradeMovers(quotes,'all').map(x=>x.symbol),['NVDA','AAPL','MSFT','SPY']);
+test('all market rows navigate into their own ticker trading pages',()=>{
+  const trade=read('src/TradeTerminal.tsx');
+  const app=read('src/main.tsx');
+  assert.match(trade,/const choose=\(symbol:SymbolCode\)=>p\.openStock\(symbol\)/);
+  assert.match(trade,/onClick=\{\(\)=>choose\(q\.symbol\)\}/);
+  assert.match(trade,/onClick=\{\(\)=>choose\(symbol\)\}/);
+  assert.match(app,/tab === 'stock' \? <StockTerminal/);
 });
-test('market overview and ticket only use supported quote fields',()=>{
+test('market overview is discovery only with verified quote fields',()=>{
   const trade=read('src/TradeTerminal.tsx');
   const css=read('src/trade-terminal.css');
   const app=read('src/main.tsx');
@@ -40,17 +43,16 @@ test('market overview and ticket only use supported quote fields',()=>{
   assert.match(trade,/selected\.previousCloseCents/);
   assert.match(trade,/\.priceCents-q\.previousCloseCents/);
   assert.match(trade,/className="panel trade-market-list"/);
-  assert.match(trade,/className="panel trade-market-breadth"/);
-  assert.match(trade,/className="panel trade-terminal-ticket"/);
-  assert.match(trade,/onClick=\{p\.execute\}/);
+  assert.doesNotMatch(trade,/trade-market-breadth|trade-market-movers|trade-terminal-ticket|TradeOrderTicket/);
+  assert.match(trade,/label="Trade sections"/);
   assert.doesNotMatch(trade,/marketCap|market_cap|volume|sectorPerformance|fictitious|Math\.random/);
   assert.match(app,/tab === 'trade' \? <TradeTerminal/);
-  assert.match(app,/view === 'dashboard' \|\| view === 'trade' \|\| view === 'portfolio'/);
+  assert.match(app,/view === 'dashboard' \|\| view === 'portfolio' \|\| view === 'stock'/);
   assert.match(app,/tab !== 'stock' && tab !== 'trade' && tab !== 'dashboard'/);
   assert.match(css,/\.trade-market-table-row/);
-  assert.match(css,/\.trade-terminal-rail/);
+  assert.match(css,/\.trade-market-table-row/);
   assert.match(css,/@media\(max-width:760px\)/);
-  assert.match(css,/\.trade-terminal\[data-section="order"\] \.trade-terminal-ticket/);
+  assert.match(read('src/stock-terminal.css'),/\.trade-terminal\{display:flex!important/);
 });
 test('dashboard no longer mounts recent-trades summary or a trading ticket',()=>{
   const dashboard=read('src/TradingDashboard.tsx');

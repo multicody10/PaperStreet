@@ -49,7 +49,7 @@ test('removed History route opens Portfolio and global ticker retains market dat
   assert.doesNotMatch(routes,/'leaderboard' \| 'history' \|/);
   assert.doesNotMatch(app,/\{ id: 'history', label:/);
   assert.match(app,/<PortfolioHistory trades=\{trades\}/);
-  assert.match(app,/view === 'dashboard' \|\| view === 'portfolio'\)\s+jobs.push\(request<\{ trades: Trade\[\] \}>/);
+  assert.match(app,/view === 'dashboard' \|\| view === 'portfolio' \|\| view === 'stock'\)\s+jobs.push\(request<\{ trades: Trade\[\] \}>/);
   assert.match(app,/jobs.push\(request<\{ quotes: Quote\[\] \}>\('\/api\/market'/);
   assert.match(dashboard,/onClick=\{p\.onHistory\}/);
 });
