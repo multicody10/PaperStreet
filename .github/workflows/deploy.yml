@@ -41,6 +41,8 @@ jobs:
         run: npm test
       - name: Test D1 ledger
         run: python3 tests/database_test.py
+      - name: Bundle GitHub Actions public signing keys
+        run: node scripts/prepare-github-jwks.mjs
       - name: Typecheck and build Activity
         run: npm run build
       - name: Apply remote D1 migrations

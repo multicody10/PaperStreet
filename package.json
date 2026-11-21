@@ -10,7 +10,7 @@
     "deploy": "npm run build && wrangler deploy",
     "db:local": "wrangler d1 migrations apply paperstreet --local",
     "db:remote": "wrangler d1 migrations apply paperstreet --remote",
-    "test": "node --check scripts/register-commands-on-deploy.mjs && node --import tsx --test tests/*.test.ts"
+    "test": "node --check scripts/prepare-github-jwks.mjs && node --check scripts/register-commands-on-deploy.mjs && node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@discord/embedded-app-sdk": "^2.4.0",

@@ -1,3 +1,5 @@
+import { githubActionsOidcKeys } from './github-jwks';
+
 // Only a GitHub-signed OIDC token from this repository's production deploy
 // workflow can register commands. Never accept GitHub tokens or client headers
 // as identity. Discord credentials stay inside Cloudflare Worker secrets.
@@ -55,13 +57,20 @@ export async function inspectProductionDeployIdentity(
       claims.iat > now + 30 || claims.exp - claims.iat > 900) return deny('lifetime');
     if (typeof claims.sha !== 'string' || !/^[a-f0-9]{40}$/.test(claims.sha))
       return deny('commit');
-    const response = await fetch(JWKS_URL, { redirect: 'error', signal: AbortSignal.timeout(8000) })
-      .catch(() => null);
-    if (!response?.ok) return deny('jwks_fetch');
-    const data = await response.json().catch(() => null) as Jwks | null;
-    const jwk = data?.keys?.find(key => key.kid === header.kid &&
+    // Production keys are pinned from GitHub's public JWKS during the build.
+    // This avoids depending on a second outbound Worker connection at deploy time.
+    let jwk = githubActionsOidcKeys.find(key => key.kid === header.kid &&
       key.kty === 'RSA' && key.use === 'sig' && key.alg === 'RS256');
-    if (!jwk) return deny('jwks_key');
+    if (!jwk) {
+      // Local development / a genuinely rotated key can still use trusted JWKS.
+      const response = await fetch(JWKS_URL, { redirect: 'error', signal: AbortSignal.timeout(8000) })
+        .catch(() => null);
+      if (!response?.ok) return deny('jwks_fetch');
+      const data = await response.json().catch(() => null) as Jwks | null;
+      jwk = data?.keys?.find(key => key.kid === header.kid &&
+        key.kty === 'RSA' && key.use === 'sig' && key.alg === 'RS256');
+      if (!jwk) return deny('jwks_key');
+    }
     const key = await crypto.subtle.importKey('jwk', jwk, {
       name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256',
     }, false, ['verify']);
