@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type PointerEvent } from 'react';
 import type { Candle, ChartHistory, HistoryRange, Quote } from '../shared/stocks';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -70,6 +70,11 @@ export function PriceChart({ history, quote, range, error }: {
     return day.format(date);
   };
   const atLabel = dayTime.format(active.lastAt * 1000) + ' ET';
+  function inspectPointer(event: PointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const i = Math.floor((event.clientX - rect.left) / rect.width * bars.length);
+    setInspectedAt(bars[Math.max(0, Math.min(lastIndex, i))].lastAt);
+  }
   function inspectKey(event: KeyboardEvent<HTMLDivElement>) {
     const keys: Record<string, number> = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: lastIndex };
     if (!Object.hasOwn(keys, event.key)) return;
@@ -87,12 +92,8 @@ export function PriceChart({ history, quote, range, error }: {
       <div className="candle-plot" role="slider" tabIndex={0} aria-label="Inspect price candles"
         aria-valuemin={1} aria-valuemax={bars.length} aria-valuenow={index + 1}
         aria-valuetext={`${atLabel}, open ${money(active.openCents)}, high ${money(active.highCents)}, low ${money(active.lowCents)}, close ${money(active.closeCents)}`}
-        onKeyDown={inspectKey} onPointerLeave={() => setInspectedAt(null)}
-        onPointerMove={e => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const i = Math.floor((e.clientX - rect.left) / rect.width * bars.length);
-          setInspectedAt(bars[Math.max(0, Math.min(lastIndex, i))].lastAt);
-        }}>
+        onKeyDown={inspectKey} onPointerDown={inspectPointer} onPointerMove={inspectPointer}
+        onPointerLeave={event => { if (event.pointerType === 'mouse') setInspectedAt(null); }}>
         <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
           {[0, 25, 50, 75, 100].map(tick => <line key={tick} x1="0" x2="100%" y1={tick} y2={tick} className="candle-grid"/>)}
           <line x1={x(index) + '%'} x2={x(index) + '%'} y1="0" y2="100" className="candle-guide"/>
