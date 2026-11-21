@@ -43,3 +43,13 @@ test('other commands and applications cannot launch PaperStreet', async () => {
     assert.equal((await worker.fetch(signedRequest(payload), env)).status, 400);
   }
 });
+
+test('public config explicitly reports Discord interaction verification readiness', async () => {
+  const response = await worker.fetch(new Request('https://example.test/api/config'), env);
+  assert.equal(response.status, 200);
+  const data = await response.json() as { clientId: string; interactionsConfigured: boolean };
+  assert.equal(data.clientId, env.DISCORD_CLIENT_ID);
+  assert.equal(data.interactionsConfigured, true);
+  const missing = await worker.fetch(new Request('https://example.test/api/config'), { ...env, DISCORD_PUBLIC_KEY: '' });
+  assert.equal((await missing.json() as { interactionsConfigured: boolean }).interactionsConfigured, false);
+});

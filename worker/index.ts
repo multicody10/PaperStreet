@@ -37,6 +37,7 @@ app.use('/api/*', async (c, next) => {
 app.get('/api/health', c => c.json({ status: 'ok', service: 'paperstreet' }));
 app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
+  interactionsConfigured: /^[0-9a-f]{64}$/i.test(c.env.DISCORD_PUBLIC_KEY ?? ''),
   provider: 'finnhub',
   dataConfigured: Boolean(c.env.FINNHUB_API_KEY),
   startingCashCents: STARTING_CASH_CENTS,

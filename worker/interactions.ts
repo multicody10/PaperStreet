@@ -32,6 +32,9 @@ export async function discordInteraction(request: Request, env: InteractionEnv):
     return new Response('Invalid interaction', { status: 400 });
   }
   if (interaction.type === 2 && interaction.data?.type === 4) {
+    // Logs no user, channel, token or signature data. If this log is absent during
+    // an unwanted invite, Discord is still routing Play through its native handler.
+    console.info('PaperStreet received primary entry point launch; returning type 12');
     return Response.json({ type: 12 }); // PRIMARY_ENTRY_POINT → LAUNCH_ACTIVITY
   }
   return new Response('Unsupported interaction', { status: 400 });
