@@ -8,7 +8,7 @@ import { money, PriceChart } from './PriceChart';
 export type DashboardProps = {
   portfolio:Portfolio|null;quotes:Quote[];trades:Trade[];achievements:Achievement[];
   selectedSymbol:SymbolCode;setSelectedSymbol:(symbol:SymbolCode)=>void;
-  onOpenStock:(symbol:SymbolCode)=>void;onNavigate:(page:'portfolio'|'history'|'challenges'|'trade')=>void;
+  onOpenStock:(symbol:SymbolCode)=>void;onNavigate:(page:'portfolio'|'challenges'|'trade')=>void;onHistory:()=>void;
   selected?:Quote;history?:ChartHistory;historyError?:string;
   range:HistoryRange;setRange:(range:HistoryRange)=>void;
 };
@@ -132,7 +132,7 @@ export function TradingDashboard(p:DashboardProps) {
           </div>)}</div>}/>
       </DashCard>
       <DashCard className="terminal-bottom-activity" title="Recent paper trades" icon={<Activity size={18}/>}
-        action={<button className="terminal-more" type="button" onClick={()=>p.onNavigate('history')}>History <ChevronRight size={14}/></button>}>
+        action={<button className="terminal-more" type="button" onClick={p.onHistory}>History <ChevronRight size={14}/></button>}>
         <div className="terminal-trades-head"><span>Time</span><span>Symbol</span><span>Side</span><span>Qty</span></div>
         <FitPager items={p.trades} rowHeight={40} compactRowHeight={43} empty="No completed trades"
           render={items=><div className="terminal-trades-list">{items.map(t=><div className="terminal-trades-row" key={t.id}>

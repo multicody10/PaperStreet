@@ -10,6 +10,7 @@ const goals=read('src/Challenges.tsx');
 const stocks=read('src/StockPredictions.tsx');
 const trade=read('src/TradeTerminal.tsx');
 const tradeCss=read('src/trade-terminal.css');
+const dark=read('src/goals-portfolio.css');
 
 test('the supplied reference drives a unified dark navy and cyan UI across all routes',()=>{
   assert.match(app,/import '\.\/terminal\.css';/);
@@ -23,6 +24,10 @@ test('the supplied reference drives a unified dark navy and cyan UI across all r
     assert.ok(terminal.includes(selector),selector);
   assert.match(terminal,/@media \(max-width:760px\)/);
   assert.match(terminal,/\.terminal-dashboard > \.screen-tabs\{display:none\}/);
+  assert.match(app,/import '\.\/goals-portfolio\.css';/);
+  assert.match(dark,/--bg:#060911/);
+  assert.match(dark,/--card-edge:#374355/);
+  assert.match(dark,/border:1px solid #374458!important/);
 });
 
 test('terminal dashboard shows all screenshot-inspired sections with real-backed figures',()=>{
@@ -81,7 +86,7 @@ test('mobile dashboard remains viewport locked with operational section selectio
 test('existing stock forecasts, Goals, and dedicated trading pages are retained',()=>{
   assert.match(app,/<StockPredictions key=\{selectedSymbol\}/);
   assert.match(stocks,/predictionsForStock\(predictions,symbol\)/);
-  assert.match(goals,/Goals sections/);
+  assert.match(goals,/Goals panels/);
   assert.match(app,/<TradeTerminal/);
   assert.match(app,/className="stock-workspace"/);
   assert.match(app,/className=\{tab === 'portfolio' \? 'details-stack portfolio-stack' : 'details-stack'\}/);

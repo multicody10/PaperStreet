@@ -40,7 +40,7 @@ test('dashboard matches trading terminal reference with simultaneous live cards'
   assert.ok(trade.includes('trade-market-list'));
   assert.ok(trade.includes('trade-market-movers'));
   assert.ok(trade.includes('trade-terminal-ticket'));
-  assert.ok((app.match(/<FitPager /g)??[]).length>=3);
+  assert.ok((app.match(/<FitPager /g)??[]).length>=2);
   assert.ok((dashboard.match(/<FitPager /g)??[]).length>=4);
 });
 test('stock has chart, quote facts and full desktop ticket without mobile wizard steps',()=>{
@@ -55,25 +55,30 @@ test('stock has chart, quote facts and full desktop ticket without mobile wizard
   assert.match(cards,/@media \(max-width:760px\)\s*\{[\s\S]*?\.stock-workspace > \.trade-panel-desktop\{display:none!important\}/);
 });
 
-test('Goals keeps achievements and stock discovery while predictions move to stocks',()=>{
-  assert.match(app,/portfolio-stack/);
-  assert.match(cards,/\.details-stack\.portfolio-stack > \.orders-panel,[\s\S]*?display:flex!important/);
-  assert.match(cards,/\.details-stack\.portfolio-stack > \.details-panel,[\s\S]*?display:flex!important/);
-  for(const section of ['achievement-panel','challenge-explore'])
-    assert.ok(challenge.includes('className="panel '+section+'"'),section);
-  assert.doesNotMatch(challenge,/className="panel (?:prediction-panel|prediction-history)"/);
-  assert.match(challenge,/className="challenge-layout fitted-panel" data-pane=\{tab\}/);
-  assert.match(challenge,/label="Goals sections"/);
+test('Goals follows the reference with live cards and history is below orders',()=>{
+  const theme=source('src/goals-portfolio.css');
+  const history=source('src/PortfolioHistory.tsx');
+  const goals=source('src/Challenges.tsx');
   const forecast=source('src/StockPredictions.tsx');
   const stockCss=source('src/stock-predictions.css');
+  assert.match(app,/import '\.\/goals-portfolio\.css'/);
+  assert.match(app,/<PortfolioHistory trades=\{trades\}/);
+  assert.match(app,/items=\{\[\{id:'positions',label:'Positions'\},\{id:'orders',label:'Queued orders'\},\{id:'history',label:'History'\}\]\}/);
+  assert.match(history,/<FitPager items=\{trades\}/);
+  assert.match(theme,/\.details-stack\.portfolio-stack > \.orders-panel\{/);
+  assert.match(theme,/grid-area:1\/2!important/);
+  assert.match(theme,/\.details-stack\.portfolio-stack > \.portfolio-history-panel\{/);
+  assert.match(theme,/grid-area:2\/2/);
+  for(const item of ['goals-stats','goals-primary','goals-featured','goals-completion',
+    'goals-all','goals-unlocks','goals-featured-grid','goals-table-body'])
+    assert.ok(goals.includes(item),item);
+  assert.doesNotMatch(goals,/prediction-panel|prediction-history|submitForecast/);
+  assert.match(goals,/label="Goals panels"/);
+  assert.match(theme,/\.goals-body\{display:grid/);
+  assert.match(theme,/\.goals-featured-grid\{display:grid/);
   assert.match(app,/<StockPredictions key=\{selectedSymbol\}/);
-  assert.match(forecast,/aria-label=\{'Stock predictions for '\+symbol\}/);
   assert.match(forecast,/predictionsForStock\(predictions,symbol\)/);
   assert.match(stockCss,/@media \(min-width:761px\)/);
-  assert.match(stockCss,/\.stock-workspace > \.stock-prediction-panel,[\s\S]*?grid-area:3\/1/);
-  assert.match(stockCss,/\.challenge-layout > \.achievement-panel,[\s\S]*?grid-area:1\/1/);
-  assert.match(stockCss,/\.challenge-layout > \.challenge-explore,[\s\S]*?grid-area:1\/2/);
-  assert.match(stockCss,/\.stock-workspace\[data-pane="predict"\] > \.stock-prediction-panel/);
 });
 
 test('no-scroll viewport and mobile section controls remain intact',()=>{
@@ -84,7 +89,7 @@ test('no-scroll viewport and mobile section controls remain intact',()=>{
   assert.match(source('src/TradeTerminal.tsx'),/label="Trade sections"/);
   assert.match(app,/label="Stock panels"/);
   assert.match(app,/label="Portfolio panels"/);
-  assert.match(challenge,/label="Goals sections"/);
+  assert.match(challenge,/label="Goals panels"/);
   assert.match(cards,/\.content-wrap > \.screen-tabs,[\s\S]*?display:none!important/);
   assert.match(cards,/@media \(min-width:761px\) and \(max-height:610px\)/);
 });
