@@ -16,6 +16,7 @@ import type { Achievement, OrderKind, Prediction, PredictionDirection, Predictio
 import './style.css';
 import './mobile.css';
 import './gameplay.css';
+import './desktop.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };

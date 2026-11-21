@@ -158,8 +158,9 @@ export async function submitPrediction(env: MarketEnv, userId: string, symbol: S
   return asPrediction(row);
 }
 export async function settlePredictions(env: MarketEnv, now = Math.floor(Date.now()/1000)): Promise<number> {
+  // Defer settlement until a later trading day; same-day near-close prints are not final closes.
   const today = easternDate(now);
-  const { results } = await env.DB.prepare("SELECT " + predictionColumns + " FROM predictions WHERE outcome='PENDING' AND target_date<=? ORDER BY last_checked_at,target_date DESC,id LIMIT 40").bind(today).all<PredictionRow>();
+  const { results } = await env.DB.prepare("SELECT " + predictionColumns + " FROM predictions WHERE outcome='PENDING' AND target_date<? ORDER BY last_checked_at,target_date DESC,id LIMIT 40").bind(today).all<PredictionRow>();
   if (!results.length) return 0;
   await env.DB.prepare("UPDATE predictions SET last_checked_at=? WHERE outcome='PENDING' AND id IN (" +
     results.map(() => '?').join(',') + ")").bind(now,...results.map(r=>r.id)).run();

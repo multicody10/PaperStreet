@@ -267,17 +267,16 @@ export default {
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
     if (!env.FINNHUB_API_KEY) return;
     const now = Math.floor(controller.scheduledTime / 1000);
-    const open = isUsMarketOpen(now);
-    // Keep the existing 5-minute quote collector; the same cron processes paper orders.
-    // After the bell, grade predictions from recorded verified closing-session observations.
-    if (!open && new Date(controller.scheduledTime).getUTCMinutes() % 30 !== 0) return;
+    // Wrangler's UTC schedule covers both EST and EDT regular sessions.
+    // Holidays, early closures and the buffer around those sessions exit without work.
+    if (!isUsMarketOpen(now)) return;
     ctx.waitUntil((async () => {
-      if (open) {
-        await allQuotes(env).catch(error=>console.error('Quote collection failed',error instanceof Error?error.message:'Unknown'));
-        await processQueuedOrders(env,now);
-      } else {
-        await settlePredictions(env,now);
-      }
+      // Keep failures in the quote collector from preventing queued-order processing.
+      await allQuotes(env).catch(error =>
+        console.error('Quote collection failed', error instanceof Error ? error.message : 'Unknown'));
+      await processQueuedOrders(env, now);
+      // Grade completed sessions on a subsequent open-market run, never while closed.
+      await settlePredictions(env, now);
     })().catch(error => {
       console.error('PaperStreet scheduled gameplay failed', error instanceof Error ? error.message : 'Unknown failure');
     }));
