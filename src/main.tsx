@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import {
@@ -12,6 +12,7 @@ import { HISTORY_RANGES, STARTING_CASH_CENTS } from '../shared/stocks';
 import { appHash, parseAppHash, type Page, type View } from './navigation';
 import { DayRange, money, PriceChart } from './PriceChart';
 import './style.css';
+import './mobile.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -42,6 +43,7 @@ async function request<T>(path: string, token?: string, init?: RequestInit): Pro
 }
 
 function App() {
+  const mainRef = useRef<HTMLElement | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const [token, setToken] = useState('');
@@ -88,6 +90,9 @@ function App() {
       window.removeEventListener('hashchange', syncRoute);
     };
   }, []);
+
+  // Mobile pages share a single scroll container; open each new view at the top.
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0, behavior: 'auto' }); }, [tab, selectedSymbol]);
 
   const refresh = useCallback(async (session: string, view: View) => {
     if (!session) return;
@@ -236,7 +241,7 @@ function App() {
           <div className="sidebar-promo"><span className="promo-icon"><Trophy size={21}/></span><strong>Every trade counts.</strong><p>Build your portfolio and climb the global leaderboard.</p><button type="button" onClick={() => goToPage('leaderboard')}>View rankings <ChevronRight size={15}/></button></div>
           <div className="sidebar-foot"><ShieldCheck size={13}/> Virtual money only</div>
         </aside>
-        <main className="main-content">
+        <main className="main-content" ref={mainRef}>
           <div className="content-wrap">
             <div className="headline"><div><div className="eyebrow">PAPERSTREET EXCHANGE <span> / </span> {tab === 'stock' ? 'TRADE / ' + selectedSymbol : tab.toUpperCase()}</div><h1>{title}</h1><p>{subtitle}</p></div><span className="connection-pill"><span className={`status-dot ${account ? '' : 'connecting'}`}/>{authStatus}</span></div>
             {!account ? <section className="welcome-panel"><div className="welcome-icon"><BarChart3 size={30}/></div><h2>Start with {money(STARTING_CASH_CENTS)}</h2><p>Connect through the Discord App Launcher to start trading stocks using virtual cash.</p><div className="auth-status" role="status">{authError || authStatus}</div><small>PaperStreet is a game. No real money is exchanged.</small></section> : <>
@@ -306,13 +311,22 @@ function App() {
                 <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canTrade} pending={pending} execute={execute} portfolio={portfolio}/>
               </div> : <section className="panel details-panel">
                 <div className="panel-heading details-heading"><div><h2>{tab === 'portfolio' ? 'Open positions' : tab === 'leaderboard' ? 'Global rankings' : 'Executed orders'}</h2><p>{tab === 'portfolio' ? 'Market value and cost basis for your investments.' : tab === 'leaderboard' ? 'Ranked by total portfolio equity, including virtual cash.' : 'Your latest completed market orders.'}</p></div><span className="count-pill">{tab === 'portfolio' ? `${portfolio?.positions.length ?? 0} POSITIONS` : tab === 'leaderboard' ? 'TOP 25' : `${trades.length} TRADES`}</span></div>
-                {tab === 'portfolio' ? <div className="responsive-table"><table><thead><tr><th>Asset</th><th>Shares</th><th>Average cost</th><th>Market value</th><th>Profit / loss</th><th></th></tr></thead><tbody>{portfolio?.positions.map(p => <tr key={p.symbol}><td><strong>{p.symbol}</strong><small>{p.quote.name}</small></td><td>{p.shares}</td><td>{money(Math.round(p.costBasisCents / p.shares))}</td><td>{money(p.marketValueCents)}</td><td className={p.profitCents >= 0 ? 'positive' : 'negative'}>{signedMoney(p.profitCents)}</td><td><button type="button" className="small-action" onClick={() => openStock(p.symbol, 'SELL')}>Trade <ArrowUpRight size={14}/></button></td></tr>)}</tbody></table>{!portfolio?.positions.length && <div className="empty">No holdings yet. Visit Trade to place your first order.</div>}</div> : tab === 'leaderboard' ? <div className="full-leaderboard">{leaders.map((leader, i) => <div key={leader.userId} className={`full-leader-row ${leader.userId === account.id ? 'self' : ''}`}><span className="rank">#{i + 1}</span><ProfileAvatar className="leader-avatar" url={leader.avatarUrl} name={leader.displayName}/><span className="full-leader-name"><strong>{leader.displayName}</strong>{leader.userId === account.id && <small>YOU</small>}</span><span className="full-leader-value"><strong>{money(leader.equityCents)}</strong><small className={leader.changeCents >= 0 ? 'positive' : 'negative'}>{signedMoney(leader.changeCents)} all time</small></span></div>)}{!leaders.length && <div className="empty">Rankings will appear when players join.</div>}</div> : <div className="responsive-table"><table><thead><tr><th>Order</th><th>Symbol</th><th>Shares</th><th>Fill price</th><th>Total</th><th>Time</th></tr></thead><tbody>{trades.map(trade => <tr key={trade.id}><td><span className={`order-side ${trade.side === 'BUY' ? 'buy' : 'sell'}`}>{trade.side === 'BUY' ? <ArrowDownLeft size={14}/> : <ArrowUpRight size={14}/>} {trade.side}</span></td><td><strong>{trade.symbol}</strong></td><td>{trade.shares}</td><td>{money(trade.priceCents)}</td><td>{money(trade.shares * trade.priceCents)}</td><td>{new Date(trade.executedAt * 1000).toLocaleString()}</td></tr>)}</tbody></table>{!trades.length && <div className="empty">No trades yet. Your order history will appear here.</div>}</div>}
+                {tab === 'portfolio' ? <div className="responsive-table"><table><thead><tr><th>Asset</th><th>Shares</th><th>Average cost</th><th>Market value</th><th>Profit / loss</th><th></th></tr></thead><tbody>{portfolio?.positions.map(p => <tr key={p.symbol}><td data-label="Asset"><strong>{p.symbol}</strong><small>{p.quote.name}</small></td><td data-label="Shares">{p.shares}</td><td data-label="Average cost">{money(Math.round(p.costBasisCents / p.shares))}</td><td data-label="Market value">{money(p.marketValueCents)}</td><td data-label="Profit / loss" className={p.profitCents >= 0 ? 'positive' : 'negative'}>{signedMoney(p.profitCents)}</td><td data-label="Action"><button type="button" className="small-action" onClick={() => openStock(p.symbol, 'SELL')}>Trade <ArrowUpRight size={14}/></button></td></tr>)}</tbody></table>{!portfolio?.positions.length && <div className="empty">No holdings yet. Visit Trade to place your first order.</div>}</div> : tab === 'leaderboard' ? <div className="full-leaderboard">{leaders.map((leader, i) => <div key={leader.userId} className={`full-leader-row ${leader.userId === account.id ? 'self' : ''}`}><span className="rank">#{i + 1}</span><ProfileAvatar className="leader-avatar" url={leader.avatarUrl} name={leader.displayName}/><span className="full-leader-name"><strong>{leader.displayName}</strong>{leader.userId === account.id && <small>YOU</small>}</span><span className="full-leader-value"><strong>{money(leader.equityCents)}</strong><small className={leader.changeCents >= 0 ? 'positive' : 'negative'}>{signedMoney(leader.changeCents)} all time</small></span></div>)}{!leaders.length && <div className="empty">Rankings will appear when players join.</div>}</div> : <div className="responsive-table"><table><thead><tr><th>Order</th><th>Symbol</th><th>Shares</th><th>Fill price</th><th>Total</th><th>Time</th></tr></thead><tbody>{trades.map(trade => <tr key={trade.id}><td data-label="Order"><span className={`order-side ${trade.side === 'BUY' ? 'buy' : 'sell'}`}>{trade.side === 'BUY' ? <ArrowDownLeft size={14}/> : <ArrowUpRight size={14}/>} {trade.side}</span></td><td data-label="Symbol"><strong>{trade.symbol}</strong></td><td data-label="Shares">{trade.shares}</td><td data-label="Fill price">{money(trade.priceCents)}</td><td data-label="Total">{money(trade.shares * trade.priceCents)}</td><td data-label="Time">{new Date(trade.executedAt * 1000).toLocaleString()}</td></tr>)}</tbody></table>{!trades.length && <div className="empty">No trades yet. Your order history will appear here.</div>}</div>}
               </section>}
               <footer className="app-footer"><span>PaperStreet is a paper trading game. No real securities or money are exchanged.</span><span>Real provider quotes may be delayed. Virtual orders are available 24/7 using the last verified quote; prices can remain unchanged after exchange hours.</span></footer>
             </>}
           </div>
         </main>
       </div>
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        {links.map(({ id, label, icon: Icon }) => {
+          const active = tab === id || (tab === 'stock' && id === 'trade');
+          return <button key={id} type="button" className={active ? 'active' : ''}
+            aria-current={active ? 'page' : undefined} onClick={() => goToPage(id)}>
+            <Icon size={20} aria-hidden="true"/><span>{label}</span>
+          </button>;
+        })}
+      </nav>
     </div>
   );
 }
