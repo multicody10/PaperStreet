@@ -34,12 +34,12 @@ test('market overview and ticket only use supported quote fields',()=>{
   const trade=read('src/TradeTerminal.tsx');
   const css=read('src/trade-terminal.css');
   const app=read('src/main.tsx');
-  assert.match(trade,/className="trade-market-overview"/);
+  assert.match(trade,/className="panel trade-market-overview"/);
   assert.match(trade,/<PriceChart key=\{p\.selectedSymbol\+':'\+p\.range\}/);
   assert.match(trade,/selected\.sessionBar\.openCents/);
   assert.match(trade,/selected\.previousCloseCents/);
   assert.match(trade,/\.priceCents-q\.previousCloseCents/);
-  assert.match(trade,/className="trade-market-list"/);
+  assert.match(trade,/className="panel trade-market-list"/);
   assert.match(trade,/className="panel trade-market-breadth"/);
   assert.match(trade,/className="panel trade-terminal-ticket"/);
   assert.match(trade,/onClick=\{p\.execute\}/);
