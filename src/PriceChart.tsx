@@ -10,6 +10,34 @@ const fullDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric
 const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: et });
 const fields = [['Open', 'openCents'], ['High', 'highCents'], ['Low', 'lowCents'], ['Close', 'closeCents']] as const;
 
+const historyMessages = {
+  not_configured: 'Historical data key not configured',
+  intraday_only: '1D uses observed intraday prices only',
+  pending: 'Historical import pending',
+  imported: '',
+  rate_limited: 'History provider rate limited',
+  premium_required: 'History endpoint requires a paid provider plan',
+  invalid_key: 'History provider rejected API key',
+  provider_error: 'History provider rejected the request',
+  invalid_response: 'History provider returned no usable candles',
+  quota_exhausted: 'Daily free history request budget reached',
+  http_error: 'History provider HTTP error',
+  network_error: 'History provider network error',
+  storage_error: 'Historical data storage error',
+} as const;
+function historyBackfillMessage(history?: ChartHistory): string | null {
+  if (!history?.backfill || history.source === 'alphavantage') return null;
+  const {code,nextAttemptAt}=history.backfill;
+  const message=historyMessages[code];
+  if(!message) return null;
+  const retry=nextAttemptAt && nextAttemptAt>Date.now()/1000 &&
+    !['not_configured','intraday_only'].includes(code)
+    ? ' · Retry '+new Date(nextAttemptAt*1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})
+    : '';
+  return message+retry;
+}
+
+
 export function DayRange({ quote }: { quote: Quote }) {
   const bar = quote.sessionBar;
   if (!bar) return <span className="range-unavailable" aria-label="Session range unavailable">—</span>;
@@ -33,6 +61,7 @@ export function PriceChart({ history, quote, range, error }: {
 }) {
   const [inspectedAt, setInspectedAt] = useState<number | null>(null);
   const recorded = history?.candles ?? [];
+  const backfillMessage = historyBackfillMessage(history);
   const count = recorded.reduce((total, bar) => total + bar.samples, 0);
   const provider = history?.source === 'alphavantage';
   const session = !provider && count < 2 && quote?.sessionBar;
@@ -50,7 +79,7 @@ export function PriceChart({ history, quote, range, error }: {
     caption = 'Latest observed price';
   }
   if (!bars.length) return <div className="chart-placeholder" role="status">
-    {error ? 'Price history is unavailable.' : history ? 'No recorded prices in this range.' : 'Loading price history…'}
+    {error ? 'Price history is unavailable.' : history ? backfillMessage ?? 'No recorded prices in this range.' : 'Loading price history…'}
   </div>;
 
   const lastIndex = bars.length - 1;
@@ -89,7 +118,10 @@ export function PriceChart({ history, quote, range, error }: {
     provider ? `${bars.length.toLocaleString()} historical bars in ${range}` :
     `${count.toLocaleString()} ${count === 1 ? 'sample' : 'samples'} in ${range}`;
   return <div className="candle-chart">
-    <div className="candle-heading"><strong>{caption}</strong><span>{chartStatus}</span></div>
+    <div className="candle-heading"><strong>{caption}</strong>
+      <span className={backfillMessage ? 'history-backfill-status' : undefined}
+        title={backfillMessage ?? chartStatus}>{backfillMessage ?? chartStatus}</span>
+    </div>
     <div className="bar-readout">{singlePrint ? <span>Print <b>{money(active.closeCents)}</b></span> :
       fields.map(([label, key]) => <span key={key}>{label === 'Close' && session ? 'Last' : label} <b>{money(active[key])}</b></span>)}</div>
     <div className="candle-frame">

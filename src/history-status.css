@@ -1,0 +1,7 @@
+/* One unobtrusive status line inside the existing fixed-size chart heading. */
+.app-shell .candle-heading .history-backfill-status{
+  color:#f2c47e;font-size:clamp(10px,.9vw,12px);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:65%;text-align:right;
+}
+.app-shell .chart-placeholder{overflow-wrap:anywhere}
