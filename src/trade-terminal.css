@@ -1,0 +1,347 @@
+/*
+ * PaperStreet trade terminal
+ * Reference-driven: cyan/navy market overview, dense sortable quote table,
+ * movers and breadth data, live paper order ticket. No fabricated metrics.
+ */
+@media(min-width:761px){
+  .terminal-summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  .terminal-middle{grid-template-columns:minmax(195px,.81fr) minmax(0,2.6fr)!important}
+}
+.trade-terminal{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(262px,.305fr);
+  gap:clamp(7px,.85vw,12px);
+  flex:1;min-width:0;min-height:0;height:100%;
+  overflow:hidden;
+}
+.trade-terminal-main{
+  display:grid;grid-template-rows:auto 62px minmax(185px,.83fr) minmax(225px,1.47fr);
+  min-width:0;min-height:0;gap:clamp(6px,.75vh,10px);overflow:hidden;
+}
+.trade-terminal-rail{
+  display:grid;grid-template-rows:minmax(140px,.9fr) minmax(100px,.58fr) minmax(240px,1.47fr);
+  min-height:0;min-width:0;gap:clamp(6px,.75vh,10px);overflow:hidden;
+}
+.trade-terminal > .screen-tabs{display:none!important}
+.trade-terminal-title{min-width:0;min-height:0;display:flex;flex-direction:column;gap:3px;justify-content:center;padding:0 7px}
+.trade-terminal-title h1{font-size:clamp(23px,2.2vw,31px);line-height:1.04;color:#f3f7ff;letter-spacing:-.6px;font-weight:850}
+.trade-terminal-title p{font-size:clamp(10px,.9vw,12px);color:#9cabbe;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trade-terminal-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(5px,.62vw,9px);min-height:0;overflow:hidden}
+.trade-terminal-snapshot{
+  position:relative;display:grid;min-width:0;min-height:0;
+  grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr 1.2fr;
+  align-items:center;gap:1px 5px;padding:8px clamp(6px,.7vw,10px);
+  border:1px solid var(--card-edge);border-radius:9px;
+  background:linear-gradient(135deg,#192333,#101824);
+  color:#eef5ff;text-align:left;
+}
+.trade-terminal-snapshot:hover,.trade-terminal-snapshot.selected{border-color:#108fc9;background:linear-gradient(135deg,#132e48,#132033)}
+.trade-terminal-snapshot.selected{box-shadow:inset 0 -2px var(--cyan)}
+.trade-terminal-snapshot:disabled{opacity:.55;cursor:default}
+.trade-terminal-snapshot>span{grid-column:1/-1;font-weight:750;font-size:clamp(9px,.8vw,11px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trade-terminal-snapshot>strong{font-size:clamp(11px,1vw,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.15px}
+.trade-terminal-snapshot>b{font-size:clamp(9px,.75vw,11px);white-space:nowrap;text-align:right}
+.trade-terminal .panel{min-height:0!important;min-width:0;overflow:hidden!important}
+.trade-market-overview{display:flex;flex-direction:column}
+.trade-market-overview-head{
+  flex:none;display:flex;align-items:center;gap:9px;min-width:0;
+  min-height:39px;padding:5px 11px;border-bottom:1px solid #2b3a50;
+}
+.trade-market-overview-head h2{display:flex;align-items:center;gap:9px;flex:none;font-size:clamp(12px,.95vw,15px);white-space:nowrap;font-weight:800;color:#edf5ff}
+.trade-market-overview-head h2 small{font-size:10px;color:#8facc2;font-weight:650}
+.trade-market-overview-head .chart-range-bar{display:flex;flex:1;justify-content:center;flex-wrap:nowrap;gap:4px;min-width:0;padding:0}
+.trade-market-overview-head .chart-range-bar button{
+  min-width:0;min-height:27px;padding:4px clamp(5px,.6vw,9px);font-size:10px;flex:0 1 auto;
+}
+.trade-terminal-full{
+  display:flex;align-items:center;gap:4px;flex:none;
+  color:#b1d5e9;border:1px solid #344a60;background:#172336;
+  border-radius:7px;padding:6px 8px;font-size:10px;font-weight:750;white-space:nowrap;
+}
+.trade-terminal-full:hover{color:var(--cyan);border-color:var(--cyan)}
+.trade-market-overview-body{
+  flex:1;display:grid;grid-template-columns:minmax(155px,.67fr) minmax(0,2fr);
+  min-width:0;min-height:0;padding:3px 7px 3px 0;gap:6px;overflow:hidden;
+}
+.trade-market-overview-metrics{
+  display:flex;flex-direction:column;min-width:0;min-height:0;
+  justify-content:center;align-items:flex-start;gap:3px;padding:6px 12px;
+  border-right:1px solid #2c394d;overflow:hidden;
+}
+.trade-market-overview-metrics>strong{font-size:clamp(13px,1.25vw,18px);font-weight:850;color:#eaf5ff}
+.trade-market-overview-metrics>small{font-size:10px;color:#9caec2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.trade-market-overview-metrics>b{font-size:clamp(20px,2.05vw,30px);font-weight:850;color:#f5f9ff;white-space:nowrap;letter-spacing:-.8px}
+.trade-market-overview-metrics>span{font-size:clamp(10px,.95vw,13px);font-weight:800;white-space:nowrap}
+.trade-market-overview-ohlc{display:grid;gap:4px;margin-top:auto;padding-top:5px;width:100%;min-width:0}
+.trade-market-overview-ohlc>span{display:flex;justify-content:space-between;gap:6px;color:#95a7bf;font-size:10px}
+.trade-market-overview-ohlc b{font-weight:700;color:#e2ebfa;white-space:nowrap}
+.trade-market-overview-body>.candle-chart{
+  display:flex;flex:1;flex-direction:column;
+  min-width:0;min-height:0;height:100%;
+  padding:5px 9px 0;overflow:hidden!important;
+}
+.trade-market-overview-body .candle-heading,.trade-market-overview-body .candle-foot{flex:none;font-size:9px}
+.trade-market-overview-body .bar-readout{display:flex;flex:none;gap:7px;font-size:9px;margin:2px 0 5px}
+.trade-market-overview-body .candle-frame{flex:1;min-height:0;height:auto}
+.trade-market-overview-body .candle-plot{min-height:0}
+.trade-market-overview-body .candle-times{flex:none;min-height:17px;height:17px;font-size:9px}
+.trade-market-list{display:flex;flex-direction:column;min-height:0;min-width:0}
+.trade-market-list-bar{display:flex;align-items:center;justify-content:space-between;flex:none;gap:8px;min-height:37px;border-bottom:1px solid #2b394b;padding:0 10px}
+.trade-market-asset-tabs{display:flex;align-items:center;gap:2px;height:100%}
+.trade-market-asset-tabs button{height:100%;min-height:31px;padding:6px 16px;border:0;border-bottom:2px solid transparent;color:#b2c0d2;background:transparent;font-size:11px;font-weight:750}
+.trade-market-asset-tabs button.active{color:#e8f9ff;border-bottom-color:var(--cyan);background:linear-gradient(180deg,#0d3a58,#124c6d)}
+.trade-market-asset-tabs button:hover{color:var(--cyan)}
+.trade-market-list-count{color:#849db2;font-size:10px;white-space:nowrap}
+.trade-market-filters{display:flex;align-items:center;gap:8px;flex:none;min-height:39px;padding:5px 9px;border-bottom:1px solid #283a50}
+.trade-market-sort-label{display:flex;align-items:center;gap:5px;color:#a9bdd0;font-size:10px}
+.trade-market-filters select{
+  max-width:170px;min-width:95px;height:28px;
+  border:1px solid #344559;border-radius:6px;padding:4px 8px;
+  background:#131d2c;color:#d6e9f8;font-size:10px;
+}
+.trade-market-search{display:flex;align-items:center;gap:7px;width:clamp(140px,26%,250px);margin-left:auto;min-width:0;height:29px;padding:4px 9px;border-radius:7px;background:#101828;border:1px solid #354659;color:#91a6bb}
+.trade-market-search input{min-width:0;width:100%;height:100%;background:transparent;border:0;color:#edf7ff;font-size:10px;outline:0}
+.trade-market-search:focus-within{border-color:var(--cyan)}
+.trade-market-table-head,.trade-market-table-row{
+  display:grid;grid-template-columns:minmax(65px,.8fr) minmax(100px,1.5fr) minmax(65px,.8fr)
+    minmax(67px,.84fr) minmax(65px,.75fr) minmax(72px,.85fr) minmax(110px,1.28fr);
+  align-items:center;gap:6px;min-width:0;
+  padding:0 11px;
+}
+.trade-market-table-head{
+  flex:none;min-height:29px;background:#162131;color:#94a9c1;
+  border-bottom:1px solid #2b394b;
+  font-size:10px;text-align:right;font-weight:700;
+}
+.trade-market-table-head>span:first-child,.trade-market-table-head>span:nth-child(2){text-align:left}
+.trade-market-list .fit-pager{flex:1;min-height:0}
+.trade-market-table-body{height:100%;min-height:0;overflow:hidden!important}
+.trade-market-table-row{
+  width:100%;height:41px;min-height:0;
+  background:transparent;color:#dce8f6;
+  border:0;border-bottom:1px solid #26354a;
+  font-size:10.5px;text-align:right;
+}
+.trade-market-table-row:hover{background:#1b2d43}
+.trade-market-table-row.selected{box-shadow:inset 3px 0 var(--cyan);background:#112e46}
+.trade-market-table-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.trade-market-table-symbol{display:flex;align-items:center;gap:8px;text-align:left;font-size:11px}
+.trade-market-table-symbol i{display:grid;place-items:center;width:25px;height:25px;flex:none;border:1px solid #285774;background:#1b3249;color:#6ed5fe;border-radius:6px;font-size:9px;font-weight:800;font-style:normal}
+.trade-market-table-company{text-align:left}
+.trade-market-table-range{display:flex;justify-content:center;align-items:center}
+.trade-market-table-range .day-range{width:100%;max-width:125px;gap:3px}
+.trade-market-table-range .range-track{background:#45576c}
+.trade-market-table-range .range-track i{background:var(--cyan);box-shadow:none}
+.trade-market-table-range .range-ends span{font-size:8px;color:#a7b6c9}
+.trade-market-table-range .range-unavailable{font-size:10px}
+.trade-market-list .fit-pager-controls{height:26px;min-height:26px}
+.trade-market-list .fit-pager-controls button{min-height:23px}
+/* Right column: movers, breadth and ticket. */
+.trade-market-movers,.trade-market-breadth,.trade-terminal-ticket{display:flex;flex-direction:column;min-width:0;min-height:0}
+.trade-rail-heading,.trade-terminal-ticket-header{
+  display:flex;justify-content:space-between;align-items:center;flex:none;gap:5px;
+  min-height:35px;padding:7px 11px;border-bottom:1px solid #2c3b4e;
+  background:linear-gradient(180deg,#172131,#121a28);
+}
+.trade-rail-heading h2,.trade-terminal-ticket-header h2{display:flex;align-items:center;gap:7px;font-size:clamp(11px,.95vw,14px);font-weight:850;color:#ecf4ff}
+.trade-rail-heading>span{font-size:9px;color:#9ab2c7;white-space:nowrap}
+.trade-mover-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:none;gap:3px;padding:5px 9px 3px}
+.trade-mover-tabs button{border:0;border-radius:6px;background:#182233;color:#a9bacd;min-width:0;padding:5px 2px;font-size:10px;font-weight:750}
+.trade-mover-tabs button.active{color:#effaff;background:#0e678e;box-shadow:0 2px 10px #0da8ea29}
+.trade-mover-tabs button:hover{color:var(--cyan)}
+.trade-market-movers .fit-pager{flex:1;min-height:0}
+.trade-market-movers .fit-pager-controls{height:25px;min-height:25px}
+.trade-market-movers .fit-pager-controls button{height:21px;min-height:21px}
+.trade-movers-list{height:100%;min-height:0}
+.trade-mover-row{
+  display:grid;grid-template-columns:minmax(45px,1fr) minmax(60px,.92fr) minmax(50px,.85fr);
+  align-items:center;gap:5px;padding:0 10px;
+  width:100%;height:35px;min-height:0;text-align:right;
+  border:0;border-bottom:1px solid #26354a;background:transparent;color:#e3edfa;font-size:10px;
+}
+.trade-mover-row:hover{background:#203248}
+.trade-mover-row strong{text-align:left;font-size:11px}
+.trade-mover-row span,.trade-mover-row b{white-space:nowrap}
+.trade-mover-row b{font-weight:800}
+.trade-breadth-body{display:flex;flex:1;justify-content:center;flex-direction:column;gap:clamp(5px,.7vh,10px);padding:6px 12px;min-height:0}
+.trade-breadth-row{display:grid;grid-template-columns:minmax(63px,.85fr) minmax(0,1.5fr) 23px;align-items:center;gap:9px;font-size:10px;color:#c0d0e0}
+.trade-breadth-row strong{text-align:right;font-size:10px;font-weight:850}
+.trade-breadth-track{height:7px;background:#303d51;border-radius:6px;overflow:hidden}
+.trade-breadth-track>i{display:block;height:100%;border-radius:6px}
+.trade-breadth-track>i.up{background:linear-gradient(90deg,#12a2c8,#17e8a2)}
+.trade-breadth-track>i.down{background:#ff6075}
+.trade-breadth-track>i.flat{background:#8595ae}
+.trade-terminal-mode{font-size:9px;color:#9cbad4;border:1px solid #30536d;border-radius:5px;background:#142b40;padding:4px 5px;white-space:nowrap;font-weight:800}
+.trade-terminal-ticket-body{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;gap:clamp(5px,.75vh,10px);padding:clamp(7px,.95vh,12px)}
+.trade-terminal-side{min-height:0;flex:none}
+.trade-terminal-side button{min-height:30px;padding:5px 3px}
+.trade-terminal-field{display:flex;flex:none;flex-direction:column;min-width:0;gap:4px}
+.trade-terminal-field-label{display:flex;align-items:center;justify-content:space-between;color:#c0d1e2;font-size:10px;font-weight:750}
+.trade-terminal-field-label small{font-size:9px;color:#92aac0}
+.trade-terminal-symbol,.trade-terminal-quantity,.trade-terminal-input{
+  display:flex;align-items:center;gap:6px;
+  width:100%;min-height:32px;padding:5px 9px;
+  border:1px solid #35485f;border-radius:7px;background:#0f1725;color:#f0f7ff;
+  font-size:12px;
+}
+.trade-terminal-symbol{justify-content:space-between;overflow:hidden}
+.trade-terminal-symbol>strong{font-size:12px}
+.trade-terminal-symbol>small{font-size:10px;color:#90a7bd;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.trade-terminal-quantity input{flex:1;width:100%;min-width:0;border:0;outline:0;color:#f0f7ff;background:transparent;font-size:13px}
+.trade-terminal-quantity>span{font-size:9px;color:#99b0c2}
+.trade-terminal-types{grid-template-columns:repeat(3,minmax(0,1fr))}
+.trade-terminal-types button{min-height:29px;padding:5px 3px;font-size:11px}
+.trade-terminal-estimate{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;margin-top:auto}
+.trade-terminal-estimate span{color:#a9bbcd;font-size:10px}
+.trade-terminal-estimate strong{color:#f2f8ff;font-size:clamp(13px,1.13vw,17px);font-weight:850;white-space:nowrap}
+.trade-terminal-ticket .execute-button{width:100%;min-height:35px;font-size:11px}
+.trade-terminal-note{font-size:9px;color:#91a6bb;text-align:center;line-height:1.3}
+@media(min-width:761px) and (max-width:1320px){
+  .trade-terminal{grid-template-columns:minmax(0,1fr) minmax(225px,.325fr)}
+  .trade-terminal-main{grid-template-rows:auto 54px minmax(145px,.83fr) minmax(175px,1.47fr)}
+  .trade-market-overview-body{grid-template-columns:minmax(125px,.58fr) minmax(0,2fr)}
+  .trade-market-overview-head .chart-range-bar button{min-height:25px;padding:3px 5px;font-size:9px}
+  .trade-market-overview-metrics>b{font-size:21px}
+  .trade-market-overview-metrics>span{font-size:10px}
+  .trade-market-table-head,.trade-market-table-row{
+    grid-template-columns:minmax(53px,.8fr) minmax(76px,1.35fr) minmax(63px,.85fr)
+      minmax(62px,.85fr) minmax(63px,.75fr) minmax(95px,1.3fr);gap:4px;padding:0 8px;
+  }
+  .trade-market-table-head>span:nth-child(6),.trade-market-table-row>span:nth-child(6){display:none}
+  .trade-market-overview-metrics{padding:5px 8px}
+  .trade-terminal-snapshot{padding:5px 7px}
+  .trade-terminal-snapshot>strong{font-size:11px}
+  .trade-terminal-field{gap:2px}
+  .trade-terminal-ticket-body{gap:6px;padding:7px 9px}
+}
+@media(min-width:761px) and (max-width:1030px){
+  .trade-terminal{grid-template-columns:minmax(0,1fr) minmax(205px,.345fr);gap:6px}
+  .trade-terminal-main,.trade-terminal-rail{gap:6px}
+  .trade-market-overview-head .chart-range-bar button{padding:3px 4px;font-size:9px}
+  .trade-terminal-full{font-size:0;padding:4px;min-height:25px}
+  .trade-terminal-full svg{width:16px}
+  .trade-market-table-head,.trade-market-table-row{
+    grid-template-columns:minmax(48px,.8fr) minmax(65px,1.2fr) minmax(60px,1fr)
+      minmax(56px,.9fr) minmax(55px,.85fr);padding:0 6px;gap:3px
+  }
+  .trade-market-table-head>span:nth-child(4),.trade-market-table-row>span:nth-child(4),
+  .trade-market-table-head>span:nth-child(6),.trade-market-table-row>span:nth-child(6){display:none}
+  .trade-market-overview-metrics{padding:5px}
+  .trade-market-overview-ohlc>span{font-size:9px}
+  .trade-market-list-bar{min-height:31px}
+  .trade-market-asset-tabs button{padding:5px 10px}
+  .trade-market-filters{padding:3px 6px;min-height:33px}
+  .trade-terminal-ticket-body{gap:4px;padding:5px 7px}
+  .trade-terminal-note{font-size:8px}
+}
+@media(min-width:761px) and (max-height:650px){
+  .trade-terminal-main{grid-template-rows:auto 43px minmax(118px,.73fr) minmax(145px,1.55fr);gap:5px}
+  .trade-terminal-rail{grid-template-rows:minmax(100px,.8fr) minmax(85px,.6fr) minmax(150px,1.55fr);gap:5px}
+  .trade-terminal-title h1{font-size:20px}
+  .trade-terminal-title p{font-size:10px}
+  .trade-terminal-snapshot{padding:3px 6px}
+  .trade-market-overview-head{min-height:28px;padding:2px 7px}
+  .trade-market-overview-body .candle-heading,.trade-market-overview-body .candle-foot{display:none}
+  .trade-market-overview-ohlc{gap:1px}
+  .trade-market-overview-metrics{gap:1px}
+  .trade-market-overview-metrics>b{font-size:19px}
+  .trade-market-list-bar{min-height:27px}
+  .trade-market-filters{min-height:29px}
+  .trade-market-table-head{min-height:24px}
+  .trade-terminal-ticket-header,.trade-rail-heading{min-height:28px;padding:4px 7px}
+  .trade-mover-tabs{padding:3px 6px}
+  .trade-terminal-ticket-body{gap:3px;padding:4px 7px}
+  .trade-terminal-field-label{font-size:9px}
+  .trade-terminal-symbol,.trade-terminal-quantity,.trade-terminal-input{min-height:25px;padding:3px 7px}
+  .trade-terminal-side button{min-height:25px;padding:3px}
+  .trade-terminal-types button{min-height:24px;padding:3px}
+  .trade-terminal-ticket .execute-button{min-height:29px}
+  .trade-terminal-note{display:none}
+}
+/* Phone: no scrollbars. Use single full-height market, stock list, movers, or order panel. */
+@media(max-width:760px){
+  .terminal-summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  .terminal-summary .terminal-goal{display:flex!important}
+  .terminal-summary .terminal-goal-content strong{font-size:11px}
+  .terminal-summary .terminal-goal-content>span{font-size:10px}
+  .terminal-summary .terminal-progress{height:6px}
+  .terminal-summary .terminal-goal .terminal-muted{display:none}
+  .terminal-dashboard:has(>.screen-tabs) .terminal-middle[data-section="chart"]{display:flex}
+  .terminal-middle[data-section="chart"]>.terminal-chart-panel{display:flex;flex:1;min-height:0}
+  .terminal-middle[data-section="market"]>.terminal-chart-panel{display:none}
+  .terminal-dashboard .terminal-middle[data-section="chart"]>.terminal-watch{display:none}
+  .trade-terminal{display:flex;flex-direction:column;min-height:0;gap:5px}
+  .trade-terminal-main,.trade-terminal-rail{display:contents}
+  .trade-terminal-title{order:0;flex:none;justify-content:center;min-height:26px;padding:0 3px}
+  .trade-terminal-title h1{font-size:19px}
+  .trade-terminal-title p{display:none}
+  .trade-terminal-strip{order:1;flex:none;min-height:48px;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .trade-terminal-snapshot{padding:5px 3px;gap:1px 2px}
+  .trade-terminal-snapshot>span{font-size:9px}
+  .trade-terminal-snapshot>strong{font-size:10px}
+  .trade-terminal-snapshot>b{font-size:9px}
+  .trade-terminal>.screen-tabs{order:2;display:flex!important;flex:none;min-height:31px}
+  .trade-terminal>.screen-tabs button{min-height:27px}
+  .trade-terminal .trade-market-overview,.trade-terminal .trade-market-list,
+  .trade-terminal .trade-market-movers,.trade-terminal .trade-market-breadth,
+  .trade-terminal .trade-terminal-ticket{display:none;order:3;flex:1;min-height:0}
+  .trade-terminal[data-section="overview"] .trade-market-overview,
+  .trade-terminal[data-section="stocks"] .trade-market-list,
+  .trade-terminal[data-section="movers"] .trade-market-movers,
+  .trade-terminal[data-section="order"] .trade-terminal-ticket{display:flex;flex:1;min-height:0}
+  .trade-market-overview-head{min-height:34px;gap:3px;padding:5px}
+  .trade-market-overview-head h2{font-size:12px;gap:3px}
+  .trade-market-overview-head h2 small{font-size:9px}
+  .trade-market-overview-head .chart-range-bar{justify-content:flex-end;gap:2px}
+  .trade-market-overview-head .chart-range-bar button{min-height:25px;padding:3px;font-size:9px}
+  .trade-market-overview-body{display:flex;flex-direction:column;gap:3px;padding:4px}
+  .trade-market-overview-metrics{flex:none;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:3px;padding:6px 8px;border-right:0;border-bottom:1px solid #2c394d}
+  .trade-market-overview-metrics>strong{font-size:12px}
+  .trade-market-overview-metrics>small{font-size:9px;grid-area:2/1}
+  .trade-market-overview-metrics>b{font-size:17px;grid-area:1/2}
+  .trade-market-overview-metrics>span{font-size:10px;grid-area:2/2;text-align:right}
+  .trade-market-overview-ohlc{display:none}
+  .trade-market-overview-body>.candle-chart{flex:1;min-height:0}
+  .trade-market-overview-body .candle-heading{display:none}
+  .trade-market-overview-body .bar-readout{flex:none;font-size:9px;gap:6px}
+  .trade-market-list-bar{min-height:34px}
+  .trade-market-filters{min-height:36px;padding:4px 7px}
+  .trade-market-filters select{min-width:75px;max-width:115px}
+  .trade-market-search{width:100%;max-width:54%}
+  .trade-market-table-head,.trade-market-table-row{grid-template-columns:minmax(54px,.8fr) minmax(78px,1.4fr) minmax(63px,.95fr) minmax(55px,.9fr);gap:4px;padding:0 6px}
+  .trade-market-table-head>span:nth-child(4),.trade-market-table-row>span:nth-child(4),
+  .trade-market-table-head>span:nth-child(6),.trade-market-table-row>span:nth-child(6),
+  .trade-market-table-head>span:nth-child(7),.trade-market-table-row>span:nth-child(7){display:none}
+  .trade-market-table-head{min-height:28px;font-size:9px}
+  .trade-market-table-row{height:44px;font-size:10px}
+  .trade-market-table-symbol{gap:5px;font-size:10px}
+  .trade-market-table-symbol i{width:20px;height:20px;font-size:8px}
+  .trade-market-asset-tabs button{padding:4px 12px}
+  .trade-market-movers .fit-pager{min-height:0}
+  .trade-mover-row{height:37px}
+  .trade-terminal-ticket-body{gap:clamp(6px,1.15vh,12px);padding:10px}
+  .trade-terminal-symbol,.trade-terminal-quantity,.trade-terminal-input{min-height:35px}
+  .trade-terminal-side button{min-height:37px}
+  .trade-terminal-types button{min-height:37px}
+  .trade-terminal-ticket .execute-button{min-height:43px}
+}
+@media(max-width:430px){
+  .trade-terminal-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .trade-terminal-snapshot:nth-child(4),.trade-terminal-snapshot:nth-child(5){display:none}
+  .trade-terminal-snapshot>span{font-size:9px}
+  .trade-terminal-title h1{font-size:18px}
+  .trade-market-overview-head h2 small{display:none}
+  .trade-market-overview-head .chart-range-bar button{padding:3px 2px}
+}
+@media(max-width:760px) and (max-height:560px){
+  .trade-terminal-strip{min-height:38px}
+  .trade-terminal-snapshot{padding:3px 4px}
+  .trade-terminal-title{min-height:22px}
+  .trade-market-overview-head{min-height:29px}
+  .trade-terminal-ticket-body{gap:5px;padding:6px}
+  .trade-terminal-side button{min-height:30px}
+  .trade-terminal-symbol,.trade-terminal-quantity,.trade-terminal-input{min-height:29px}
+  .trade-terminal-types button{min-height:30px}
+  .trade-terminal-ticket .execute-button{min-height:33px}
+  .trade-terminal-note{display:none}
+}
