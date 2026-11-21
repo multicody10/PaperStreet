@@ -1,13 +1,15 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  Activity, Apple, ArrowDownLeft, ArrowUpRight, BriefcaseBusiness, CandlestickChart,
+  Activity, ArrowDownLeft, ArrowUpRight, BriefcaseBusiness, CandlestickChart,
   ChartNoAxesColumnIncreasing, ChartPie, ChevronRight, Clock3,
-  Eye, Infinity as InfinityIcon, Layers3, ListFilter, Search, Trophy, Wallet,
+  Layers3, ListFilter, Search, Trophy, Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { STOCKS, type Leader, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
 import { DayRange, money } from './PriceChart';
 import { FitPager } from './FitPager';
+import { StockMark } from './StockMark';
+export { StockMark } from './StockMark';
 
 export const signedMoney = (cents: number) => `${cents > 0 ? '+' : ''}${money(cents)}`;
 export const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
@@ -23,15 +25,6 @@ const sectorFor: Record<SymbolCode, number> = {
   AMZN: 2, TSLA: 2, SPY: 3,
 };
 const stocks = STOCKS.map(stock => ({ ...stock, sector: sectors[sectorFor[stock.symbol]] }));
-const marks: Record<SymbolCode, ReactNode> = {
-  AAPL: <Apple size={23} fill="currentColor"/>, MSFT: <i className="windows-mark"/>,
-  NVDA: <Eye size={24} strokeWidth={2.8}/>, AMZN: 'a', GOOGL: 'G', META: <InfinityIcon size={27}/>,
-  TSLA: 'T', AMD: '◩', NFLX: 'N', DIS: 'D', INTC: 'in', SPY: <Layers3 size={21}/>,
-};
-
-export function StockMark({ symbol }: { symbol: SymbolCode }) {
-  return <span aria-hidden="true" className={'stock-mark mark-' + symbol.toLowerCase()}>{marks[symbol]}</span>;
-}
 
 export function ProfileAvatar({ url, name }: { url?: string; name: string }) {
   const [failedUrl, setFailedUrl] = useState('');

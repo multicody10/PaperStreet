@@ -34,9 +34,12 @@ export function PriceChart({ history, quote, range, error }: {
   const [inspectedAt, setInspectedAt] = useState<number | null>(null);
   const recorded = history?.candles ?? [];
   const count = recorded.reduce((total, bar) => total + bar.samples, 0);
-  const session = count < 2 && quote?.sessionBar;
+  const provider = history?.source === 'alphavantage';
+  const session = !provider && count < 2 && quote?.sessionBar;
   let bars = recorded;
-  let caption = `${intervalLabel(history?.bucketSeconds ?? 900)} sampled candles`;
+  let caption = provider
+    ? `Verified historical ${history?.resolution === 'weekly' ? 'weekly' : 'daily'} OHLC`
+    : `${intervalLabel(history?.bucketSeconds ?? 900)} sampled candles`;
   if (session && quote) {
     bars = [{ ...session, firstAt: quote.fetchedAt, lastAt: quote.fetchedAt, samples: 0 }];
     caption = 'Latest session candle';
@@ -83,6 +86,7 @@ export function PriceChart({ history, quote, range, error }: {
   }
   const singlePrint = !session && active.samples === 1;
   const chartStatus = error ? 'History unavailable' : !history ? 'Loading history…' :
+    provider ? `${bars.length.toLocaleString()} historical bars in ${range}` :
     `${count.toLocaleString()} ${count === 1 ? 'sample' : 'samples'} in ${range}`;
   return <div className="candle-chart">
     <div className="candle-heading"><strong>{caption}</strong><span>{chartStatus}</span></div>
@@ -117,6 +121,6 @@ export function PriceChart({ history, quote, range, error }: {
     </div>
     <div className="candle-times">{[...new Set([0, Math.floor(lastIndex / 2), lastIndex])].map(i =>
       <span key={i} style={{ left: x(i) + '%', transform: bars.length === 1 ? 'translateX(-50%)' : i === 0 ? 'none' : i === lastIndex ? 'translateX(-100%)' : 'translateX(-50%)' }}>{axisDate(bars[i])}</span>)}</div>
-    <div className="candle-foot"><span>{atLabel}</span><span>{session ? 'Finnhub session OHLC' : singlePrint ? 'Single observation' : `${active.samples} observations in candle`}</span></div>
+    <div className="candle-foot"><span>{atLabel}</span><span>{session ? 'Finnhub session OHLC' : provider ? 'Alpha Vantage · historical OHLC' : singlePrint ? 'Single observation' : `${active.samples} observations in candle`}</span></div>
   </div>;
 }

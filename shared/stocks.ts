@@ -18,7 +18,8 @@ export const HISTORY_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'] as const;
 export type HistoryRange = typeof HISTORY_RANGES[number];
 export type PriceBar = { openCents: number; highCents: number; lowCents: number; closeCents: number };
 export type Candle = PriceBar & { firstAt: number; lastAt: number; samples: number };
-export type ChartHistory = { candles: Candle[]; bucketSeconds: number };
+export type ChartHistory = { candles: Candle[]; bucketSeconds: number;
+  source?: 'finnhub' | 'alphavantage'; resolution?: 'daily' | 'weekly' };
 
 export type SymbolCode = (typeof STOCKS)[number]['symbol'];
 export const symbols = STOCKS.map(s => s.symbol);
