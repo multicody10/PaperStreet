@@ -13,7 +13,7 @@ test('trade market and individual stock detail use separate routes', () => {
   assert.deepEqual(parseAppHash('#/trade'), { view: 'trade', symbol: 'AAPL' });
   assert.deepEqual(parseAppHash('#/trade/NVDA'), { view: 'stock', symbol: 'NVDA' });
   assert.equal(appHash('stock', 'MSFT'), '#/trade/MSFT');
-  for (const route of ['#/portfolio', '#/leaderboard', '#/history'])
+  for (const route of ['#/portfolio', '#/leaderboard', '#/history', '#/challenges'])
     assert.equal(parseAppHash(route).view, route.slice(2));
 });
 

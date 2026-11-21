@@ -5,14 +5,17 @@ import {
   ArrowDownLeft, ArrowLeft, ArrowLeftRight, ArrowUpRight, BarChart3, CheckCircle2,
   ChevronRight, Clock3, Landmark, LayoutDashboard,
   LoaderCircle, RefreshCw, Search, ShieldCheck, TrendingDown,
-  TrendingUp, Trophy, Wallet, X,
+  TrendingUp, Trophy, Wallet, Award, X,
 } from 'lucide-react';
 import type { ChartHistory, HistoryRange, Leader, Portfolio, Quote, SymbolCode, Trade } from '../shared/stocks';
 import { HISTORY_RANGES, STARTING_CASH_CENTS } from '../shared/stocks';
 import { appHash, parseAppHash, type Page, type View } from './navigation';
 import { DayRange, money, PriceChart } from './PriceChart';
+import { Challenges, OrderList } from './Challenges';
+import type { Achievement, OrderKind, Prediction, PredictionDirection, PredictionSummary, QueuedOrder } from '../shared/gameplay';
 import './style.css';
 import './mobile.css';
+import './gameplay.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -20,12 +23,13 @@ const signedMoney = (cents: number) => `${cents > 0 ? '+' : ''}${money(cents)}`;
 const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong';
 const short = (value: string, max = 22) => value.length > max ? `${value.slice(0, max)}…` : value;
-const links: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
+const links: { id: Page; label: string; icon: typeof LayoutDashboard; mobileLabel?: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'trade', label: 'Trade', icon: ArrowLeftRight },
   { id: 'portfolio', label: 'Portfolio', icon: Wallet },
   { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
   { id: 'history', label: 'History', icon: Clock3 },
+  { id: 'challenges', label: 'Challenges', mobileLabel: 'Goals', icon: Award },
 ];
 
 async function request<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
@@ -57,6 +61,14 @@ function App() {
   const [selectedSymbol, setSelectedSymbol] = useState<SymbolCode>(() => parseAppHash(window.location.hash).symbol);
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
   const [shares, setShares] = useState('1');
+  const [orderKind, setOrderKind] = useState<'AUTO' | 'IMMEDIATE' | OrderKind>('AUTO');
+  const [triggerPrice, setTriggerPrice] = useState('');
+  const [orders, setOrders] = useState<QueuedOrder[]>([]);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [predictionSummary, setPredictionSummary] = useState<PredictionSummary>({points:0,correct:0,settled:0});
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [forecastPending, setForecastPending] = useState(false);
+  const [cancelingOrder, setCancelingOrder] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null);
@@ -74,6 +86,8 @@ function App() {
     setSelectedSymbol(symbol);
     setSide(nextSide);
     setShares('1');
+    setOrderKind('AUTO');
+    setTriggerPrice('');
     setTab('stock');
     window.history.pushState(null, '', appHash('stock', symbol));
   }
@@ -98,7 +112,7 @@ function App() {
     if (!session) return;
     // Only load data consumed by the current page, saving Worker requests and D1 reads.
     const jobs: Promise<void>[] = [];
-    if (view === 'dashboard' || view === 'trade' || view === 'stock')
+    if (view === 'dashboard' || view === 'trade' || view === 'stock' || view === 'challenges')
       jobs.push(request<{ quotes: Quote[] }>('/api/market', session).then(({ quotes }) => setQuotes(quotes)));
     if (view === 'dashboard' || view === 'portfolio' || view === 'stock')
       jobs.push(request<{ portfolio: Portfolio }>('/api/portfolio', session).then(({ portfolio }) => setPortfolio(portfolio)));
@@ -106,6 +120,12 @@ function App() {
       jobs.push(request<{ leaders: Leader[] }>('/api/leaderboard', session).then(({ leaders }) => setLeaders(leaders)));
     if (view === 'dashboard' || view === 'history')
       jobs.push(request<{ trades: Trade[] }>('/api/history', session).then(({ trades }) => setTrades(trades)));
+    if (view === 'dashboard' || view === 'stock' || view === 'portfolio')
+      jobs.push(request<{ orders: QueuedOrder[] }>('/api/orders', session).then(({ orders }) => setOrders(orders)));
+    if (view === 'dashboard' || view === 'challenges') {
+      jobs.push(request<{ predictions: Prediction[]; summary: PredictionSummary }>('/api/predictions', session).then(({ predictions,summary }) => { setPredictions(predictions); setPredictionSummary(summary); }));
+      jobs.push(request<{ achievements: Achievement[] }>('/api/achievements', session).then(({ achievements }) => setAchievements(achievements)));
+    }
     const results = await Promise.allSettled(jobs);
     const failure = results.find(result => result.status === 'rejected');
     if (failure?.status === 'rejected')
@@ -179,6 +199,13 @@ function App() {
   const position = portfolio?.positions.find(p => p.symbol === selectedSymbol);
   const canTrade = !!selected && !selected.stale && validQuantity && !!portfolio &&
     (side === 'BUY' ? portfolio.cashCents >= total : (position?.shares ?? 0) >= quantity);
+  const effectiveOrderKind: 'IMMEDIATE' | OrderKind = selected?.marketOpen
+    ? orderKind === 'AUTO' ? 'IMMEDIATE' : orderKind
+    : orderKind === 'LIMIT' || orderKind === 'STOP' ? orderKind : 'MARKET';
+  const triggerCents = triggerPrice.trim() ? Math.round(Number(triggerPrice)*100) : 0;
+  const validTrigger = Number.isSafeInteger(triggerCents) && triggerCents > 0 && triggerCents <= 100_000_000;
+  const canSubmitOrder = effectiveOrderKind === 'IMMEDIATE' ? canTrade :
+    !!selected && validQuantity && (effectiveOrderKind === 'MARKET' || validTrigger);
   const shown = useMemo(
     () => quotes.filter(q => `${q.symbol} ${q.name}`.toLowerCase().includes(search.toLowerCase().trim())),
     [quotes, search],
@@ -193,32 +220,65 @@ function App() {
   };
 
   async function execute() {
-    if (tab !== 'stock' || !canTrade || !selected || !token || pending) return;
+    if (tab !== 'stock' || !canSubmitOrder || !selected || !token || pending) return;
     setPending(true);
     setFeedback(null);
     try {
-      const response = await request<{ fillPriceCents?: number; duplicate?: boolean }>('/api/trade', token, {
-        method: 'POST',
-        body: JSON.stringify({ symbol: selected.symbol, side, shares: quantity, expectedPriceCents: selected.priceCents, orderId: crypto.randomUUID() }),
-      });
-      setFeedback({
-        kind: 'ok',
-        message: response.duplicate ? 'Order already filled.' :
-          `${side === 'BUY' ? 'Bought' : 'Sold'} ${quantity} ${selected.symbol} at ${money(response.fillPriceCents ?? selected.priceCents)}.`,
-      });
+      if (effectiveOrderKind !== 'IMMEDIATE') {
+        await request('/api/orders', token, { method: 'POST', body: JSON.stringify({
+          symbol: selected.symbol, side, shares: quantity, kind: effectiveOrderKind,
+          triggerPriceCents: effectiveOrderKind === 'MARKET' ? null : triggerCents,
+          orderId: crypto.randomUUID(),
+        }) });
+        setFeedback({ kind: 'ok', message: 'Order queued for ' + selected.symbol + '. View or cancel it in Portfolio.' });
+      } else {
+        const response = await request<{ fillPriceCents?: number; duplicate?: boolean }>('/api/trade', token, {
+          method: 'POST',
+          body: JSON.stringify({symbol:selected.symbol,side,shares:quantity,expectedPriceCents:selected.priceCents,orderId:crypto.randomUUID()}),
+        });
+        setFeedback({
+          kind:'ok', message:response.duplicate ? 'Order already filled.' :
+            (side === 'BUY' ? 'Bought ' : 'Sold ') + quantity + ' ' + selected.symbol + ' at ' + money(response.fillPriceCents ?? selected.priceCents) + '.',
+        });
+      }
       await refresh(token, 'stock');
-    } catch (error) { setFeedback({ kind: 'error', message: errorMessage(error) }); }
+    } catch (error) { setFeedback({ kind:'error', message:errorMessage(error) }); }
     finally { setPending(false); }
+  }
+
+  async function submitForecast(symbol: SymbolCode, direction: PredictionDirection) {
+    if (!token || forecastPending) return;
+    setForecastPending(true);
+    setFeedback(null);
+    try {
+      await request('/api/predictions',token,{method:'POST',body:JSON.stringify({symbol,direction})});
+      setFeedback({kind:'ok',message:'Prediction locked for the next trading session.'});
+      await refresh(token,'challenges');
+    } catch(error) { setFeedback({kind:'error',message:errorMessage(error)}); }
+    finally { setForecastPending(false); }
+  }
+
+  async function cancelQueuedOrder(id: number) {
+    if (!token || cancelingOrder !== null) return;
+    setCancelingOrder(id);
+    setFeedback(null);
+    try {
+      await request('/api/orders/'+id+'/cancel',token,{method:'POST'});
+      await refresh(token,'portfolio');
+      setFeedback({kind:'ok',message:'Queued order canceled.'});
+    } catch(error) { setFeedback({kind:'error',message:errorMessage(error)}); }
+    finally { setCancelingOrder(null); }
   }
 
   const title = tab === 'dashboard' ? `Welcome back${account ? `, ${short(account.displayName)}` : ''}` :
     tab === 'trade' ? 'Explore stocks' :
     tab === 'stock' ? `${selected?.name ?? selectedSymbol} · ${selectedSymbol}` :
-    tab === 'portfolio' ? 'Your portfolio' : tab === 'leaderboard' ? 'Top traders' : 'Trade history';
+    tab === 'portfolio' ? 'Your portfolio' : tab === 'challenges' ? 'Predictions & achievements' : tab === 'leaderboard' ? 'Top traders' : 'Trade history';
   const subtitle = tab === 'dashboard' ? 'Your portfolio, performance and recent activity at a glance.' :
     tab === 'trade' ? 'Browse real market quotes and open a stock to trade.' :
     tab === 'stock' ? 'Price history, quote details and virtual order entry.' :
     tab === 'portfolio' ? 'Every holding, every gain, all in one place.' :
+    tab === 'challenges' ? 'Make the next call, earn points, and unlock permanent badges.' :
     tab === 'leaderboard' ? 'Compete on total virtual portfolio equity.' : 'Your 30 most recent orders.';
 
   return (
@@ -227,7 +287,7 @@ function App() {
         <div className="brand" aria-label="PaperStreet"><span className="brand-mark"><TrendingUp size={27} strokeWidth={3}/></span><span className="brand-words"><strong>Paper<span>Street</span></strong><small>PAPER TRADING GAME</small></span></div>
         <nav className="top-nav" aria-label="Primary navigation">{links.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={'top-link ' + (tab === id || (tab === 'stock' && id === 'trade') ? 'active' : '')} aria-current={tab === id || (tab === 'stock' && id === 'trade') ? 'page' : undefined} onClick={() => goToPage(id)}><Icon size={17}/><span>{label}</span></button>)}</nav>
         <div className="header-actions">
-          <span className="market-mode real" title="Virtual trading runs 24/7. Finnhub prices may remain unchanged after exchange hours; quotes that are too old cannot be traded."><span className="status-dot"/>REAL STOCK PRICES</span>
+          <span className="market-mode real" title="Immediate fills require regular market hours and fresh prices. Queue orders any time for market-session processing."><span className="status-dot"/>REAL STOCK PRICES</span>
           <button type="button" className="icon-button" aria-label="Refresh market and portfolio" title="Refresh" disabled={!token || loading} onClick={refreshNow}><RefreshCw size={17} className={loading ? 'spin' : ''}/></button>
           <div className="user-chip" title={account?.displayName ?? 'Discord user'}><ProfileAvatar className="user-avatar" url={account?.avatarUrl} name={account?.displayName ?? 'Discord user'}/><span className="user-copy"><strong>{short(account?.displayName ?? 'Discord user', 17)}</strong><small><span className="online-dot"/>{authStatus}</small></span></div>
         </div>
@@ -252,6 +312,7 @@ function App() {
                 <Stat title="TOTAL HOLDINGS" value={portfolio ? money(portfolio.investedCents) : '—'} sub={`${portfolio?.positions.length ?? 0} open positions`} icon={<BarChart3 size={19}/>}/>
                 <Stat title="ALL TIME RETURN" value={portfolio ? pct(returnPercent) : '—'} sub={`${gainers} of ${quotes.length} assets rising`} icon={<TrendingUp size={19}/>} valueClass={returnPercent >= 0 ? 'positive' : 'negative'}/>
               </div>}
+              {tab === 'dashboard' && quotes.length > 0 && !quotes.some(q => q.marketOpen) && <div className="after-hours-card"><div><strong>Market closed. PaperStreet is still open.</strong><p>Queue your next trades, predict the next session close, and collect achievement badges.</p></div><button type="button" onClick={() => goToPage('challenges')}>Explore challenges</button></div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
 
               {tab === 'dashboard' ? <div className="overview-layout" aria-label="Read-only portfolio dashboard">
@@ -308,22 +369,24 @@ function App() {
                     <div className="stock-fact"><span>LAST TRADE TIME</span><strong>{selected ? new Date(selected.fetchedAt * 1000).toLocaleString() : '—'}</strong><small>{selected?.stale ? 'Quote too old for orders' : 'Provider timestamp'}</small></div>
                   </div></section>
                 </div>
-                <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canTrade} pending={pending} execute={execute} portfolio={portfolio}/>
-              </div> : <section className="panel details-panel">
+                <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
+              </div> : tab === 'challenges' ? <Challenges quotes={quotes} predictions={predictions} summary={predictionSummary} achievements={achievements} pending={forecastPending} submit={(symbol,direction) => void submitForecast(symbol,direction)} openStock={openStock}/> : <div className="details-stack">
+                {tab === 'portfolio' && <OrderList orders={orders} onCancel={id => void cancelQueuedOrder(id)} canceling={cancelingOrder}/>}
+                <section className="panel details-panel">
                 <div className="panel-heading details-heading"><div><h2>{tab === 'portfolio' ? 'Open positions' : tab === 'leaderboard' ? 'Global rankings' : 'Executed orders'}</h2><p>{tab === 'portfolio' ? 'Market value and cost basis for your investments.' : tab === 'leaderboard' ? 'Ranked by total portfolio equity, including virtual cash.' : 'Your latest completed market orders.'}</p></div><span className="count-pill">{tab === 'portfolio' ? `${portfolio?.positions.length ?? 0} POSITIONS` : tab === 'leaderboard' ? 'TOP 25' : `${trades.length} TRADES`}</span></div>
                 {tab === 'portfolio' ? <div className="responsive-table"><table><thead><tr><th>Asset</th><th>Shares</th><th>Average cost</th><th>Market value</th><th>Profit / loss</th><th></th></tr></thead><tbody>{portfolio?.positions.map(p => <tr key={p.symbol}><td data-label="Asset"><strong>{p.symbol}</strong><small>{p.quote.name}</small></td><td data-label="Shares">{p.shares}</td><td data-label="Average cost">{money(Math.round(p.costBasisCents / p.shares))}</td><td data-label="Market value">{money(p.marketValueCents)}</td><td data-label="Profit / loss" className={p.profitCents >= 0 ? 'positive' : 'negative'}>{signedMoney(p.profitCents)}</td><td data-label="Action"><button type="button" className="small-action" onClick={() => openStock(p.symbol, 'SELL')}>Trade <ArrowUpRight size={14}/></button></td></tr>)}</tbody></table>{!portfolio?.positions.length && <div className="empty">No holdings yet. Visit Trade to place your first order.</div>}</div> : tab === 'leaderboard' ? <div className="full-leaderboard">{leaders.map((leader, i) => <div key={leader.userId} className={`full-leader-row ${leader.userId === account.id ? 'self' : ''}`}><span className="rank">#{i + 1}</span><ProfileAvatar className="leader-avatar" url={leader.avatarUrl} name={leader.displayName}/><span className="full-leader-name"><strong>{leader.displayName}</strong>{leader.userId === account.id && <small>YOU</small>}</span><span className="full-leader-value"><strong>{money(leader.equityCents)}</strong><small className={leader.changeCents >= 0 ? 'positive' : 'negative'}>{signedMoney(leader.changeCents)} all time</small></span></div>)}{!leaders.length && <div className="empty">Rankings will appear when players join.</div>}</div> : <div className="responsive-table"><table><thead><tr><th>Order</th><th>Symbol</th><th>Shares</th><th>Fill price</th><th>Total</th><th>Time</th></tr></thead><tbody>{trades.map(trade => <tr key={trade.id}><td data-label="Order"><span className={`order-side ${trade.side === 'BUY' ? 'buy' : 'sell'}`}>{trade.side === 'BUY' ? <ArrowDownLeft size={14}/> : <ArrowUpRight size={14}/>} {trade.side}</span></td><td data-label="Symbol"><strong>{trade.symbol}</strong></td><td data-label="Shares">{trade.shares}</td><td data-label="Fill price">{money(trade.priceCents)}</td><td data-label="Total">{money(trade.shares * trade.priceCents)}</td><td data-label="Time">{new Date(trade.executedAt * 1000).toLocaleString()}</td></tr>)}</tbody></table>{!trades.length && <div className="empty">No trades yet. Your order history will appear here.</div>}</div>}
-              </section>}
-              <footer className="app-footer"><span>PaperStreet is a paper trading game. No real securities or money are exchanged.</span><span>Real provider quotes may be delayed. Virtual orders are available 24/7 using the last verified quote; prices can remain unchanged after exchange hours.</span></footer>
+              </section></div>}
+              <footer className="app-footer"><span>PaperStreet is a paper trading game. No real securities or money are exchanged.</span><span>Real provider quotes may be delayed. Immediate virtual fills require regular trading hours. Queued orders are processed against fresh regular-session quotes.</span></footer>
             </>}
           </div>
         </main>
       </div>
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {links.map(({ id, label, icon: Icon }) => {
+        {links.map(({ id, label, mobileLabel, icon: Icon }) => {
           const active = tab === id || (tab === 'stock' && id === 'trade');
           return <button key={id} type="button" className={active ? 'active' : ''}
             aria-current={active ? 'page' : undefined} onClick={() => goToPage(id)}>
-            <Icon size={20} aria-hidden="true"/><span>{label}</span>
+            <Icon size={20} aria-hidden="true"/><span>{mobileLabel ?? label}</span>
           </button>;
         })}
       </nav>
@@ -336,22 +399,36 @@ function Stat({ title, value, sub, icon, valueClass = '', subClass = '' }: { tit
 }
 
 
-function TradeTicket({ selected, side, setSide, shares, setShares, total, positionShares, canTrade, pending, execute, portfolio }: {
-  selected?: Quote; side: 'BUY' | 'SELL'; setSide: (value: 'BUY' | 'SELL') => void; shares: string; setShares: (value: string) => void;
-  total: number; positionShares: number; canTrade: boolean; pending: boolean; execute: () => void; portfolio: Portfolio | null;
+function TradeTicket({selected,side,setSide,shares,setShares,total,positionShares,canTrade,pending,execute,portfolio,orderKind,setOrderKind,triggerPrice,setTriggerPrice,viewOrders}:{
+  selected?:Quote;side:'BUY'|'SELL';setSide:(v:'BUY'|'SELL')=>void;shares:string;setShares:(v:string)=>void;
+  total:number;positionShares:number;canTrade:boolean;pending:boolean;execute:()=>void;portfolio:Portfolio|null;
+  orderKind:'IMMEDIATE'|OrderKind;setOrderKind:(v:'AUTO'|'IMMEDIATE'|OrderKind)=>void;
+  triggerPrice:string;setTriggerPrice:(v:string)=>void;viewOrders:()=>void;
 }) {
-  const quantity = Number(shares);
-  const max = side === 'BUY' && selected ? Math.min(100_000, Math.floor((portfolio?.cashCents ?? 0) / selected.priceCents)) : Math.min(100_000, positionShares);
-  return <section className="panel trade-panel"><div className="panel-heading"><h2><ArrowLeftRight size={19}/> Trade {selected?.symbol ?? 'stock'}</h2><span className="trade-tag">MARKET ORDER</span></div><div className="ticket-body">
-    <div className="side-selector"><button type="button" className={side === 'BUY' ? 'current buy' : ''} aria-pressed={side === 'BUY'} onClick={() => setSide('BUY')}>Buy</button><button type="button" className={side === 'SELL' ? 'current sell' : ''} aria-pressed={side === 'SELL'} onClick={() => setSide('SELL')}>Sell</button></div>
-    <div className="ticket-asset"><span className="ticket-asset-name"><span className="ticker-icon">{selected?.symbol.slice(0, 2) ?? '??'}</span><span><strong>{selected?.symbol ?? 'Select stock'}</strong><small>{selected?.name ?? 'Choose an asset'}</small></span></span><strong>{selected ? money(selected.priceCents) : '—'}</strong></div>
-    <label className="field-label" htmlFor="shares">SHARES <span>{side === 'BUY' ? 'AVAILABLE CASH' : 'OWNED'}: {side === 'BUY' ? money(portfolio?.cashCents ?? 0) : positionShares}</span></label>
-    <div className="quantity-wrapper"><input id="shares" type="number" inputMode="numeric" min="1" max="100000" step="1" value={shares} onChange={event => setShares(event.target.value)}/><span>SHARES</span></div>
-    <div className="quantity-presets">{[1, 5, 10].map(n => <button type="button" key={n} onClick={() => setShares(String(n))} disabled={n > max}>{n}</button>)}<button type="button" onClick={() => setShares(String(max))} disabled={max < 1}>Max</button></div>
-    <div className="ticket-breakdown"><div><span>Price per share</span><strong>{selected ? money(selected.priceCents) : '—'}</strong></div><div><span>Shares owned</span><strong>{positionShares}</strong></div><div className="ticket-total"><span>Estimated {side === 'BUY' ? 'cost' : 'proceeds'}</span><strong>{Number.isSafeInteger(quantity) && quantity >= 1 ? money(total) : '—'}</strong></div></div>
-    <button type="button" className={`execute-button ${side.toLowerCase()}`} disabled={!canTrade || pending} onClick={execute}>{pending ? <LoaderCircle size={17} className="spin"/> : side === 'BUY' ? <ArrowDownLeft size={17}/> : <ArrowUpRight size={17}/>} {pending ? 'Processing…' : `${side === 'BUY' ? 'Buy' : 'Sell'} ${selected?.symbol ?? 'shares'}`}</button>
-    <p className="ticket-disclaimer">{selected?.stale ? 'No sufficiently recent verified quote. Orders resume once valid data is available.' : selected && !selected.marketOpen ? 'Trading is open 24/7 at the last verified Finnhub price. After hours, prices may not update.' : 'Orders execute at server validated Finnhub prices, possibly delayed. Virtual trades only.'}</p>
-  </div></section>;
+  const max = side === 'BUY' && selected ? Math.min(100_000,Math.floor((portfolio?.cashCents??0)/selected.priceCents)) : Math.min(100_000,positionShares);
+  const queued = orderKind !== 'IMMEDIATE';
+  return <section className="panel trade-panel">
+    <div className="panel-heading"><h2><ArrowLeftRight size={19}/> Trade {selected?.symbol??'stock'}</h2><span className="trade-tag">{queued?'QUEUED ORDER':'INSTANT ORDER'}</span></div>
+    <div className="ticket-body">
+      <div className="side-selector"><button type="button" className={side==='BUY'?'current buy':''} aria-pressed={side==='BUY'} onClick={()=>setSide('BUY')}>Buy</button><button type="button" className={side==='SELL'?'current sell':''} aria-pressed={side==='SELL'} onClick={()=>setSide('SELL')}>Sell</button></div>
+      <div className="ticket-asset"><span className="ticket-asset-name"><span className="ticker-icon">{selected?.symbol.slice(0,2)??'??'}</span><span><strong>{selected?.symbol??'Select stock'}</strong><small>{selected?.name??'Choose an asset'}</small></span></span><strong>{selected?money(selected.priceCents):'—'}</strong></div>
+      {!selected?.marketOpen && <div className="ticket-queue-note"><Clock3 size={14}/> Market closed. Your order will be queued and evaluated when regular market trading resumes.</div>}
+      <div className="ticket-order-control"><label htmlFor="order-kind">ORDER TYPE</label><select id="order-kind" className="trade-kind" value={orderKind} onChange={e=>setOrderKind(e.target.value as 'IMMEDIATE'|OrderKind)}>
+        {selected?.marketOpen && <option value="IMMEDIATE">Buy or sell now (market open)</option>}
+        <option value="MARKET">Queue: market order</option>
+        <option value="LIMIT">Queue: limit order</option>
+        <option value="STOP">Queue: stop order</option>
+      </select><small>{orderKind==='MARKET'?'Executes at a fresh regular-session price.':orderKind==='LIMIT'?'Executes only at your limit or better.':orderKind==='STOP'?'Triggers when the price reaches your stop.':'Immediate trade at a fresh, server validated price.'}</small></div>
+      {(orderKind==='LIMIT'||orderKind==='STOP') && <div className="ticket-trigger"><label htmlFor="trigger-price">{orderKind==='LIMIT'?'LIMIT PRICE (USD)':'STOP PRICE (USD)'}</label><input id="trigger-price" className="trigger-input" type="number" min=".01" step=".01" inputMode="decimal" placeholder="0.00" value={triggerPrice} onChange={e=>setTriggerPrice(e.target.value)}/></div>}
+      <label className="field-label" htmlFor="shares">SHARES <span>{side==='BUY'?'AVAILABLE CASH':'OWNED'}: {side==='BUY'?money(portfolio?.cashCents??0):positionShares}</span></label>
+      <div className="quantity-wrapper"><input id="shares" type="number" inputMode="numeric" min="1" max="100000" step="1" value={shares} onChange={e=>setShares(e.target.value)}/><span>SHARES</span></div>
+      <div className="quantity-presets">{[1,5,10].map(n=><button type="button" key={n} onClick={()=>setShares(String(n))} disabled={n>max}>{n}</button>)}<button type="button" onClick={()=>setShares(String(max))} disabled={max<1}>Max</button></div>
+      <div className="ticket-breakdown"><div><span>Reference price</span><strong>{selected?money(selected.priceCents):'—'}</strong></div><div><span>Shares owned</span><strong>{positionShares}</strong></div><div className="ticket-total"><span>{queued?'Indicative value':'Estimated '+(side==='BUY'?'cost':'proceeds')}</span><strong>{money(total)}</strong></div></div>
+      <button type="button" className={'execute-button '+side.toLowerCase()} disabled={!canTrade||pending} onClick={execute}>{pending?<LoaderCircle size={17} className="spin"/>:<Clock3 size={17}/>} {pending?'Processing…':(queued?'Queue ':'')+(side==='BUY'?'Buy ':'Sell ')+(selected?.symbol??'shares')}</button>
+      <button type="button" className="subtle-link" onClick={viewOrders}>View & cancel queued orders <ChevronRight size={15}/></button>
+      <p className="ticket-disclaimer">{queued?'The server fills only during regular exchange hours using fresh verified prices. Cash and shares are checked when the order triggers; orders can be rejected if insufficient.':'Instant trades require a fresh verified regular-session price. Virtual trades only.'}</p>
+    </div>
+  </section>;
 }
 
 function ProfileAvatar({ url, name, className }: { url?: string | null; name: string; className: 'user-avatar' | 'leader-avatar' }) {
