@@ -1,14 +1,11 @@
 import { Hono } from 'hono';
-import { bodyLimit } from 'hono/body-limit';
-import { discordInteraction } from './interactions';
-import { checkDiscordLaunch, checkDiscordLaunchAfterAuth } from './launch';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
 
-type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_PUBLIC_KEY: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
+type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
 type PlayerRow = { user_id: string; display_name: string; cash_cents: number; starting_cash_cents: number };
 type HoldingRow = { symbol: SymbolCode; shares: number; cost_basis_cents: number };
@@ -17,13 +14,8 @@ const app = new Hono<App>();
 const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
-// Discord authenticates this callback with its signature, before a player has a session.
-app.post('/api/discord/interactions',
-  bodyLimit({ maxSize: 64 * 1024, onError: c => c.text('Payload too large', 413) }),
-  c => discordInteraction(c.req.raw, c.env));
-
 app.use('/api/*', async (c, next) => {
-  if (!['/api/config', '/api/auth', '/api/health', '/api/launch-status'].includes(c.req.path)) {
+  if (!['/api/config', '/api/auth', '/api/health'].includes(c.req.path)) {
     const match = /^Bearer (\S+)$/.exec(c.req.header('Authorization') ?? '');
     if (!match || !c.env.SESSION_SECRET) return c.json({ error: 'Authentication required' }, 401, { 'Cache-Control': 'no-store' });
     const userId = await verifySession(c.env.SESSION_SECRET, match[1]);
@@ -36,29 +28,8 @@ app.use('/api/*', async (c, next) => {
 });
 
 app.get('/api/health', c => c.json({ status: 'ok', service: 'paperstreet' }));
-app.get('/api/launch-status', async c => {
-  // Public diagnostics contain only safe status codes. Never expose Discord
-  // credentials, bearer tokens, command IDs, or private player data.
-  const { results: rows } = await c.env.DB.prepare(`SELECT key,value,checked_at FROM service_state
-    WHERE key IN ('discord-primary-entry-app-handler-v1','discord-primary-entry-sync-result-v1')`)
-    .all<{ key: string; value: string; checked_at: number }>();
-  const success = rows.find(row => row.key === 'discord-primary-entry-app-handler-v1');
-  const attempt = rows.find(row => row.key === 'discord-primary-entry-sync-result-v1');
-  const verified = success?.value === c.env.DISCORD_CLIENT_ID &&
-    (attempt === undefined || success.checked_at >= attempt.checked_at ||
-      attempt.value === 'verified' || attempt.value === 'updated');
-  return noStore({
-    handler: 'APP_HANDLER',
-    verified: Boolean(verified),
-    checkedAt: verified ? success?.checked_at : null,
-    lastAttemptAt: attempt?.checked_at ?? null,
-    lastResult: attempt?.value ?? 'not_run',
-  });
-});
-
 app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
-  interactionsConfigured: /^[0-9a-f]{64}$/i.test(c.env.DISCORD_PUBLIC_KEY ?? ''),
   provider: 'finnhub',
   dataConfigured: Boolean(c.env.FINNHUB_API_KEY),
   startingCashCents: STARTING_CASH_CENTS,
@@ -95,11 +66,6 @@ app.post('/api/auth', async c => {
     .bind(user.id, displayName, STARTING_CASH_CENTS, STARTING_CASH_CENTS, avatarHash, avatarDiscriminator).run();
   invalidateMemo('leaderboard');
   const session = await createSession(c.env.SESSION_SECRET, user.id);
-  // An authenticated Activity launch triggers verification independently of
-  // Cloudflare Cron delivery. This must never delay or block user sign-in.
-  c.executionCtx.waitUntil(checkDiscordLaunchAfterAuth(c.env).catch(() => {
-    console.error('Discord launch verification fallback failed');
-  }));
   return noStore({ access_token: token.access_token, session, user: { id: user.id, displayName, avatarUrl } });
 });
 
@@ -208,11 +174,6 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
-    ctx.waitUntil(checkDiscordLaunch(env, Math.floor(controller.scheduledTime / 1000))
-      .catch(error => {
-        console.error('Discord sync monitoring unavailable',
-          error instanceof Error ? error.message : 'Unknown error');
-      }));
     if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
     // Cron collects real quotes on weekdays without a connected user; no fake backfill.
     ctx.waitUntil(allQuotes(env).then(() => {}).catch(error => {

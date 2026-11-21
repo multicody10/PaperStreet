@@ -21,15 +21,12 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 
 ## 1. Discord Developer Portal
 
-1. Open your application in the [Discord Developer Portal](https://discord.com/developers/applications). Copy the **Application ID** and **Public Key** from General Information. The **Client Secret** is under OAuth2.
+1. Create a Discord application at <https://discord.com/developers/applications> and note its **Application ID** and **OAuth2 Client Secret**.
 2. Under **OAuth2**, add `https://127.0.0.1` as a redirect URI. The Embedded App SDK manages the Activity's authorize redirect automatically.
 3. Under **Activities → Settings**, enable Activities.
-4. Under **Activities → URL Mappings**, configure `/` to the hostname of your deployed Worker, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, no `https://`). The browser sends all `/api/*` calls through the same mapped origin. **No other mappings are necessary.**
-5. Configure your application's installation settings for the Discord App Launcher. Deploy the Worker with `DISCORD_CLIENT_ID` and `DISCORD_PUBLIC_KEY` set (see section 2).
-6. Under **General Information → Interactions Endpoint URL**, save `https://<your-worker-hostname>/api/discord/interactions`. Discord verifies the endpoint by sending a signed ping.
-7. Once the Worker is deployed, its **existing five-minute Cron Trigger and successful Discord sign-ins automatically verify and correct the Discord Play command** using `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_PUBLIC_KEY` stored in the Worker. It sets the command to `APP_HANDLER (1)` so Discord does not send its default Play invitation message. No local `.dev.vars` file, local script or Discord API token is needed. On initial verification it also re-registers an already configured `APP_HANDLER` to refresh Discord's command version. [Discord entry point handlers](https://docs.discord.com/developers/interactions/application-commands#entry-point-handlers).
-8. To check the automatic setup without credentials, open `https://paperstreet.gobydev.workers.dev/api/launch-status`. The endpoint reads D1 directly without a response cache. It returns `verified`, `checkedAt`, `lastAttemptAt`, and `lastResult`. The verification also runs after a successful Discord login without blocking sign-in. Failures are separated by phase, including `d1_state_read_failed`, `discord_oauth_fetch_failed`, `discord_oauth_invalid_json`, `discord_commands_fetch_failed`, `discord_update_fetch_failed`, `discord_verify_fetch_failed`, and `d1_state_write_failed`. `lastResult: "not_run"` means no scheduled verification has reached the Worker, while `missing_client_secret`, `missing_public_key`, `discord_oauth_401`, `discord_api_403`, `no_primary_entry_point`, etc. identify the failure category. Only safe diagnostic codes are exposed; the endpoint never prints application credentials, request tokens or private player information. Successful verification records `verified` or `updated` and logs `PaperStreet Discord entry point verified: APP_HANDLER (1)`.
-9. Reopen the Activity after verification. Previous invite messages are not retroactively deleted; newly invoking Play should not post an additional invitation. If Discord still posts a new Play card even with `verified: true`, inspect whether the Worker logged `PaperStreet received primary entry point launch; returning type 12` for that invocation. The local `scripts/configure-launch.mjs --verify` is an optional advanced diagnostic, not a prerequisite.
+4. Under **Activities → URL Mappings**, map `/` to your deployed Worker hostname, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, without `https://`). Requests to `/api/*` use the same mapped origin.
+5. Configure the application's installation settings so players can launch PaperStreet using Discord's default Activity **Play / Launch** entry point. No separate Discord interaction webhook or Gateway process is required.
+
 
 ## 2. Automatic Cloudflare deployment with GitHub Actions
 
@@ -47,7 +44,6 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
 5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment.
 6. **Before activating the real market** obtain a quote provider key and written approval to display/redistribute its market data to your Discord players (details in section 3). In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
    - `DISCORD_CLIENT_ID`: your Discord Application ID.
-   - `DISCORD_PUBLIC_KEY`: the 64-character hexadecimal Public Key from Discord General Information, used to verify signed launch requests.
    - `DISCORD_CLIENT_SECRET`: your Discord OAuth2 Client Secret.
    - `SESSION_SECRET`: a unique 64-character hexadecimal secret (`openssl rand -hex 32` in Git Bash).
    - `FINNHUB_API_KEY`: an authorized Finnhub API key, stored as **Secret**. Without this key PaperStreet displays no prices and disables trading.
