@@ -1,0 +1,81 @@
+/* Forecasts, queued orders and achievements share the existing dark trading visual system. */
+.challenge-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.85fr);grid-template-rows:auto auto;min-height:0;gap:12px;flex:1;overflow:auto;align-content:start;scrollbar-width:thin}
+.challenge-layout>.panel{min-height:0}
+.prediction-compose{display:flex;flex-direction:column;gap:13px;padding:5px 15px 16px}
+.prediction-compose select,.trade-kind,.trigger-input{width:100%;min-height:44px;padding:9px 11px;border:1px solid #374a50;border-radius:8px;background:#101c22;color:#ecf8f2;font-size:14px}
+.prediction-price{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;color:#a8b7bb;font-size:12px}
+.prediction-price strong{font-size:19px;color:#f2fff8}
+.prediction-price small{display:block;flex:1 1 100%;color:#829ca2;line-height:1.45}
+.prediction-direction{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.prediction-direction button{display:flex;justify-content:center;align-items:center;gap:8px;min-height:48px;border:1px solid #39505a;border-radius:8px;background:#15252e;color:#d6e1e3;font-size:13px;font-weight:800}
+.prediction-direction .active.up{background:#133e2b;border-color:#21b879;color:#a8ffce}
+.prediction-direction .active.down{background:#42242d;border-color:#d45b6b;color:#ffb7bf}
+.gameplay-hint{font-size:11px;line-height:1.65;color:#93abb0}
+.prediction-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 13px 12px}
+.prediction-totals>div{border:1px solid #2e4148;background:#142129;border-radius:8px;padding:11px}
+.prediction-totals span{display:block;font-size:9px;font-weight:800;color:#839ca4}
+.prediction-totals strong{display:block;font-size:21px;margin-top:4px}
+.prediction-list{overflow:auto;max-height:290px;min-height:0}
+.prediction-row{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 14px;border-top:1px solid var(--line)}
+.prediction-row strong{font-size:12px}.prediction-row strong span{font-size:11px}
+.prediction-row small{display:block;font-size:10px;margin-top:4px;color:#8ea5ac;line-height:1.35}
+.prediction-outcome{text-align:right;flex:none}
+.achievement-panel{grid-column:1/-1}
+.achievement-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:3px 14px 15px}
+.achievement{display:flex;align-items:flex-start;gap:11px;min-width:0;padding:12px;border:1px solid #31434a;border-radius:9px;background:#152027}
+.achievement.unlocked{border-color:#276a4b;background:#183026}
+.achievement-icon{display:grid;place-items:center;width:38px;height:38px;flex:none;border-radius:9px;background:#29343e;color:#8aa1ad}
+.achievement.unlocked .achievement-icon{background:#245f41;color:#a4ffd2}
+.achievement-info{flex:1;min-width:0}.achievement-info strong{font-size:12px}.achievement-info p{font-size:10px;color:#a3b3b7;margin:5px 0 9px;line-height:1.45}
+.achievement-progress{height:5px;border-radius:8px;background:#35434a;overflow:hidden}
+.achievement-progress div{height:100%;background:#0cf08d;border-radius:inherit}
+.achievement-info small{display:block;margin-top:5px;font-size:10px;color:#92ada7}
+.challenge-stocks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0 12px 12px}
+.challenge-stocks button{display:flex;align-items:center;justify-content:space-between;gap:6px;text-align:left;min-width:0;min-height:47px;padding:8px;border:1px solid var(--line);border-radius:7px;background:#18262a;color:#e9f3ef}
+.challenge-stocks button>span{min-width:0}.challenge-stocks strong{font-size:11px;white-space:nowrap}.challenge-stocks small{display:block;font-size:9px;color:#8ba3a9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.orders-panel{flex:none;min-height:0}
+.queued-list{overflow:auto;max-height:290px;scrollbar-width:thin}
+.queued-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 15px;border-top:1px solid var(--line)}
+.queued-description{display:grid;gap:4px;min-width:0}.queued-description strong{font-size:12px}.queued-description>span{font-size:11px;color:#a5bbb9}.queued-description small{font-size:10px;color:#8ca2ab}
+.queued-status{display:flex;align-items:flex-end;flex-direction:column;gap:5px;text-align:right;min-width:0}
+.queued-status>strong{font-size:11px;text-transform:capitalize}.queued-status small{font-size:10px;color:#98afb0;line-height:1.3}
+.queued-status .small-action{min-height:33px;min-width:75px;justify-content:center}
+.orders-foot{border-top:1px solid var(--line);padding:10px 14px}
+.ticket-order-control{display:flex;flex-direction:column;gap:6px}
+.ticket-order-control label{font-weight:800;font-size:10px;color:#bbcacd;letter-spacing:.3px}
+.ticket-order-control small{font-size:10px;color:#93abb0;line-height:1.4}
+.ticket-trigger{display:flex;flex-direction:column;gap:6px}
+.ticket-trigger label{font-size:10px;color:#bdcbd0;font-weight:800}
+.ticket-trigger .trigger-input{font-size:16px}
+.ticket-queue-note{padding:9px;border:1px solid #375649;background:#142b22;border-radius:7px;color:#a9eacb;font-size:11px;line-height:1.5}
+.after-hours-card{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:14px 16px;background:#16251e;border:1px solid #315744;border-radius:10px}
+.after-hours-card strong{display:block;font-size:13px;color:#baffd8}
+.after-hours-card p{font-size:11px;line-height:1.5;color:#a4bdb1;margin-top:5px}
+.after-hours-card button{flex:none;min-height:42px;padding:8px 14px;border:1px solid #2e9964;border-radius:8px;color:#b9ffdd;background:#214931;font-size:12px;font-weight:800}
+@media(max-width:1100px){.challenge-layout{grid-template-columns:1fr}.achievement-panel{grid-column:auto}.achievement-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){
+  .challenge-layout{display:flex;flex-direction:column;flex:none;overflow:visible;gap:12px}
+  .challenge-layout>.panel{flex:none;min-height:0}
+  .prediction-list,.queued-list{overflow:visible;max-height:none}
+  .achievement-grid{grid-template-columns:1fr;gap:8px}
+  .prediction-totals{gap:7px}
+  .challenge-stocks{grid-template-columns:1fr 1fr}
+  .after-hours-card{align-items:stretch;flex-direction:column}
+  .after-hours-card button{width:100%}
+  .ticket-order-control select,.ticket-trigger input{font-size:16px}
+}
+@media(max-width:370px){.challenge-stocks{grid-template-columns:1fr}.prediction-row{align-items:flex-start}}
+
+/* New gameplay pages and mobile tab. */
+.details-stack{display:flex;flex:1;min-height:0;flex-direction:column;gap:12px;overflow:auto;scrollbar-width:thin}
+.details-stack>.orders-panel{flex:none;max-height:265px}
+.details-stack>.details-panel{flex:1;min-height:180px}
+@media(min-width:931px) and (max-width:1120px){
+  .top-link{min-width:0;padding:0 8px;gap:5px}
+}
+@media(max-width:760px){
+  .details-stack{flex:none;min-height:0;overflow:visible}
+  .details-stack>.orders-panel{max-height:none}
+  .details-stack>.details-panel{flex:none;min-height:0}
+  .mobile-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+}

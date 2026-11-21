@@ -8,6 +8,7 @@ STARTING_CASH_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrat
 AVATAR_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0004_player_avatars.sql').read_text()
 MARKET_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0002_real_market.sql').read_text()
 COMMAND_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0008_portfolio_slash_command.sql').read_text()
+GAMEPLAY_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0009_after_hours_gameplay.sql').read_text()
 UID = '123456789012345678'
 
 
@@ -137,6 +138,52 @@ class TradeLedgerTest(unittest.TestCase):
             self.order('order-id', 'BUY', 1)
         self.assertEqual(self.balance(), 990000)
         self.assertEqual(self.holding(), (1, 10000))
+
+
+    def test_after_hours_orders_do_not_change_ledger_until_filled(self):
+        self.db.executescript(GAMEPLAY_MIGRATION)
+        self.db.execute("""
+            INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents)
+            VALUES (?,?,?,?,?,?,?)
+        """, (UID, 'queue-1', 'AAPL', 'BUY', 2, 'LIMIT', 9500))
+        self.assertEqual(self.balance(), 1000000)
+        self.assertEqual(self.db.execute('SELECT last_checked_at FROM queued_orders WHERE client_order_id=?', ('queue-1',)).fetchone()[0], 0)
+        self.assertIsNone(self.holding())
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("""
+                INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents)
+                VALUES (?,?,?,?,?,?,?)
+            """, (UID, 'queue-1', 'AAPL', 'BUY', 2, 'LIMIT', 9500))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("""
+                INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents)
+                VALUES (?,?,?,?,?,?,?)
+            """, (UID, 'bad-kind', 'AAPL', 'BUY', 2, 'MARKET', 10000))
+        self.order('queue-1', 'BUY', 2, 9400)
+        self.assertEqual(self.balance(), 981200)
+        self.assertEqual(self.holding(), (2, 18800))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.order('queue-1', 'BUY', 2, 9400)
+        self.assertEqual(self.balance(), 981200)
+
+    def test_predictions_unique_per_session_and_achievements_persistent(self):
+        self.db.executescript(GAMEPLAY_MIGRATION)
+        self.db.execute("""
+            INSERT INTO predictions(user_id,symbol,direction,target_date,base_price_cents)
+            VALUES (?,?,?,?,?)
+        """, (UID, 'AAPL', 'UP', '2026-11-23', 10000))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("""
+                INSERT INTO predictions(user_id,symbol,direction,target_date,base_price_cents)
+                VALUES (?,?,?,?,?)
+            """, (UID, 'AAPL', 'DOWN', '2026-11-23', 10000))
+        self.db.execute("""
+            UPDATE predictions SET outcome='CORRECT',points=10,close_price_cents=10200 WHERE user_id=?
+        """, (UID,))
+        self.assertEqual(self.db.execute("SELECT SUM(points) FROM predictions WHERE user_id=?", (UID,)).fetchone()[0], 10)
+        self.db.execute("INSERT OR IGNORE INTO player_achievements(user_id,code) VALUES (?,?)", (UID, 'first_prediction'))
+        self.db.execute("INSERT OR IGNORE INTO player_achievements(user_id,code) VALUES (?,?)", (UID, 'first_prediction'))
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM player_achievements WHERE user_id=?", (UID,)).fetchone()[0], 1)
 
 
 if __name__ == '__main__':

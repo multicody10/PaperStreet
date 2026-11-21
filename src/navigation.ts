@@ -1,10 +1,10 @@
 import { isSymbol, type SymbolCode } from '../shared/stocks';
 
-export type Page = 'dashboard' | 'trade' | 'portfolio' | 'leaderboard' | 'history';
+export type Page = 'dashboard' | 'trade' | 'portfolio' | 'leaderboard' | 'history' | 'challenges';
 export type View = Page | 'stock';
 export type Route = { view: View; symbol: SymbolCode };
 
-const pages = new Set<Page>(['dashboard', 'trade', 'portfolio', 'leaderboard', 'history']);
+const pages = new Set<Page>(['dashboard', 'trade', 'portfolio', 'leaderboard', 'history', 'challenges']);
 export function parseAppHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
   const match = /^trade\/([A-Z]+)$/.exec(path);

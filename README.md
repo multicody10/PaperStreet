@@ -2,23 +2,33 @@
 
 **PaperStreet is a Discord Activity for stock paper trading.** Each new player starts with **$1,000 in virtual cash**, builds a portfolio, and competes on a global equity leaderboard. It runs as an embedded Discord Activity with a dedicated `/portfolio` Discord slash command, all on Cloudflare Workers Free without a Gateway process.
 
-The entire stack runs on **Cloudflare Workers Free**: a single Worker for the API, Worker Static Assets for the React interface, and a D1 SQLite database. No always-on servers, queues, paid Workers features, or background jobs are required.
+The entire stack runs on **Cloudflare Workers Free**: a single Worker for the API, Worker Static Assets for the React interface, and a D1 SQLite database. No always-on servers or paid Workers features are required. The existing five-minute Worker Cron collects prices, processes queued orders and settles predictions.
 
 ## Features
 
 - Native Discord Activity authentication using the Embedded App SDK and Discord OAuth2.
 - **`/portfolio` slash command:** a polished Discord embed containing the invoking trader's equity, cash, invested value, all-time return and holdings, valued using genuine cached Finnhub prices. Supports user installs in servers, direct messages and group DMs, as well as guild installs. It never accepts another user's ID and does not change Discord's Activity Launch command.
-- One click market buys and sells of whole shares from a deliberately limited set of 12 US stocks/ETFs.
+- Immediate market buys and sells during regular US trading hours plus persistent queued market, limit and stop orders, including weekends and holidays, for the 12 supported stocks/ETFs.
+- **Next-session predictions:** choose higher or lower than a verified reference quote, earn ten points for correct direction, and track prediction accuracy. The existing quote history resolves predictions only from verified session-closing prints.
+- **Achievements:** persistent badges for trading milestones, correct predictions and diversification. The Challenges screen is accessible on desktop and mobile.
+- Queued order management in Portfolio, including cancellation and fill/rejection status. Pending orders do not reserve funds or holdings; invalid balances are rejected at fill time.
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
 - Separate **Dashboard**, **Trade**, and **individual stock pages**, all responsive and viewport locked inside Discord. Dashboard displays portfolio value, positions, completed orders, leaderboard, and a read-only market snapshot; it contains no order ticket or trade execution controls.
-- The Trade page contains searchable Finnhub stock quotes, market breadth, and largest movers. Selecting a symbol opens its dedicated stock page with verified quote details, observed history and buy/sell ticket. Trading remains available 24/7 at verified provider prices.
+- The Trade page contains searchable Finnhub stock quotes, market breadth, and largest movers. Selecting a symbol opens its dedicated stock page with verified quote details, observed history and buy/sell ticket. Trading tickets remain available 24/7; outside regular market hours the default is a queued market order, and immediate fills are blocked.
 - Interactive candlesticks across **1D, 1W, 1M, 3M, 1Y, All**. Hover, touch, or focus the chart and use the arrow keys to inspect open, high, low, and close. The Trade list shows where each last price sits within its reported session range.
 - Mobile responsive dark interface inside Discord, without external browser data APIs.
 - Cloudflare Free optimization: shared D1 quote storage, batched reads for all 12 assets, bounded in-isolate TTL caches with invalidation, coalesced requests, and page-specific frontend polling (2 minutes on Trade, 5 minutes elsewhere while visible). User-specific balances, session tokens and trade history are never shared between accounts.
 - **Real market quotes only:** Finnhub last-trade prices and previous closes. No fictional quotes, no simulated market mode, and no invented chart data.
 
-> This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Virtual trades are available 24/7, including evenings, weekends and holidays, using the last verified provider quote. Prices may remain unchanged outside exchange hours. Orders are blocked only when market data is missing, invalid or older than the freshness limit. Historical simulated fills are preserved for audit when migrating an existing installation.
+> This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Immediate fills run only during regular US exchange hours, with a recent verified in-session print. Queued orders are persisted and processed by the existing five-minute cron after the exchange opens. They may fill later than the opening tick, and limit/stop orders can remain pending. Orders are rejected at execution if funds or shares are insufficient. Predictions use the last verified observation near the target session's close; if no such observation exists, settlement remains pending rather than inventing a result. Historical simulated fills are preserved for audit when migrating an existing installation.
+
+## After-hours gameplay
+
+- **Challenges** contains the next-session higher/lower prediction form, accuracy and points, and all permanent achievement badges. Each account may submit one forecast per stock for each target trading session; no modification after submission.
+- **Trade** automatically selects a queued market order when the exchange is closed. Queue a market, limit, or stop order any time, or choose an immediate order while the exchange is open. Orders process on the next eligible scheduled run using verified regular-session quotes, not an assumed opening auction price.
+- **Portfolio** lists active and recent queued orders. Cancel pending orders before they are claimed; statuses persist. Pending orders do not reserve virtual cash or shares.
+- The five-minute cron already configured in `wrangler.jsonc` is required for unattended order execution and prediction settlement. Run D1 migrations (including `0009_after_hours_gameplay.sql`) before deploying the new Worker version. No new paid services are needed.
 
 ## 1. Discord Developer Portal
 

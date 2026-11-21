@@ -8,6 +8,7 @@ import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, i
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
+import { listOrders, queueOrder, cancelOrder, listPredictions, getPredictionSummary, submitPrediction, getAchievements, processQueuedOrders, settlePredictions } from './gameplay';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader } from '../shared/stocks';
 
 type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; DISCORD_PUBLIC_KEY?: string; SESSION_SECRET: string };
@@ -138,6 +139,67 @@ app.get('/api/history', async c => {
   return noStore({ trades: trades.results });
 });
 
+// All game actions use the same signed Activity session middleware.
+app.get('/api/orders', async c => noStore({ orders: await listOrders(c.get('userId'),c.env) }));
+app.post('/api/orders', async c => {
+  if (Number(c.req.header('Content-Length') ?? 0) > 2048) return noStore({error:'Invalid queued order'},400);
+  const input = await c.req.json().catch(()=>null) as {
+    symbol?:unknown; side?:unknown; shares?:unknown; kind?:unknown;
+    triggerPriceCents?:unknown; orderId?:unknown;
+  } | null;
+  const kind = input?.kind;
+  const price = input?.triggerPriceCents;
+  if (!input || !isSymbol(input.symbol) ||
+      (input.side!=='BUY' && input.side!=='SELL') ||
+      !Number.isSafeInteger(input.shares) || Number(input.shares)<1 || Number(input.shares)>100000 ||
+      (kind!=='MARKET' && kind!=='LIMIT' && kind!=='STOP') ||
+      (kind==='MARKET' ? price!=null : !Number.isSafeInteger(price) || Number(price)<1 || Number(price)>100000000) ||
+      typeof input.orderId!=='string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.orderId))
+    return noStore({error:'Invalid queued order fields'},422);
+  try {
+    const order = await queueOrder(c.env,c.get('userId'),{
+      orderId:input.orderId, symbol:input.symbol, side:input.side,
+      shares:input.shares as number,kind:kind as 'MARKET'|'LIMIT'|'STOP',
+      triggerPriceCents: kind==='MARKET' ? null : price as number,
+    });
+    return noStore({order});
+  } catch(error) {
+    const message = error instanceof Error ? error.message : 'Unable to queue order';
+    if (message.includes('30 open')) return noStore({error:message},409);
+    throw error;
+  }
+});
+app.post('/api/orders/:id/cancel', async c => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isSafeInteger(id) || id<=0) return noStore({error:'Invalid order'},422);
+  if (!await cancelOrder(c.env,c.get('userId'),id))
+    return noStore({error:'Order already processed or not found'},409);
+  return noStore({canceled:true});
+});
+app.get('/api/predictions', async c => {
+  const userId=c.get('userId');
+  const [predictions,summary]=await Promise.all([listPredictions(userId,c.env),getPredictionSummary(userId,c.env)]);
+  return noStore({predictions,summary});
+});
+app.post('/api/predictions', async c => {
+  if (Number(c.req.header('Content-Length') ?? 0) > 512) return noStore({error:'Invalid prediction'},400);
+  const input = await c.req.json().catch(()=>null) as {symbol?:unknown;direction?:unknown}|null;
+  if (!isSymbol(input?.symbol) || (input?.direction!=='UP' && input?.direction!=='DOWN'))
+    return noStore({error:'Choose a stock and direction'},422);
+  try {
+    const prediction = await submitPrediction(c.env,c.get('userId'),input.symbol,input.direction);
+    return noStore({prediction});
+  } catch(error) {
+    const message = error instanceof Error ? error.message : 'Prediction unavailable';
+    if (message.includes('already predicted')) return noStore({error:message},409);
+    if (message.includes('quote')) return noStore({error:message},503);
+    throw error;
+  }
+});
+app.get('/api/achievements', async c =>
+  noStore({achievements:await getAchievements(c.env,c.get('userId'))}));
+
 app.get('/api/leaderboard', async c => {
   const quotes = await allQuotes(c.env);
   if (quotes.length !== STOCKS.length || quotes.some(q => q.stale))
@@ -170,7 +232,9 @@ app.post('/api/trade', async c => {
   const userId = c.get('userId');
   const existing = await c.env.DB.prepare('SELECT id FROM trades WHERE user_id=? AND client_order_id=?').bind(userId, input.orderId).first<{ id: number }>();
   if (existing) return noStore({ tradeId: existing.id, duplicate: true });
+  if (!isUsMarketOpen()) return noStore({ error: 'The exchange is closed. Queue an order for the next session.' }, 409);
   const quote = await quoteFor(input.symbol, c.env);
+  if (!isUsMarketOpen(quote.fetchedAt)) return noStore({ error: 'Waiting for a current regular-session trade print.' }, 409);
   if (!isQuoteExecutable(quote)) return noStore({ error: 'A verified market quote is unavailable or too old. Trading resumes when valid data returns.' }, 503);
   if (Math.abs(quote.priceCents / Number(input.expectedPriceCents) - 1) > 0.01) {
     return noStore({ error: 'Price moved by over 1%. Refresh quotes and retry.' }, 409);
@@ -201,10 +265,21 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
-    if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
-    // Cron collects real quotes on weekdays without a connected user; no fake backfill.
-    ctx.waitUntil(allQuotes(env).then(() => {}).catch(error => {
-      console.error('Finnhub history collector failed', error instanceof Error ? error.message : 'Unknown failure');
+    if (!env.FINNHUB_API_KEY) return;
+    const now = Math.floor(controller.scheduledTime / 1000);
+    const open = isUsMarketOpen(now);
+    // Keep the existing 5-minute quote collector; the same cron processes paper orders.
+    // After the bell, grade predictions from recorded verified closing-session observations.
+    if (!open && new Date(controller.scheduledTime).getUTCMinutes() % 30 !== 0) return;
+    ctx.waitUntil((async () => {
+      if (open) {
+        await allQuotes(env).catch(error=>console.error('Quote collection failed',error instanceof Error?error.message:'Unknown'));
+        await processQueuedOrders(env,now);
+      } else {
+        await settlePredictions(env,now);
+      }
+    })().catch(error => {
+      console.error('PaperStreet scheduled gameplay failed', error instanceof Error ? error.message : 'Unknown failure');
     }));
   },
 } satisfies ExportedHandler<Bindings>;
