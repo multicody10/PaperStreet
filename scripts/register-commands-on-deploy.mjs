@@ -31,4 +31,4 @@ if (!registered.ok)
   throw new Error(`Discord command deployment failed: HTTP ${registered.status} (${result.error || 'unknown_error'})`);
 if (result.command !== '/portfolio' || !['registered', 'verified'].includes(result.result))
   throw new Error('Worker did not confirm the /portfolio command');
-console.log(`Discord ${result.command} command ${result.result} on production deployment.`);
+console.log(`Discord /portfolio, /paperstreet and silent Play handler ${result.result} on production deployment.`);

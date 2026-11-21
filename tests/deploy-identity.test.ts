@@ -80,7 +80,7 @@ test('an unauthenticated HTTP request cannot execute command registration', asyn
   assert.equal((await res.json() as { error: string }).error, 'oidc_format');
 });
 
-test('authorized deployment registers /portfolio and never changes Activity Launch', async t => {
+test('authorized deployment registers both commands and configures silent Activity Launch', async t => {
   const calls: { url: string; method: string }[] = [];
   t.mock.method(globalThis, 'fetch', async (resource: RequestInfo | URL, options?: RequestInit) => {
     const url = String(resource);
@@ -92,12 +92,23 @@ test('authorized deployment registers /portfolio and never changes Activity Laun
     if (url.endsWith('/commands') && method === 'GET') return Response.json([
       { id: '888888888888888888', name: 'Launch', type: 4, application_id: '123456789012345678', handler: 2 },
     ]);
-    if (url.endsWith('/commands') && method === 'POST')
+    if (url.endsWith('/commands') && method === 'POST') {
+      const input = JSON.parse(String(options?.body)) as {
+        type: number; name: string; description: string; integration_types: number[]; contexts: number[];
+      };
+      assert.ok(['portfolio', 'paperstreet'].includes(input.name));
       return Response.json({
-        id: '999999999999999999', application_id: '123456789012345678',
-        name: 'portfolio', type: 1, description: 'View your PaperStreet portfolio, holdings and profit or loss',
-        integration_types: [0, 1], contexts: [0, 1, 2],
+        id: input.name === 'portfolio' ? '999999999999999999' : '777777777777777777',
+        application_id: '123456789012345678', ...input,
       });
+    }
+    if (url.endsWith('/commands/888888888888888888') && method === 'PATCH') {
+      assert.deepEqual(JSON.parse(String(options?.body)), { handler: 1 });
+      return Response.json({
+        id: '888888888888888888', name: 'Launch', type: 4,
+        application_id: '123456789012345678', handler: 1,
+      });
+    }
     throw new Error('Unexpected URL: ' + url);
   });
   let row: object | null = null;
@@ -122,6 +133,7 @@ test('authorized deployment registers /portfolio and never changes Activity Laun
   }), env);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { command: '/portfolio', result: 'registered' });
-  assert.ok(calls.some(c => c.url.endsWith('/commands') && c.method === 'POST'));
-  assert.ok(calls.every(c => c.method !== 'PATCH' && c.method !== 'DELETE'));
+  assert.equal(calls.filter(c => c.url.endsWith('/commands') && c.method === 'POST').length, 2);
+  assert.equal(calls.filter(c => c.url.endsWith('/commands/888888888888888888') && c.method === 'PATCH').length, 1);
+  assert.ok(calls.every(c => c.method !== 'DELETE'));
 });

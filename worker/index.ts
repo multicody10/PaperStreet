@@ -18,14 +18,13 @@ const app = new Hono<App>();
 const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
-// Only signed Discord slash-command interactions use this unauthenticated route.
-// It never modifies Discord's separate Activity Launch entry point.
+// Signed /portfolio, /paperstreet and silent Activity Launch interactions use this route.
 app.post('/api/discord/interactions',
   bodyLimit({ maxSize: 32 * 1024, onError: c => c.text('Payload too large', 413) }),
   c => portfolioInteraction(c.req.raw, c.env, c.executionCtx));
 
-// After Wrangler deploy, only the signed GitHub Actions production workflow
-// may register slash commands. This endpoint cannot update the Activity Launch.
+// Only the verified GitHub deployment may register slash commands and switch
+// the existing Activity Launch handler to APP_HANDLER.
 app.post('/api/internal/register-commands', async c => {
   const identity = await inspectProductionDeployIdentity(
     c.req.header('Authorization'), c.req.url,
@@ -35,7 +34,7 @@ app.post('/api/internal/register-commands', async c => {
     const result = await deployPortfolioCommand(c.env);
     return noStore({ command: '/portfolio', result });
   } catch (error) {
-    const category = error instanceof Error && /^(?:missing_discord_configuration|(?:oauth|list|create)_(?:network_error|invalid_response|http_\d{3}))$/.test(error.message)
+    const category = error instanceof Error && /^(?:missing_discord_configuration|(?:oauth|list|create|launch)_(?:network_error|invalid_response|missing|http_\d{3}))$/.test(error.message)
       ? error.message : 'registration_failed';
     console.error('PaperStreet command deployment failed:', category);
     return noStore({ error: category }, 503);
@@ -61,7 +60,7 @@ app.get('/api/commands/status', async c => {
     FROM discord_command_registry WHERE name='portfolio'`)
     .first<{ version: number; checked_at: number; last_attempt_at: number; last_result: string }>();
   return noStore({
-    command: '/portfolio', registered: state?.version === 2 &&
+    command: '/portfolio', registered: state?.version === 3 &&
       (state.last_result === 'registered' || state.last_result === 'verified'),
     lastVerifiedAt: state?.checked_at ?? null,
     lastAttemptAt: state?.last_attempt_at ?? null,

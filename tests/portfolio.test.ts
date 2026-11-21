@@ -133,9 +133,29 @@ test('wrong command or other application cannot return another user\'s holdings'
   const ctx = { waitUntil() { throw new Error('Untrusted command scheduled'); } } as unknown as ExecutionContext;
   for (const payload of [
     { type: 2, application_id: '333333333333333333', token: 'valid-interaction-token-12345', member: { user: { id } }, data: { name: 'portfolio', type: 1 } },
-    { type: 2, application_id: appId, token: 'valid-interaction-token-12345', member: { user: { id } }, data: { name: 'launch', type: 4 } },
+    { type: 2, application_id: appId, token: 'valid-interaction-token-12345', member: { user: { id } }, data: { name: 'unknown', type: 1 } },
   ]) {
     const reply = await portfolioInteraction(signed(payload), env, ctx);
     assert.equal((await reply.json() as { type: number }).type, 4);
   }
+});
+
+test('signed Play and /paperstreet launch without posting Game Invitations', async () => {
+  const env = { DISCORD_PUBLIC_KEY: keyHex, DISCORD_CLIENT_ID: appId, DB: {} as D1Database };
+  const ctx = { waitUntil() { throw new Error('Launch must not schedule a message'); } } as Pick<ExecutionContext, 'waitUntil'>;
+  for (const context of [0, 1, 2]) {
+    for (const command of [{ type: 4, name: 'Launch' }, {type: 1, name: 'paperstreet'}]) {
+      const response = await portfolioInteraction(signed({
+        type: 2, context, application_id: appId, token: 'valid-interaction-token-12345',
+        data: command,
+      }), env, ctx);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {type: 12});
+    }
+  }
+  const otherApp = await portfolioInteraction(signed({
+    type: 2, application_id: '333333333333333333',
+    token: 'valid-interaction-token-12345', data: {type: 1, name: 'paperstreet'},
+  }), env, ctx);
+  assert.equal((await otherApp.json() as {type: number}).type, 4);
 });
