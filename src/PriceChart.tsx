@@ -25,6 +25,22 @@ const historyMessages = {
   network_error: 'History provider network error',
   storage_error: 'Historical data storage error',
 } as const;
+// Kept outside .candle-heading: responsive terminal styles hide that heading.
+export function chartDataStatus(history?: ChartHistory, range: HistoryRange = '1W', error?: string) {
+  if (error) return {text:'Price history request failed', warning:true};
+  if (!history) return {text:'Loading price history…', warning:false};
+  if (range === '1D') return {text:'1D · recorded intraday trades only; no backfill', warning:false};
+  if (history.source === 'alphavantage') {
+    const unit = history.resolution === 'weekly' ? 'weekly' : 'daily';
+    return {text:`Alpha Vantage history · ${history.candles.length} ${unit} bars`, warning:false};
+  }
+  const message = historyBackfillMessage(history);
+  if (message) return {text:message, warning:true};
+  return {text:history.candles.length
+    ? `Finnhub · ${history.candles.length} recorded candle(s)`
+    : 'No historical prices recorded yet', warning:false};
+}
+
 function historyBackfillMessage(history?: ChartHistory): string | null {
   if (!history?.backfill || history.source === 'alphavantage') return null;
   const {code,nextAttemptAt}=history.backfill;
@@ -62,6 +78,7 @@ export function PriceChart({ history, quote, range, error }: {
   const [inspectedAt, setInspectedAt] = useState<number | null>(null);
   const recorded = history?.candles ?? [];
   const backfillMessage = historyBackfillMessage(history);
+  const dataStatus = chartDataStatus(history,range,error);
   const count = recorded.reduce((total, bar) => total + bar.samples, 0);
   const provider = history?.source === 'alphavantage';
   const session = !provider && count < 2 && quote?.sessionBar;
@@ -78,9 +95,7 @@ export function PriceChart({ history, quote, range, error }: {
       openCents: price, highCents: price, lowCents: price, closeCents: price }];
     caption = 'Latest observed price';
   }
-  if (!bars.length) return <div className="chart-placeholder" role="status">
-    {error ? 'Price history is unavailable.' : history ? backfillMessage ?? 'No recorded prices in this range.' : 'Loading price history…'}
-  </div>;
+  if (!bars.length) return <div className="chart-placeholder" role="status">{dataStatus.text}</div>;
 
   const lastIndex = bars.length - 1;
   const match = bars.findIndex(bar => bar.lastAt === inspectedAt);
@@ -121,6 +136,10 @@ export function PriceChart({ history, quote, range, error }: {
     <div className="candle-heading"><strong>{caption}</strong>
       <span className={backfillMessage ? 'history-backfill-status' : undefined}
         title={backfillMessage ?? chartStatus}>{backfillMessage ?? chartStatus}</span>
+    </div>
+    <div className={'chart-data-status'+(dataStatus.warning?' warning':'')}
+      role="status" aria-live="polite" title={dataStatus.text}>
+      {dataStatus.text}
     </div>
     <div className="bar-readout">{singlePrint ? <span>Print <b>{money(active.closeCents)}</b></span> :
       fields.map(([label, key]) => <span key={key}>{label === 'Close' && session ? 'Last' : label} <b>{money(active[key])}</b></span>)}</div>
