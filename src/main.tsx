@@ -29,6 +29,7 @@ import './terminal.css';
 import './trade-terminal.css';
 import './goals-portfolio.css';
 import './stock-terminal.css';
+import './flat-terminal.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -339,14 +340,26 @@ function App() {
             })}
           </nav>
         </aside>
-        <main className="main-content">
+        <main className="main-content" data-page={tab}>
           <div className="content-wrap">
             {tab !== 'stock' && tab !== 'dashboard' && tab !== 'trade' && tab !== 'challenges' && <div className="headline"><h1>{title}</h1></div>}
             {!account ? <section className="welcome-panel"><div className="welcome-icon"><BarChart3 size={30}/></div><h2>Start with {money(STARTING_CASH_CENTS)}</h2><p>Connect through the Discord App Launcher to start trading stocks using virtual cash.</p><div className="auth-status" role="status">{authError || authStatus}</div><small>PaperStreet is a game. No real money is exchanged.</small></section> : <>
               {!config?.dataConfigured && <div className="feedback error" role="alert"><span><X size={17}/> Market data is not configured. The operator must add FINNHUB_API_KEY as a Cloudflare Worker secret.</span></div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
 
-              {tab === 'portfolio' && <SectionTabs label="Portfolio panels" value={portfolioPane} onChange={setPortfolioPane}
+              {(tab === 'portfolio' || tab === 'leaderboard') && <section className={'page-insights '+(tab === 'leaderboard'?'leaderboard-insights':'')} aria-label={tab === 'portfolio'?'Portfolio summary':'Leaderboard summary'}>
+                 {tab === 'portfolio' ? <>
+                   <div className="panel page-insight"><span>Account equity</span><strong>{portfolio?money(portfolio.equityCents):'—'}</strong><small>Virtual account balance</small></div>
+                   <div className="panel page-insight"><span>Available cash</span><strong>{portfolio?money(portfolio.cashCents):'—'}</strong><small>Buying power</small></div>
+                   <div className="panel page-insight"><span>Invested</span><strong>{portfolio?money(portfolio.investedCents):'—'}</strong><small>{portfolio?portfolio.positions.length:0} open positions</small></div>
+                   <div className="panel page-insight"><span>Total return</span><strong className={portfolio?(portfolio.profitCents>=0?'positive':'negative'):''}>{portfolio?signedMoney(portfolio.profitCents):'—'}</strong><small>Since account creation</small></div>
+                 </> : <>
+                   <div className="panel page-insight"><span>Ranked traders</span><strong>{leaders.length}</strong><small>Active leaderboard entries</small></div>
+                   <div className="panel page-insight"><span>Leading equity</span><strong>{leaders[0]?money(leaders[0].equityCents):'—'}</strong><small>{leaders[0]?short(leaders[0].displayName):'No ranked traders'}</small></div>
+                   <div className="panel page-insight"><span>Your rank</span><strong>{leaders.findIndex(leader=>leader.userId===account?.id)>=0?'#'+(leaders.findIndex(leader=>leader.userId===account.id)+1):'—'}</strong><small>{leaders.some(leader=>leader.userId===account.id)?'Your position':'Not on leaderboard'}</small></div>
+                 </>}
+               </section>}
+               {tab === 'portfolio' && <SectionTabs label="Portfolio panels" value={portfolioPane} onChange={setPortfolioPane}
                 items={[{id:'positions',label:'Positions'},{id:'orders',label:'Queued orders'},{id:'history',label:'History'}]}/>}
               {tab === 'dashboard' ? <TradingDashboard
                 portfolio={portfolio} quotes={quotes} trades={trades} achievements={achievements}

@@ -114,7 +114,7 @@ export function Challenges({achievements,portfolio}:{achievements:Achievement[];
       <section className="panel goals-completion">
         <div className="goals-panel-heading"><h2><BarChart3 size={19}/> Completion overview</h2></div>
         <div className="goals-completion-body">
-          <div className="goals-completion-ring" style={{background:'conic-gradient(#21c4f6 0 '+counts.percent+'%,#566982 '+counts.percent+'% 100%)'}}>
+          <div className="goals-completion-ring" style={{background:'conic-gradient(#28d77b 0 '+counts.percent+'%,#536256 '+counts.percent+'% 100%)'}}>
             <span><strong>{counts.percent}%</strong><small>Complete</small></span>
           </div>
           <div className="goals-completion-legend">
