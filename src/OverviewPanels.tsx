@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { STOCKS, type Leader, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
 import { DayRange, money } from './PriceChart';
+import { FitPager } from './FitPager';
 
 export const signedMoney = (cents: number) => `${cents > 0 ? '+' : ''}${money(cents)}`;
 export const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
@@ -91,28 +92,34 @@ export function MarketList({ quotes, connected, onStock, onAll }: {
   return <section className="overview-panel overview-market-panel">
     <PanelHeading icon={CandlestickChart} title={onAll ? 'Market overview' : 'Asset directory'}>
       {onAll ? <button type="button" className="overview-text-button" onClick={onAll}>View all <ChevronRight size={14}/></button>
-        : <span className="panel-meta">{stocks.length} assets</span>}
+        : <span className="panel-meta">{matches.length} assets</span>}
     </PanelHeading>
     <div className="market-tools">
       <div className="segmented" role="group" aria-label="Filter assets">{['All assets', 'Stocks', 'ETFs'].map(label =>
         <button type="button" key={label} aria-pressed={label === filter} onClick={() => setFilter(label)}>{label}</button>)}</div>
-      {!onAll && <label className="search"><Search size={15}/><input aria-label="Search stocks" placeholder="Search stocks" value={search} onChange={e => setSearch(e.target.value)}/></label>}
+      {!onAll && <label className="search"><Search size={15}/><input type="search" aria-label="Search stocks"
+        placeholder="Search stocks" value={search} onChange={e => setSearch(e.target.value)}/></label>}
     </div>
     <div className={'market-table ' + (!onAll && connected ? 'with-range' : '')}>
       <div className="market-columns table-label"><span>Asset</span><span>{connected ? 'Last price' : 'Sector'}</span>
         {!onAll && connected && <span className="range-column">Day range</span>}<span>{connected ? 'Day change' : 'Type'}</span><span/></div>
-      {rows.map(({ symbol, name, sector }) => {
-        const quote = quotes.find(q => q.symbol === symbol);
-        return <button type="button" key={symbol} className="market-columns overview-market-row" aria-label={'Open ' + name + ' (' + symbol + ')'} onClick={() => onStock(symbol)}>
-          <span className="asset-cell"><StockMark symbol={symbol}/><span><strong>{symbol}</strong><small>{name}{quote?.stale ? ' · Stale' : ''}</small></span></span>
-          {connected ? <><span className="number">{quote ? money(quote.priceCents) : '—'}</span>
-            {!onAll && <span className="range-column">{quote && <DayRange quote={quote}/>}</span>}
-            <span className={'number ' + tone(quote?.changePct ?? 0)}>{quote ? pct(quote.changePct) : '—'}</span></>
-            : <><span className="sector-name"><i style={{ background: sector.color }}/>{sector.name}</span><span className="asset-type">{symbol === 'SPY' ? 'ETF' : 'Stock'}</span></>}
-          <ChevronRight size={14} className="row-chevron"/>
-        </button>;
-      })}
-      {!rows.length && <EmptyState>No assets match your search.</EmptyState>}
+      <FitPager key={filter + ':' + term + ':' + String(!!onAll)} items={rows}
+        rowHeight={57} compactRowHeight={54} compactBreakpoint={670}
+        empty="No assets match your search."
+        render={page => <div className="overview-market-rows">{page.map(({ symbol, name, sector }) => {
+          const quote = quotes.find(q => q.symbol === symbol);
+          return <button type="button" key={symbol} className="market-columns overview-market-row"
+            aria-label={'Open ' + name + ' (' + symbol + ')'} onClick={() => onStock(symbol)}>
+            <span className="asset-cell"><StockMark symbol={symbol}/><span><strong>{symbol}</strong>
+              <small>{name}{quote?.stale ? ' · Stale' : ''}</small></span></span>
+            {connected ? <><span className="number">{quote ? money(quote.priceCents) : '—'}</span>
+              {!onAll && <span className="range-column">{quote && <DayRange quote={quote}/>}</span>}
+              <span className={'number ' + tone(quote?.changePct ?? 0)}>{quote ? pct(quote.changePct) : '—'}</span></>
+              : <><span className="sector-name"><i style={{ background: sector.color }}/>{sector.name}</span>
+                <span className="asset-type">{symbol === 'SPY' ? 'ETF' : 'Stock'}</span></>}
+            <ChevronRight size={14} className="row-chevron"/>
+          </button>;
+        })}</div>}/>
     </div>
   </section>;
 }
@@ -138,11 +145,19 @@ export function MarketMix() {
 
 export function MarketPulse({ quotes, onStock }: { quotes: Quote[]; onStock: (symbol: SymbolCode) => void }) {
   const movers = [...quotes].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5);
-  return <section className="overview-panel"><PanelHeading icon={Activity} title="Market pulse"/>
-    <div className="breadth">{[1, -1].map(sign => <div key={sign}><span>{sign > 0 ? 'Advancing' : 'Declining'}</span><strong className={tone(sign)}>{quotes.length ? quotes.filter(q => Math.sign(q.changePct) === sign).length : '—'}</strong></div>)}</div>
+  return <section className="overview-panel overview-pulse-panel">
+    <PanelHeading icon={Activity} title="Market pulse"/>
+    <div className="breadth">{[1, -1].map(sign => <div key={sign}>
+      <span>{sign > 0 ? 'Advancing' : 'Declining'}</span>
+      <strong className={tone(sign)}>{quotes.length ? quotes.filter(q => Math.sign(q.changePct) === sign).length : '—'}</strong>
+    </div>)}</div>
     <h3 className="list-subhead">Biggest movers</h3>
-    {movers.map(q => <button type="button" className="plain-row" key={q.symbol} onClick={() => onStock(q.symbol)}><span className="asset-cell"><StockMark symbol={q.symbol}/><strong>{q.symbol}</strong></span><b className={tone(q.changePct)}>{pct(q.changePct)}</b></button>)}
-    {!movers.length && <EmptyState>Waiting for market quotes.</EmptyState>}
+    <FitPager items={movers} rowHeight={47} compactRowHeight={45} empty="Waiting for market quotes."
+      render={page => <div className="overview-pulse-rows">{page.map(q =>
+        <button type="button" className="plain-row" key={q.symbol} onClick={() => onStock(q.symbol)}>
+          <span className="asset-cell"><StockMark symbol={q.symbol}/><strong>{q.symbol}</strong></span>
+          <b className={tone(q.changePct)}>{pct(q.changePct)}</b>
+        </button>)}</div>}/>
   </section>;
 }
 
@@ -150,36 +165,67 @@ type AccountListProps = { detail?: boolean; empty: string; onAll?: () => void };
 function ListAction({ onAll, count }: { onAll?: () => void; count: number }) {
   return onAll ? <button type="button" className="overview-text-button" onClick={onAll}>View all <ChevronRight size={14}/></button> : <span className="panel-meta">{count}</span>;
 }
-export function Holdings({ portfolio, onStock, detail, empty, onAll }: AccountListProps & { portfolio: Portfolio | null; onStock: (symbol: SymbolCode) => void }) {
+export function Holdings({ portfolio, onStock, detail, empty, onAll }: AccountListProps & {
+  portfolio: Portfolio | null; onStock: (symbol: SymbolCode) => void;
+}) {
   const positions = portfolio?.positions ?? [];
-  return <section className="overview-panel"><PanelHeading icon={BriefcaseBusiness} title={detail ? 'Open positions' : 'Holdings'}><ListAction onAll={onAll} count={positions.length}/></PanelHeading>
-    {!!positions.length && <div className="records">{(detail ? positions : positions.slice(0, 5)).map(p =>
-      <div className="record" key={p.symbol}>
-        <span className="asset-cell"><StockMark symbol={p.symbol}/><span><strong>{p.symbol}</strong><small>{p.shares} {p.shares === 1 ? 'share' : 'shares'}</small></span></span>
-        {detail && <span className="record-fact"><small>Avg. cost</small><b>{money(p.costBasisCents / p.shares)}</b></span>}
-        <span className="record-value"><strong>{money(p.marketValueCents)}</strong><small className={tone(p.profitCents)}>{signedMoney(p.profitCents)}</small></span>
-        {detail && <button type="button" className="minor-button" aria-label={'Trade ' + p.symbol} onClick={() => onStock(p.symbol)}>Trade</button>}
-      </div>)}</div>}
-    {!positions.length && <EmptyState>{empty}</EmptyState>}
+  return <section className="overview-panel overview-record-panel">
+    <PanelHeading icon={BriefcaseBusiness} title={detail ? 'Open positions' : 'Holdings'}>
+      <ListAction onAll={onAll} count={positions.length}/>
+    </PanelHeading>
+    <FitPager items={detail ? positions : positions.slice(0, 5)} rowHeight={61}
+      compactRowHeight={62} empty={empty}
+      render={page => <div className="overview-records">{page.map(pos =>
+        <div className="record" key={pos.symbol}>
+          <span className="asset-cell"><StockMark symbol={pos.symbol}/><span><strong>{pos.symbol}</strong>
+            <small>{pos.shares} {pos.shares === 1 ? 'share' : 'shares'}</small></span></span>
+          {detail && <span className="record-fact"><small>Avg. cost</small><b>{money(pos.costBasisCents / pos.shares)}</b></span>}
+          <span className="record-value"><strong>{money(pos.marketValueCents)}</strong>
+            <small className={tone(pos.profitCents)}>{signedMoney(pos.profitCents)}</small></span>
+          {detail && <button type="button" className="minor-button" aria-label={'Trade ' + pos.symbol}
+            onClick={() => onStock(pos.symbol)}>Trade</button>}
+        </div>)}</div>}/>
   </section>;
 }
 
-export function Rankings({ leaders, userId, detail, empty, onAll }: AccountListProps & { leaders: Leader[]; userId?: string }) {
-  return <section className="overview-panel"><PanelHeading icon={Trophy} title={detail ? 'Global rankings' : 'Top traders'}><ListAction onAll={onAll} count={leaders.length}/></PanelHeading>
-    {(detail ? leaders : leaders.slice(0, 5)).map((l, i) => <div className="record ranking" key={l.userId}>
-      <span className="rank">{String(i + 1).padStart(2, '0')}</span><ProfileAvatar url={l.avatarUrl} name={l.displayName}/>
-      <span className="rank-name">{l.displayName}{l.userId === userId && <small>You</small>}</span>
-      <span className="record-value"><strong>{money(l.equityCents)}</strong><small className={tone(l.changeCents)}>{detail ? signedMoney(l.changeCents) : pct(100 * l.changeCents / l.startingCashCents)}</small></span>
-    </div>)}{!leaders.length && <EmptyState>{empty}</EmptyState>}
+export function Rankings({ leaders, userId, detail, empty, onAll }: AccountListProps & {
+  leaders: Leader[]; userId?: string;
+}) {
+  return <section className="overview-panel overview-record-panel">
+    <PanelHeading icon={Trophy} title={detail ? 'Global rankings' : 'Top traders'}>
+      <ListAction onAll={onAll} count={leaders.length}/>
+    </PanelHeading>
+    <FitPager items={detail ? leaders : leaders.slice(0, 5)} rowHeight={61}
+      compactRowHeight={62} empty={empty}
+      render={(page, start) => <div className="overview-records">{page.map((l, i) =>
+        <div className="record ranking" key={l.userId}>
+          <span className="rank">{String(start + i + 1).padStart(2, '0')}</span>
+          <ProfileAvatar url={l.avatarUrl} name={l.displayName}/>
+          <span className="rank-name">{l.displayName}{l.userId === userId && <small>You</small>}</span>
+          <span className="record-value"><strong>{money(l.equityCents)}</strong>
+            <small className={tone(l.changeCents)}>{detail ? signedMoney(l.changeCents) :
+              pct(100 * l.changeCents / l.startingCashCents)}</small></span>
+        </div>)}</div>}/>
   </section>;
 }
 
 export function OrderList({ trades, detail, empty, onAll }: AccountListProps & { trades: Trade[] }) {
-  return <section className="overview-panel"><PanelHeading icon={ListFilter} title={detail ? 'Completed orders' : 'Recent activity'}><ListAction onAll={onAll} count={trades.length}/></PanelHeading>
-    {(detail ? trades : trades.slice(0, 5)).map(t => <div className="record order-record" key={t.id}>
-      <span className={'order-mark ' + t.side.toLowerCase()}>{t.side === 'BUY' ? <ArrowDownLeft size={19}/> : <ArrowUpRight size={19}/>}</span>
-      <span className="record-title"><strong>{t.side === 'BUY' ? 'Bought' : 'Sold'} {t.symbol}</strong><small>{new Date(t.executedAt * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</small></span>
-      <span className="record-value"><strong>{money(t.shares * t.priceCents)}</strong><small>{t.shares} × {money(t.priceCents)}</small></span>
-    </div>)}{!trades.length && <EmptyState>{empty}</EmptyState>}
+  return <section className="overview-panel overview-record-panel">
+    <PanelHeading icon={ListFilter} title={detail ? 'Completed orders' : 'Recent activity'}>
+      <ListAction onAll={onAll} count={trades.length}/>
+    </PanelHeading>
+    <FitPager items={detail ? trades : trades.slice(0, 5)} rowHeight={61}
+      compactRowHeight={62} empty={empty}
+      render={page => <div className="overview-records">{page.map(t =>
+        <div className="record order-record" key={t.id}>
+          <span className={'order-mark ' + t.side.toLowerCase()}>{t.side === 'BUY' ?
+            <ArrowDownLeft size={19}/> : <ArrowUpRight size={19}/>}</span>
+          <span className="record-title"><strong>{t.side === 'BUY' ? 'Bought' : 'Sold'} {t.symbol}</strong>
+            <small>{new Date(t.executedAt * 1000).toLocaleString(undefined, {
+              month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+            })}</small></span>
+          <span className="record-value"><strong>{money(t.shares * t.priceCents)}</strong>
+            <small>{t.shares} × {money(t.priceCents)}</small></span>
+        </div>)}</div>}/>
   </section>;
 }
