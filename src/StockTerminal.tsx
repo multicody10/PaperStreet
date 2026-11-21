@@ -1,7 +1,8 @@
-import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, BriefcaseBusiness, ChevronRight, Clock3, Crosshair, Layers, TrendingDown, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, BriefcaseBusiness, ChevronRight, Clock3, Crosshair, Layers, MoreHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react';
 import { HISTORY_RANGES, type ChartHistory, type HistoryRange, type Portfolio, type Position, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
 import type { OrderKind, Prediction, PredictionDirection } from '../shared/gameplay';
-import { FitPager, SectionTabs } from './FitPager';
+import { FitPager } from './FitPager';
 import { money, PriceChart } from './PriceChart';
 import { StockPredictions } from './StockPredictions';
 import { STOCK_PROFILES } from './stockProfiles';
@@ -119,6 +120,7 @@ function StockMetrics({quote,position,portfolio}:{quote?:Quote;position?:Positio
   </section>;
 }
 export function StockTerminal(p:StockTerminalProps){
+  const [menuOpen,setMenuOpen]=useState(false);
   const profile=STOCK_PROFILES[p.symbol];
   const position=p.portfolio?.positions.find(v=>v.symbol===p.symbol);
   const change=p.quote?p.quote.priceCents-p.quote.previousCloseCents:0;
@@ -137,9 +139,32 @@ export function StockTerminal(p:StockTerminalProps){
           </div>
           <p title={profile.sector}>{profile.sector}</p>
         </div>
-        <button type="button" className="stock-terminal-hero-action" onClick={()=>p.setPane('order')}>
-          <ArrowRight size={17}/> Trade {p.symbol}
-        </button>
+        <div className="stock-terminal-header-actions">
+          {p.pane!=='chart' && <button type="button" className="stock-terminal-back-chart"
+            onClick={()=>{p.setPane('chart');setMenuOpen(false)}}><ArrowLeft size={15}/> Chart</button>}
+          <button type="button" className="stock-terminal-hero-action" onClick={()=>{p.setPane('order');setMenuOpen(false)}}>
+            <ArrowRight size={17}/> Trade {p.symbol}
+          </button>
+          <div className="stock-terminal-menu">
+            <button type="button" className="stock-terminal-menu-toggle" aria-expanded={menuOpen}
+              aria-controls="stock-terminal-menu-options" aria-label="Other stock sections"
+              onClick={()=>setMenuOpen(v=>!v)}><MoreHorizontal size={19}/><span>More</span></button>
+            {menuOpen && <div className="stock-terminal-menu-options" id="stock-terminal-menu-options" role="group" aria-label="Stock information and forecasts">
+              <button type="button" onClick={()=>{p.setPane('facts');setMenuOpen(false)}}>
+                <BriefcaseBusiness size={15}/> Company details
+              </button>
+              <button type="button" onClick={()=>{p.setPane('predict');setMenuOpen(false)}}>
+                <TrendingUp size={15}/> Price forecasts
+              </button>
+              <button type="button" onClick={()=>{p.setPane('chart');setMenuOpen(false)}}>
+                <Crosshair size={15}/> Price chart
+              </button>
+              <button type="button" className="stock-terminal-menu-close" onClick={()=>setMenuOpen(false)}>
+                <X size={14}/> Close menu
+              </button>
+            </div>}
+          </div>
+        </div>
       </div>
       <div className="stock-terminal-quote-summary">
         <div className="stock-terminal-price"><strong>{p.quote?money(p.quote.priceCents):'—'}</strong>
@@ -156,8 +181,6 @@ export function StockTerminal(p:StockTerminalProps){
         </div>
       </div>
     </header>
-    <SectionTabs label="Stock panels" value={p.pane} onChange={p.setPane}
-      items={[{id:'chart',label:'Overview'},{id:'order',label:'Trade'},{id:'facts',label:'Details'},{id:'predict',label:'Predict'}]}/>
     <div className="stock-terminal-stage">
       <section className="panel stock-terminal-chart" aria-label={p.symbol+' observed price chart'}>
         <div className="stock-terminal-chart-heading">

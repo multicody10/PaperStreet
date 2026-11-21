@@ -1,0 +1,540 @@
+/*
+ * Viewport and header repair after global Dashboard theming.
+ * Keep the deep navy / cyan palette; only fix the page geometry, titlebars,
+ * and stock action routing. This is intentionally the last CSS import.
+ */
+.app-shell.activity-theme .global-header{
+  display:grid!important;
+  align-items:center;
+  min-width:0;
+}
+.app-shell.activity-theme .global-header :is(.brand,.header-market,.header-actions){
+  min-width:0;
+}
+.app-shell.activity-theme .header-market{
+  gap:clamp(5px,.8vw,14px)!important;
+  padding-inline:clamp(6px,1vw,15px)!important;
+  min-width:0;overflow:hidden;
+}
+.app-shell.activity-theme .header-ticker{
+  min-width:0;flex:0 1 auto;gap:5px!important;
+  padding-left:clamp(5px,.7vw,11px)!important;
+}
+.app-shell.activity-theme .header-ticker :is(strong,span,b){
+  font-size:clamp(9px,.72vw,12px)!important;
+  white-space:nowrap;
+}
+.app-shell.activity-theme .header-actions{
+  min-width:0;max-width:100%;justify-content:flex-end;
+}
+.app-shell.activity-theme .header-search{
+  flex:1 1 160px;width:auto!important;min-width:0;
+  max-width:300px;
+}
+.app-shell.activity-theme .header-search input{
+  min-width:0;text-overflow:ellipsis;
+}
+.app-shell.activity-theme .user-chip{flex:none;min-width:0;max-width:145px}
+.app-shell.activity-theme .user-copy{min-width:0}
+.app-shell.activity-theme .user-copy strong{
+  display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.app-shell.activity-theme .header-actions .icon-button{flex:none}
+
+/* Each page title is the same single-row, compact element.
+   The title itself belongs to that page, not to an oversized global strip. */
+.app-shell.activity-theme :is(
+  .main-content[data-page="portfolio"] .headline,
+  .main-content[data-page="leaderboard"] .headline,
+  .trade-terminal-title,.goals-title
+){
+  display:flex!important;flex:none!important;align-items:center!important;
+  min-width:0;min-height:0!important;height:36px!important;
+  max-height:36px!important;margin:0!important;padding:0 3px!important;gap:8px;
+  overflow:hidden;
+}
+.app-shell.activity-theme :is(
+  .main-content[data-page="portfolio"] .headline h1,
+  .main-content[data-page="leaderboard"] .headline h1,
+  .trade-terminal-title h1,.goals-title h1
+){
+  flex:none;min-width:0;max-width:100%;
+  margin:0!important;
+  color:#f1f6fd!important;
+  font-size:clamp(19px,1.7vw,25px)!important;
+  font-weight:720!important;line-height:1.12!important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:-.035em!important;
+}
+.app-shell.activity-theme .trade-terminal-title{
+  flex-direction:row!important;justify-content:flex-start!important;
+}
+.app-shell.activity-theme .trade-terminal-title p{
+  min-width:0;max-width:70%;margin:0!important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:11px;color:#9aadc1!important;
+}
+.app-shell.activity-theme .goals-title{
+  gap:7px!important;
+}
+.app-shell.activity-theme .goals-title-icon{
+  width:25px!important;flex:none;filter:none!important;
+}
+.app-shell.activity-theme .goals-title-icon svg{width:21px;height:21px}
+.app-shell.activity-theme .goals-title>div:last-child{
+  min-width:0;display:flex;align-items:center;gap:12px;
+}
+.app-shell.activity-theme .goals-title p{
+  min-width:0;margin:0!important;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;font-size:11px!important;
+  color:#9aadc1!important;
+}
+
+/* Markets had four fixed rows for only three rendered children: the unused
+   fourth track squeezed the chart and asset directory out of the viewport. */
+.app-shell.activity-theme .trade-terminal{
+  display:flex!important;flex-direction:column!important;
+  height:100%;min-height:0;min-width:0;overflow:hidden!important;
+}
+.app-shell.activity-theme .trade-terminal-main{
+  display:grid!important;
+  grid-template-rows:36px minmax(48px,60px) minmax(0,1fr)!important;
+  flex:1;min-width:0;min-height:0;max-height:100%;
+  align-content:stretch;
+  gap:clamp(5px,.8vh,9px)!important;
+  overflow:hidden!important;
+}
+.app-shell.activity-theme .trade-terminal-strip{
+  min-width:0;min-height:0;height:100%;align-self:stretch;
+}
+.app-shell.activity-theme .trade-terminal-workspace{
+  grid-row:3;min-height:0;min-width:0;height:100%;overflow:hidden;
+}
+.app-shell.activity-theme .trade-terminal-workspace>.panel{
+  min-width:0;min-height:0;height:100%;overflow:hidden!important;
+}
+.app-shell.activity-theme .trade-market-overview{
+  display:flex;flex-direction:column;
+}
+.app-shell.activity-theme .trade-market-overview-body,
+.app-shell.activity-theme .trade-market-list .fit-pager{
+  flex:1;min-height:0;overflow:hidden;
+}
+.app-shell.activity-theme .trade-market-overview-head h2{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.app-shell.activity-theme .trade-market-overview-head .chart-range-bar{
+  min-width:0;overflow:hidden;
+}
+
+/* Portfolio and Ranks: summary cards must not expand past their allotted row.
+   The remaining height goes to the paginated content, not hidden overflow. */
+.app-shell.activity-theme .main-content[data-page="portfolio"] .content-wrap,
+.app-shell.activity-theme .main-content[data-page="leaderboard"] .content-wrap{
+  display:flex;flex-direction:column;min-height:0;overflow:hidden!important;
+  gap:clamp(5px,.8vh,9px)!important;
+}
+.app-shell.activity-theme :is(
+  .main-content[data-page="portfolio"],
+  .main-content[data-page="leaderboard"]
+) .page-insights{
+  display:grid;
+  flex:0 0 clamp(58px,10vh,74px);
+  height:clamp(58px,10vh,74px)!important;
+  min-height:0;min-width:0;max-height:74px;
+  gap:clamp(5px,.75vw,9px)!important;
+}
+.app-shell.activity-theme .main-content[data-page="portfolio"] .page-insights{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.app-shell.activity-theme .main-content[data-page="leaderboard"] .page-insights{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.app-shell.activity-theme .page-insight{
+  min-width:0;min-height:0!important;padding:clamp(6px,.8vh,10px) clamp(8px,.9vw,13px)!important;
+  gap:clamp(2px,.4vh,5px);overflow:hidden!important;
+}
+.app-shell.activity-theme .page-insight>span,
+.app-shell.activity-theme .page-insight>small{
+  max-width:100%;min-width:0;font-size:clamp(9px,.75vw,11px);
+  line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.app-shell.activity-theme .page-insight>strong{
+  min-width:0;max-width:100%;font-size:clamp(15px,1.42vw,22px)!important;
+  line-height:1.12;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.app-shell.activity-theme .main-content[data-page="portfolio"]>.content-wrap>.screen-tabs{
+  flex:none;min-height:31px;
+}
+.app-shell.activity-theme :is(
+  .main-content[data-page="portfolio"] .details-stack,
+  .main-content[data-page="leaderboard"] .details-stack
+){
+  flex:1!important;min-width:0;min-height:0!important;
+  max-height:100%;overflow:hidden!important;
+}
+.app-shell.activity-theme .main-content[data-page="portfolio"] .details-stack>.panel,
+.app-shell.activity-theme .main-content[data-page="leaderboard"] .details-stack>.panel{
+  min-width:0;min-height:0!important;overflow:hidden!important;
+}
+.app-shell.activity-theme .main-content[data-page="leaderboard"] .details-stack{
+  display:flex!important;flex-direction:column;
+}
+.app-shell.activity-theme .main-content[data-page="leaderboard"] .details-panel{
+  flex:1;min-height:0!important;
+}
+.app-shell.activity-theme :is(
+  .main-content[data-page="portfolio"],
+  .main-content[data-page="leaderboard"]
+) .fit-pager{
+  min-height:0;flex:1;overflow:hidden;
+}
+
+/* Goals: explicit tracks and a shrinking content area prevent title/stats/goal
+   from pushing achievement lists outside the viewport. */
+.app-shell.activity-theme .goals-terminal{
+  display:grid!important;
+  grid-template-rows:36px minmax(64px,.7fr) minmax(72px,.85fr)
+                     30px minmax(0,3.25fr)!important;
+  flex:1;min-height:0!important;min-width:0;max-height:100%;
+  gap:clamp(5px,.8vh,8px)!important;overflow:hidden!important;
+}
+.app-shell.activity-theme .goals-stats{
+  min-width:0;min-height:0;height:100%;gap:clamp(5px,.7vw,9px)!important;
+}
+.app-shell.activity-theme .goals-stat{
+  min-width:0;min-height:0!important;overflow:hidden!important;
+}
+.app-shell.activity-theme .goals-stat>strong{
+  font-size:clamp(15px,1.5vw,23px)!important;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.app-shell.activity-theme .goals-primary{
+  min-width:0;min-height:0!important;overflow:hidden!important;
+}
+.app-shell.activity-theme .goals-filterbar{
+  min-width:0;min-height:0!important;height:30px;
+}
+.app-shell.activity-theme .goals-category-tabs{
+  min-width:0;max-width:100%;
+}
+.app-shell.activity-theme .goals-body{
+  display:grid!important;min-width:0;min-height:0!important;
+  overflow:hidden!important;
+}
+.app-shell.activity-theme .goals-body>.panel{
+  min-width:0;min-height:0!important;overflow:hidden!important;
+}
+
+/* Stock terminal desktop: full workspace in one view, no old Overview /
+   Trade / Details / Predict navigation strip or reserved empty grid row. */
+.app-shell.activity-theme .stock-terminal{
+  display:grid!important;flex:1;
+  grid-template-columns:minmax(0,1fr) minmax(240px,.31fr)!important;
+  grid-template-rows:22px minmax(83px,.88fr) minmax(0,2.62fr) minmax(0,.95fr)!important;
+  gap:clamp(5px,.7vw,9px)!important;
+  min-width:0;min-height:0;height:100%;overflow:hidden!important;
+}
+.app-shell.activity-theme .stock-terminal>.stock-terminal-breadcrumb{
+  grid-area:1/1/2/-1!important;min-width:0;
+}
+.app-shell.activity-theme .stock-terminal>.stock-terminal-hero{
+  grid-area:2/1!important;min-width:0;
+}
+.app-shell.activity-theme .stock-terminal>.screen-tabs{display:none!important}
+.app-shell.activity-theme .stock-terminal>.stock-terminal-stage{
+  grid-area:3/1!important;display:grid!important;
+  grid-template-columns:minmax(0,1.85fr) minmax(210px,.85fr)!important;
+  min-height:0;min-width:0;gap:clamp(5px,.7vw,9px);
+}
+.app-shell.activity-theme .stock-terminal>.stock-terminal-bottom{
+  grid-area:4/1!important;display:grid!important;min-height:0;min-width:0;
+}
+.app-shell.activity-theme .stock-terminal>.stock-terminal-rail{
+  grid-area:2/2/5/3!important;display:grid!important;
+  min-height:0;min-width:0;
+}
+.app-shell.activity-theme .stock-terminal-hero{
+  overflow:visible!important;position:relative;z-index:5;
+}
+.app-shell.activity-theme .stock-terminal-hero-title{
+  display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;
+  min-width:0;align-items:center;
+}
+.app-shell.activity-theme .stock-terminal-name{
+  min-width:0;max-width:100%;
+}
+.app-shell.activity-theme .stock-terminal-name-row{
+  display:flex;align-items:center;min-width:0;max-width:100%;gap:8px;
+}
+.app-shell.activity-theme .stock-terminal-name-row h1{
+  flex:0 1 auto;min-width:0;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.app-shell.activity-theme .stock-terminal-symbol{flex:none}
+.app-shell.activity-theme .stock-terminal-header-actions{
+  position:relative;display:flex;align-items:center;gap:5px;
+  flex:none;min-width:0;z-index:20;
+}
+.app-shell.activity-theme .stock-terminal-header-actions .stock-terminal-hero-action{
+  margin-left:0;flex:none;
+}
+.app-shell.activity-theme :is(.stock-terminal-back-chart,.stock-terminal-menu){
+  display:none;
+}
+.app-shell.activity-theme .stock-terminal-menu-toggle,
+.app-shell.activity-theme .stock-terminal-back-chart{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  min-height:28px;padding:5px 8px;
+  border:1px solid #35546b;border-radius:7px;
+  background:#14283a;color:#c1e9f8;font-size:10px;font-weight:700;
+}
+.app-shell.activity-theme .stock-terminal-menu-options{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:60;
+  display:flex;flex-direction:column;gap:3px;
+  width:210px;max-width:min(270px,90vw);padding:5px;
+  border:1px solid #425b74;border-radius:9px;
+  background:#0c1725;box-shadow:0 12px 30px #000b;
+}
+.app-shell.activity-theme .stock-terminal-menu-options button{
+  display:flex;align-items:center;gap:9px;
+  text-align:left;min-height:31px;padding:5px 9px;
+  border:0;border-radius:6px;background:transparent;
+  color:#d3e7f7;font-size:11px;
+}
+.app-shell.activity-theme .stock-terminal-menu-options button:hover,
+.app-shell.activity-theme .stock-terminal-menu-toggle:hover,
+.app-shell.activity-theme .stock-terminal-back-chart:hover{
+  background:#17354c;color:#f4fbff;
+}
+.app-shell.activity-theme .stock-terminal-stage>.panel,
+.app-shell.activity-theme .stock-terminal-bottom>.panel{
+  min-width:0;min-height:0!important;
+}
+
+/* Intermediate desktop: retain an uninterrupted stock chart, with the
+   existing Trade button and a compact More menu opening other data cards. */
+@media(min-width:761px) and (max-width:1050px){
+  .app-shell.activity-theme .stock-terminal{
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:21px minmax(75px,110px) minmax(0,1fr)!important;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-breadcrumb{
+    grid-area:1/1!important;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-hero{
+    grid-area:2/1!important;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-stage{
+    grid-area:3/1!important;display:flex!important;flex-direction:column;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-bottom,
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-rail{
+    display:none!important;
+  }
+  .app-shell.activity-theme .stock-terminal :is(.stock-terminal-back-chart,.stock-terminal-menu){
+    display:flex;
+  }
+  .app-shell.activity-theme .stock-terminal-menu{
+    position:relative;align-items:center;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-stage>.panel{display:none!important}
+  .app-shell.activity-theme .stock-terminal[data-pane="chart"] .stock-terminal-chart,
+  .app-shell.activity-theme .stock-terminal[data-pane="order"] .stock-terminal-ticket{
+    display:flex!important;flex:1;min-height:0!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="facts"]>.stock-terminal-bottom{
+    display:grid!important;grid-area:3/1!important;
+    grid-template-columns:minmax(0,.95fr) minmax(0,1.2fr);
+    min-height:0!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="facts"]>.stock-terminal-stage{
+    display:none!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"]>.stock-terminal-rail{
+    display:flex!important;flex-direction:column;
+    grid-area:3/1!important;min-height:0!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"]>.stock-terminal-stage{
+    display:none!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"] .stock-terminal-related,
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"] .stock-terminal-activity{
+    display:none!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"] .stock-prediction-panel{
+    display:flex!important;flex:1;min-height:0!important;
+  }
+}
+@media(min-width:761px) and (max-width:1200px){
+  .app-shell.activity-theme .header-market .header-ticker:nth-of-type(4){display:none}
+  .app-shell.activity-theme .global-header{
+    grid-template-columns:minmax(140px,175px) minmax(0,1fr) minmax(210px,32vw)!important;
+  }
+  .app-shell.activity-theme .header-market-status{font-size:10px}
+  .app-shell.activity-theme .header-search{max-width:185px}
+  .app-shell.activity-theme .user-chip{max-width:100px}
+  .app-shell.activity-theme .trade-terminal-title p{max-width:53%}
+}
+@media(min-width:761px) and (max-width:920px){
+  .app-shell.activity-theme .header-market .header-ticker:nth-of-type(n+3){display:none}
+  .app-shell.activity-theme .header-search{max-width:145px}
+  .app-shell.activity-theme .user-chip .user-copy{display:none}
+  .app-shell.activity-theme .goals-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .app-shell.activity-theme .goals-stat:nth-child(n+4){display:none}
+}
+/* Phone stays viewport locked. The stock header offers Trade and More rather
+   than repeating four navigation tabs below the quote. */
+@media(max-width:760px){
+  .app-shell.activity-theme .trade-terminal-main{
+    display:contents!important;
+  }
+  .app-shell.activity-theme .trade-terminal-title{
+    height:27px!important;max-height:27px!important;order:0;
+  }
+  .app-shell.activity-theme .trade-terminal-title h1,
+  .app-shell.activity-theme .goals-title h1{font-size:18px!important}
+  .app-shell.activity-theme .trade-terminal-title p,
+  .app-shell.activity-theme .goals-title p{display:none!important}
+  .app-shell.activity-theme .trade-terminal-strip{
+    height:clamp(42px,9vh,56px);min-height:0!important;order:1;flex:none;
+  }
+  .app-shell.activity-theme .trade-terminal-workspace{
+    display:contents!important;
+  }
+  .app-shell.activity-theme .trade-terminal>.screen-tabs{order:2}
+  .app-shell.activity-theme .trade-terminal .trade-market-overview,
+  .app-shell.activity-theme .trade-terminal .trade-market-list{
+    order:3;flex:1;min-height:0;height:auto;
+  }
+  .app-shell.activity-theme .page-insights{display:none!important}
+  .app-shell.activity-theme .main-content[data-page="portfolio"] .headline,
+  .app-shell.activity-theme .main-content[data-page="leaderboard"] .headline{
+    height:29px!important;max-height:29px!important;
+  }
+  .app-shell.activity-theme .main-content[data-page="portfolio"] .headline h1,
+  .app-shell.activity-theme .main-content[data-page="leaderboard"] .headline h1{
+    font-size:19px!important;
+  }
+  .app-shell.activity-theme .goals-terminal{
+    grid-template-rows:29px minmax(48px,11vh) minmax(61px,12vh)
+                       29px 29px minmax(0,1fr)!important;
+    gap:5px!important;
+  }
+  .app-shell.activity-theme .goals-title{
+    height:29px!important;max-height:29px!important;
+  }
+  .app-shell.activity-theme .goals-filterbar{height:29px!important}
+  .app-shell.activity-theme .goals-body{
+    display:flex!important;flex-direction:column!important;
+    flex:1;min-height:0!important;
+  }
+  .app-shell.activity-theme .goals-body>.panel{display:none!important}
+  .app-shell.activity-theme .goals-terminal[data-mobile-pane="featured"] .goals-featured,
+  .app-shell.activity-theme .goals-terminal[data-mobile-pane="all"] .goals-all,
+  .app-shell.activity-theme .goals-terminal[data-mobile-pane="insights"] .goals-completion{
+    display:flex!important;flex:1;min-height:0!important;
+  }
+  .app-shell.activity-theme .stock-terminal{
+    display:flex!important;flex-direction:column;
+    gap:5px!important;min-height:0;max-height:100%;
+  }
+  .app-shell.activity-theme .stock-terminal-breadcrumb{
+    flex:none;min-height:19px;max-height:23px;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-hero{
+    flex:none;min-height:0;max-height:119px;
+  }
+  .app-shell.activity-theme .stock-terminal-hero-title{
+    display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;
+    gap:6px!important;
+  }
+  .app-shell.activity-theme .stock-terminal-logo{width:30px;height:30px}
+  .app-shell.activity-theme .stock-terminal-name-row{
+    flex-wrap:nowrap;gap:4px;
+  }
+  .app-shell.activity-theme .stock-terminal-name-row h1{
+    font-size:clamp(13px,3vw,17px)!important;
+  }
+  .app-shell.activity-theme .stock-terminal-header-actions{gap:3px}
+  .app-shell.activity-theme .stock-terminal-header-actions .stock-terminal-hero-action{
+    min-height:28px;padding:4px 7px;font-size:10px;
+  }
+  .app-shell.activity-theme .stock-terminal-header-actions :is(
+    .stock-terminal-back-chart,.stock-terminal-menu
+  ){display:flex}
+  .app-shell.activity-theme .stock-terminal-menu{position:relative}
+  .app-shell.activity-theme .stock-terminal-menu-toggle{
+    min-width:28px;min-height:28px;padding:4px;gap:2px;
+  }
+  .app-shell.activity-theme .stock-terminal-menu-toggle span{display:none}
+  .app-shell.activity-theme .stock-terminal-back-chart{min-width:26px;padding:4px}
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-stage,
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-bottom,
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-rail{
+    display:none!important;order:3;flex:1;min-height:0;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="chart"]>.stock-terminal-stage,
+  .app-shell.activity-theme .stock-terminal[data-pane="order"]>.stock-terminal-stage{
+    display:flex!important;flex-direction:column;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-stage>.panel{display:none!important}
+  .app-shell.activity-theme .stock-terminal[data-pane="chart"] .stock-terminal-chart,
+  .app-shell.activity-theme .stock-terminal[data-pane="order"] .stock-terminal-ticket{
+    display:flex!important;flex:1;min-height:0!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="facts"]>.stock-terminal-bottom{
+    display:grid!important;grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(0,.9fr) minmax(0,1.1fr);
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"]>.stock-terminal-rail{
+    display:flex!important;flex-direction:column;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"] .stock-terminal-related,
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"] .stock-terminal-activity{
+    display:none!important;
+  }
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"] .stock-prediction-panel{
+    display:flex!important;flex:1;min-height:0!important;
+  }
+}
+@media(min-width:761px) and (max-height:650px){
+  .app-shell.activity-theme .trade-terminal-main{
+    grid-template-rows:29px minmax(40px,48px) minmax(0,1fr)!important;
+    gap:5px!important;
+  }
+  .app-shell.activity-theme .goals-terminal{
+    grid-template-rows:29px minmax(51px,.7fr) minmax(57px,.85fr)
+                       27px minmax(0,3.25fr)!important;
+    gap:5px!important;
+  }
+  .app-shell.activity-theme .goals-title,
+  .app-shell.activity-theme .trade-terminal-title{
+    height:29px!important;max-height:29px!important;
+  }
+  .app-shell.activity-theme :is(
+    .main-content[data-page="portfolio"] .headline,
+    .main-content[data-page="leaderboard"] .headline
+  ){height:29px!important;max-height:29px!important}
+  .app-shell.activity-theme :is(
+    .main-content[data-page="portfolio"],
+    .main-content[data-page="leaderboard"]
+  ) .page-insights{
+    flex-basis:55px;height:55px!important;
+  }
+  .app-shell.activity-theme .stock-terminal{
+    grid-template-rows:18px minmax(65px,.72fr) minmax(0,2.75fr) minmax(0,.76fr)!important;
+  }
+}
+@media(max-width:760px) and (max-height:560px){
+  .app-shell.activity-theme .goals-terminal{
+    grid-template-rows:24px 45px 52px 26px 26px minmax(0,1fr)!important;
+    gap:3px!important;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-hero{
+    max-height:86px;
+  }
+  .app-shell.activity-theme .stock-terminal-quote-summary{
+    padding:4px 6px;
+  }
+}
