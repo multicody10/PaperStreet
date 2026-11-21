@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { discordInteraction } from './interactions';
+import { synchronizeDiscordLaunch } from './launch';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
@@ -22,7 +23,7 @@ app.post('/api/discord/interactions',
   c => discordInteraction(c.req.raw, c.env));
 
 app.use('/api/*', async (c, next) => {
-  if (!['/api/config', '/api/auth', '/api/health'].includes(c.req.path)) {
+  if (!['/api/config', '/api/auth', '/api/health', '/api/launch-status'].includes(c.req.path)) {
     const match = /^Bearer (\S+)$/.exec(c.req.header('Authorization') ?? '');
     if (!match || !c.env.SESSION_SECRET) return c.json({ error: 'Authentication required' }, 401, { 'Cache-Control': 'no-store' });
     const userId = await verifySession(c.env.SESSION_SECRET, match[1]);
@@ -35,6 +36,17 @@ app.use('/api/*', async (c, next) => {
 });
 
 app.get('/api/health', c => c.json({ status: 'ok', service: 'paperstreet' }));
+app.get('/api/launch-status', async c => {
+  // Public, read-only diagnostics. No OAuth tokens, secrets or user information.
+  const latest = await memoized('discord:launch-status', 60000, () =>
+    c.env.DB.prepare('SELECT value,checked_at FROM service_state WHERE key=?')
+      .bind('discord-primary-entry-app-handler-v1').first<{ value: string; checked_at: number }>());
+  return noStore({
+    handler: 'APP_HANDLER',
+    verified: latest?.value === c.env.DISCORD_CLIENT_ID,
+    checkedAt: latest?.checked_at ?? null,
+  });
+});
 app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
   interactionsConfigured: /^[0-9a-f]{64}$/i.test(c.env.DISCORD_PUBLIC_KEY ?? ''),
@@ -182,6 +194,15 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    // Use credentials already in Cloudflare to correct Discord's automatic-invite
+    // handler. Once verified, check only daily and store the result in D1.
+    ctx.waitUntil(synchronizeDiscordLaunch(env, Math.floor(controller.scheduledTime / 1000))
+      .then(result => {
+        if (result === 'updated' || result === 'verified') invalidateMemo('discord:launch-status');
+      })
+      .catch(error => {
+        console.error('Discord launch sync failed', error instanceof Error ? error.message : 'Unknown error');
+      }));
     if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
     // Cron collects real quotes on weekdays without a connected user; no fake backfill.
     ctx.waitUntil(allQuotes(env).then(() => {}).catch(error => {

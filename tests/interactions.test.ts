@@ -53,3 +53,18 @@ test('public config explicitly reports Discord interaction verification readines
   const missing = await worker.fetch(new Request('https://example.test/api/config'), { ...env, DISCORD_PUBLIC_KEY: '' });
   assert.equal((await missing.json() as { interactionsConfigured: boolean }).interactionsConfigured, false);
 });
+
+test('Discord launch status reveals only the verified handler state, never secrets', async () => {
+  const db = {
+    prepare() {
+      return { bind() { return this; }, async first() { return { value: env.DISCORD_CLIENT_ID, checked_at: 1234 }; } };
+    },
+  } as unknown as D1Database;
+  const response = await worker.fetch(new Request('https://example.test/api/launch-status'), { ...env, DB: db });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    handler: 'APP_HANDLER',
+    verified: true,
+    checkedAt: 1234,
+  });
+});

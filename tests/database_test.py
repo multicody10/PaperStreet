@@ -6,6 +6,7 @@ import unittest
 SQL = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0001_init.sql').read_text()
 STARTING_CASH_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0003_starting_cash.sql').read_text()
 AVATAR_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0004_player_avatars.sql').read_text()
+LAUNCH_STATE_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0006_discord_launch_sync.sql').read_text()
 MARKET_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0002_real_market.sql').read_text()
 UID = '123456789012345678'
 
@@ -115,6 +116,23 @@ class TradeLedgerTest(unittest.TestCase):
         self.assertEqual(self.db.execute(
             'SELECT COUNT(*) FROM quote_history WHERE symbol=?', ('MSFT',)
         ).fetchone()[0], 1)
+
+    def test_discord_entry_point_sync_persists_without_changing_players(self):
+        self.db.executescript(LAUNCH_STATE_MIGRATION)
+        self.db.execute(
+            'INSERT INTO service_state(key,value,checked_at) VALUES (?,?,?)',
+            ('discord-primary-entry-app-handler-v1', UID, 100),
+        )
+        self.db.execute("""
+            INSERT INTO service_state(key,value,checked_at) VALUES (?,?,?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value, checked_at=excluded.checked_at
+        """, ('discord-primary-entry-app-handler-v1', UID, 200))
+        self.assertEqual(self.db.execute(
+            'SELECT value,checked_at FROM service_state WHERE key=?',
+            ('discord-primary-entry-app-handler-v1',)
+        ).fetchone(), (UID, 200))
+        self.assertEqual(self.balance(), 1000000)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM players').fetchone()[0], 1)
 
     def test_orders_idempotent(self):
         self.order('order-id', 'BUY', 1)
