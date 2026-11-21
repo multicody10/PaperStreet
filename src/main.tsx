@@ -356,7 +356,7 @@ function App() {
               {account && !config?.dataConfigured && <div className="feedback error" role="alert"><span><X size={17}/> Market data is not configured. Set FINNHUB_API_KEY in the Worker.</span></div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
               <Overview key={tab} markets={tab === 'trade'} portfolio={portfolio} quotes={quotes} trades={trades} leaders={leaders}
-                userId={account?.id} startingCash={config?.startingCashCents ?? STARTING_CASH_CENTS}
+                userId={undefined} startingCash={config?.startingCashCents ?? STARTING_CASH_CENTS}
                 onStock={openStock} onMarkets={()=>goToPage('trade')} onAnalytics={()=>goToPage('dashboard')}
                 onPortfolio={()=>goToPage('portfolio')} onRankings={()=>goToPage('leaderboard')}
                 onHistory={()=>{setPortfolioPane('history');goToPage('portfolio')}}/>
