@@ -5,7 +5,7 @@ import { deployPortfolioCommand } from './registration';
 import { inspectProductionDeployIdentity } from './deploy-identity';
 import { loadPortfolio } from './portfolio';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
-import { backfillHistoricalBars } from './history';
+import { backfillHistoricalBars, historyBackfillStatus } from './history';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
@@ -72,6 +72,7 @@ app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
   provider: 'finnhub',
   dataConfigured: Boolean(c.env.FINNHUB_API_KEY),
+  historyConfigured: Boolean(c.env.ALPHA_VANTAGE_API_KEY),
   startingCashCents: STARTING_CASH_CENTS,
 }));
 
@@ -126,9 +127,12 @@ app.get('/api/chart', async c => {
   // back to the existing observed Finnhub price series; never affects trading.
   if (range !== '1D' && c.env.ALPHA_VANTAGE_API_KEY)
     await backfillHistoricalBars(symbol,range,c.env).catch(()=>{});
-  const history = await quoteHistory(symbol, c.env, range);
+  const [history, backfill] = await Promise.all([
+    quoteHistory(symbol, c.env, range),
+    historyBackfillStatus(symbol,range,c.env).catch(()=>({code:'storage_error' as const})),
+  ]);
   const points = history.candles.map(bar => ({ at: bar.lastAt, priceCents: bar.closeCents }));
-  return noStore({ ...history, points, available: points.length >= 2,
+  return noStore({ ...history, backfill, points, available: points.length >= 2,
     range, source: history.source ?? 'finnhub' });
 });
 

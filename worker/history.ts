@@ -50,40 +50,102 @@ export function parseHistoricalSeries(raw:unknown,resolution:Resolution,now:numb
   return out.sort((a,b)=>a.at-b.at);
 }
 
-// Optional, bounded, provider-only import. A single shared D1 lease blocks
-// duplicate simultaneous calls from different Discord clients/Worker isolates.
+
+export type HistoryBackfillCode =
+  'not_configured'|'intraday_only'|'pending'|'imported'|'rate_limited'|'premium_required'|
+  'invalid_key'|'provider_error'|'invalid_response'|'quota_exhausted'|'http_error'|
+  'network_error'|'storage_error';
+export type HistoryBackfillState = {
+  code: HistoryBackfillCode;
+  nextAttemptAt?: number;
+  lastSuccessAt?: number;
+};
+type BackfillRow = {next_attempt_at:number;last_success_at:number|null;last_result:string};
+
+// Classify without propagating provider prose or leaking the secret into responses/logs.
+export function classifyHistoryResponse(payload:unknown):HistoryBackfillCode {
+  if(!payload||typeof payload!=='object'||Array.isArray(payload))return 'invalid_response';
+  const x=payload as Record<string,unknown>;
+  const info=[x['Information'],x['Note'],x['Error Message']].filter(v=>typeof v==='string')
+    .join(' ').toLowerCase();
+  // Rate-limit responses often link to the premium pricing page; the
+  // existence of that link does not mean the free endpoint is premium-only.
+  if(/rate limit|requests per day|call frequency|quota|too many requests/.test(info))return 'rate_limited';
+  if(/premium endpoint|premium plan|premium subscription|upgrade to premium|paid plan/.test(info))
+    return 'premium_required';
+  if(/invalid (?:api )?key|api key is invalid|apikey is invalid|invalid authentication|authentication failed/.test(info))
+    return 'invalid_key';
+  return info?'provider_error':'invalid_response';
+}
+
+export function nextHistoryAttempt(now:number,code:HistoryBackfillCode,resolution:Resolution):number {
+  if(code==='imported')return now+(resolution==='daily'?DAY:7*DAY);
+  if(code==='rate_limited'||code==='quota_exhausted')
+    return Math.floor(now/DAY)*DAY+DAY+60; // Respect free provider's daily usage reset.
+  if(code==='premium_required')return now+12*3600;
+  if(code==='invalid_key')return now+3600;
+  return now+10*60; // Recover from transient network, timeout or malformed responses.
+}
+export async function historyBackfillStatus(
+  symbol:SymbolCode,range:HistoryRange,env:HistoryEnv,
+):Promise<HistoryBackfillState>{
+  const resolution=historyResolution(range);
+  if(!resolution)return {code:'intraday_only'};
+  if(!env.ALPHA_VANTAGE_API_KEY)return {code:'not_configured'};
+  const row=await env.DB.prepare(`SELECT next_attempt_at,last_success_at,last_result
+    FROM historical_backfill_state WHERE symbol=? AND resolution=?`)
+    .bind(symbol,resolution).first<BackfillRow>();
+  if(!row)return {code:'pending'};
+  const validCodes:HistoryBackfillCode[]=['pending','imported','rate_limited','premium_required',
+    'invalid_key','provider_error','invalid_response','quota_exhausted','http_error',
+    'network_error','storage_error'];
+  const code=validCodes.includes(row.last_result as HistoryBackfillCode)?
+    row.last_result as HistoryBackfillCode:'pending';
+  return {code,nextAttemptAt:row.next_attempt_at,
+    ...(row.last_success_at?{lastSuccessAt:row.last_success_at}:{})};
+}
+
+// D1 leases protect free provider quota across concurrent chart viewers and isolates.
+// Failures are labeled and retried in minutes rather than silently hiding for 24 hours.
 export async function backfillHistoricalBars(
   symbol:SymbolCode,range:HistoryRange,env:HistoryEnv,
   now=Math.floor(Date.now()/1000),
 ):Promise<boolean>{
   const resolution=historyResolution(range);
   if(!resolution||!env.ALPHA_VANTAGE_API_KEY)return false;
-  const lease=await env.DB.prepare(`INSERT INTO historical_backfill_state(symbol,resolution,next_attempt_at)
-    VALUES(?,?,?) ON CONFLICT(symbol,resolution) DO UPDATE SET
-    next_attempt_at=excluded.next_attempt_at
+  const lease=await env.DB.prepare(`INSERT INTO historical_backfill_state
+    (symbol,resolution,next_attempt_at,last_result)
+    VALUES(?,?,?,'pending') ON CONFLICT(symbol,resolution)
+    DO UPDATE SET next_attempt_at=excluded.next_attempt_at
     WHERE historical_backfill_state.next_attempt_at<=? RETURNING symbol`)
-    .bind(symbol,resolution,now+DAY,now).first<{symbol:string}>();
+    .bind(symbol,resolution,now+600,now).first<{symbol:string}>();
   if(!lease)return false;
-  let success=false;
+
+  let status:HistoryBackfillCode='network_error',saved=0,requesting=false;
   try{
     const day=new Date(now*1000).toISOString().slice(0,10);
     await env.DB.prepare('INSERT OR IGNORE INTO historical_backfill_budget(day,requests) VALUES(?,0)').bind(day).run();
     const allowed=await env.DB.prepare(`UPDATE historical_backfill_budget
       SET requests=requests+1 WHERE day=? AND requests<? RETURNING requests`)
       .bind(day,BUDGET).first<{requests:number}>();
-    if(!allowed)return false;
+    if(!allowed){status='quota_exhausted';return false;}
+
     const url=new URL('https://www.alphavantage.co/query');
     url.searchParams.set('function',funcs[resolution]);
     url.searchParams.set('symbol',symbol);
     if(resolution==='daily')url.searchParams.set('outputsize','compact');
     url.searchParams.set('apikey',env.ALPHA_VANTAGE_API_KEY);
-    // Never log URL (contains a secret) or any provider response body.
-    const response=await fetch(url,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(9000)});
-    if(!response.ok)return false;
-    const bars=parseHistoricalSeries(await response.json() as unknown,resolution,now);
-    if(!bars.length)return false; // Provider quota, premium restriction or unavailable data.
-    for(let i=0;i<bars.length;i+=60){
-      await env.DB.batch(bars.slice(i,i+60).map(b=>env.DB.prepare(`
+    // Never log the URL: it contains the Alpha Vantage API key.
+    requesting=true;
+    const response=await fetch(url,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(12000)});
+    requesting=false;
+    if(!response.ok){status=response.status===429?'rate_limited':'http_error';return false;}
+    let payload:unknown;
+    try{payload=await response.json();}catch{status='invalid_response';return false;}
+    const bars=parseHistoricalSeries(payload,resolution,now);
+    if(!bars.length){status=classifyHistoryResponse(payload);return false;}
+    for(let i=0;i<bars.length;i+=50){
+      await env.DB.batch(bars.slice(i,i+50).map(b=>env.DB.prepare(`
         INSERT INTO historical_ohlc(symbol,resolution,session_date,close_at,
           open_cents,high_cents,low_cents,close_cents) VALUES(?,?,?,?,?,?,?,?)
         ON CONFLICT(symbol,resolution,session_date) DO UPDATE SET
@@ -91,17 +153,26 @@ export async function backfillHistoricalBars(
         high_cents=excluded.high_cents,low_cents=excluded.low_cents,
         close_cents=excluded.close_cents`)
         .bind(symbol,resolution,b.date,b.at,b.openCents,b.highCents,b.lowCents,b.closeCents)));
+      saved+=Math.min(50,bars.length-i);
     }
+    status='imported';
     invalidateMemo('history:'+symbol+':');
-    success=true;
     return true;
-  }catch{return false;}finally{
+  }catch{
+    status=requesting?'network_error':'storage_error';
+    return false;
+  }finally{
+    // Stable machine-readable results, no raw HTTP body or credentials.
+    console.info('PaperStreet history backfill',symbol,resolution,status,'rows',saved);
     await env.DB.prepare(`UPDATE historical_backfill_state
-      SET next_attempt_at=?,last_success_at=CASE WHEN ? THEN ? ELSE last_success_at END
+      SET next_attempt_at=?,last_attempt_at=?,last_result=?,
+      last_success_at=CASE WHEN ? THEN ? ELSE last_success_at END
       WHERE symbol=? AND resolution=?`)
-      .bind(now+(success?7*DAY:DAY),success?1:0,now,symbol,resolution).run().catch(()=>{});
+      .bind(nextHistoryAttempt(now,status,resolution),now,status,status==='imported'?1:0,
+        now,symbol,resolution).run().catch(()=>{});
   }
 }
+
 export async function historicalCandles(
   symbol:SymbolCode,range:HistoryRange,env:HistoryEnv,now:number,
 ):Promise<ChartHistory|null>{
