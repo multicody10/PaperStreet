@@ -9,12 +9,19 @@ type RegistrationEnv = {
 type CommandRow = { last_attempt_at: number; checked_at: number; last_result: string; version: number };
 type DiscordCommand = {
   id?: string; application_id?: string; name?: string; type?: number;
-  description?: string;
+  description?: string; integration_types?: number[]; contexts?: number[];
 };
-const VERSION = 1;
+const VERSION = 2;
 const NAME = 'portfolio';
 const DESCRIPTION = 'View your PaperStreet portfolio, holdings and profit or loss';
 const API = 'https://discord.com/api/v10';
+// Global command supported by both guild installs and user installs, including
+// servers, bot DMs, and private channels (DMs and group DMs).
+const INTEGRATION_TYPES = [0, 1]; // GUILD_INSTALL, USER_INSTALL
+const CONTEXTS = [0, 1, 2]; // GUILD, BOT_DM, PRIVATE_CHANNEL
+const sameValues = (actual: number[] | undefined, expected: number[]) =>
+  Array.isArray(actual) && actual.length === expected.length &&
+  new Set(actual).size === expected.length && expected.every(value => actual.includes(value));
 
 async function register(env: RegistrationEnv): Promise<'registered' | 'verified'> {
   const clientId = env.DISCORD_CLIENT_ID!;
@@ -47,13 +54,20 @@ async function register(env: RegistrationEnv): Promise<'registered' | 'verified'
   if (!Array.isArray(commands)) throw new Error('list_invalid_response');
   const found = (commands as DiscordCommand[]).find(command =>
     command.name === NAME && command.type === 1 && command.application_id === clientId);
-  if (found?.description === DESCRIPTION && found.id) return 'verified';
+  if (found?.description === DESCRIPTION && found.id &&
+    sameValues(found.integration_types, INTEGRATION_TYPES) &&
+    sameValues(found.contexts, CONTEXTS)) return 'verified';
   const created = await discord(commandsUrl, 'create', {
     method: 'POST',
-    body: JSON.stringify({ type: 1, name: NAME, description: DESCRIPTION }),
+    // Discord POST upserts the existing /portfolio command by name and type.
+    // Never overwrite all commands or modify the separate Activity Launch entry.
+    body: JSON.stringify({ type: 1, name: NAME, description: DESCRIPTION,
+      integration_types: INTEGRATION_TYPES, contexts: CONTEXTS }),
   }) as DiscordCommand;
   if (created.name !== NAME || created.type !== 1 || created.application_id !== clientId ||
-    !/^[0-9]{15,22}$/.test(created.id ?? ''))
+    !/^[0-9]{15,22}$/.test(created.id ?? '') ||
+    !sameValues(created.integration_types, INTEGRATION_TYPES) ||
+    !sameValues(created.contexts, CONTEXTS))
     throw new Error('create_invalid_response');
   return 'registered';
 }

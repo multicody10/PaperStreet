@@ -7,7 +7,7 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 ## Features
 
 - Native Discord Activity authentication using the Embedded App SDK and Discord OAuth2.
-- **`/portfolio` slash command:** a polished Discord embed containing the invoking trader's equity, cash, invested value, all-time return and holdings, valued using genuine cached Finnhub prices. It never accepts another user's ID and does not change Discord's Activity Launch command.
+- **`/portfolio` slash command:** a polished Discord embed containing the invoking trader's equity, cash, invested value, all-time return and holdings, valued using genuine cached Finnhub prices. Supports user installs in servers, direct messages and group DMs, as well as guild installs. It never accepts another user's ID and does not change Discord's Activity Launch command.
 - One click market buys and sells of whole shares from a deliberately limited set of 12 US stocks/ETFs.
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
@@ -30,6 +30,8 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 6. Under **General Information → Interactions Endpoint URL**, set `https://paperstreet.gobydev.workers.dev/api/discord/interactions`. The endpoint verifies Discord's Ed25519 signature and responds to Discord's signed PING. If this URL was already configured, you do not need to change it.
 7. Ensure `DISCORD_PUBLIC_KEY` is configured as a Worker secret from your application's **General Information** public key. The **Deploy PaperStreet** GitHub Actions workflow registers and verifies `/portfolio` immediately after deploying the Worker. It securely authenticates to the Worker using GitHub's short-lived OIDC token, and the Worker uses the existing `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` secrets. No local credential file, duplicate GitHub Discord secrets, Gateway bot, or paid plan is required.
 8. Open `https://paperstreet.gobydev.workers.dev/api/commands/status` to inspect the registration status and any nonsecret error code. A successful deployment includes Discord command registration in its checks. Once `registered: true`, use `/portfolio` in Discord. Global commands can take some time to appear in clients.
+
+**User install setup:** In the [Discord Developer Portal](https://discord.com/developers/applications), select PaperStreet → **Installation**. Enable **User Install** (and retain **Guild Install** for server-wide installations). Under **Default Install Settings**, set User Install's scope to `applications.commands`, with **Discord Provided Link** selected for the install link. No bot scope or server admin permission is required for user installs. Install PaperStreet to your own account (or reauthorize it after enabling User Install), then invoke `/portfolio` from server channels, DMs or group DMs. The deployed global command declares `integration_types: [0, 1]` and `contexts: [0, 1, 2]`. Server permissions for external apps can cause responses to be visible only to the invoking user. The command always accesses the invoker's own account.
 
 
 ## 2. Automatic Cloudflare deployment with GitHub Actions

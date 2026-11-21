@@ -6,6 +6,10 @@ const appId = '123456789012345678';
 const commandId = '987654321098765432';
 const key = 'a'.repeat(64);
 const description = 'View your PaperStreet portfolio, holdings and profit or loss';
+const expectedCommand = {
+  type: 1, name: 'portfolio', description,
+  integration_types: [0, 1], contexts: [0, 1, 2],
+};
 
 function harness(t: TestContext, original: object[] = []) {
   let row: { version: number; checked_at: number; last_attempt_at: number; last_result: string } | null = null;
@@ -39,8 +43,11 @@ function harness(t: TestContext, original: object[] = []) {
     assert.equal(new Headers(options?.headers).get('Authorization'), 'Bearer mock-oauth-token');
     if (url.endsWith('/commands') && method === 'GET') return Response.json(commands);
     if (url.endsWith('/commands') && method === 'POST') {
-      const created = { id: commandId, application_id: appId, ...(body as Record<string, unknown>) };
-      commands.push(created);
+      const index = commands.findIndex(command => (command as { name?: string }).name === 'portfolio');
+      const id = index >= 0 ? (commands[index] as { id?: string }).id ?? commandId : commandId;
+      const created = { id, application_id: appId, ...(body as Record<string, unknown>) };
+      if (index >= 0) commands[index] = created;
+      else commands.push(created);
       return Response.json(created);
     }
     throw new Error('Unexpected Discord endpoint');
@@ -56,7 +63,7 @@ test('deployment registers /portfolio without changing Discord Launch command', 
   assert.equal(h.row?.last_result, 'registered');
   const writes = h.calls.filter(call => call.method === 'POST' && call.url.endsWith('/commands'));
   assert.equal(writes.length, 1);
-  assert.deepEqual(writes[0].body, { type: 1, name: 'portfolio', description });
+  assert.deepEqual(writes[0].body, expectedCommand);
   assert.ok(h.calls.every(call => !call.url.includes('/commands/555555555555555555')));
   assert.ok(h.calls.every(call => call.method !== 'PATCH' && call.method !== 'DELETE'));
   assert.equal(await deployPortfolioCommand(h.env, 10030), 'verified');
@@ -65,11 +72,29 @@ test('deployment registers /portfolio without changing Discord Launch command', 
 
 test('deployment verifies an existing command without overwriting it', async t => {
   const h = harness(t, [{
-    id: commandId, application_id: appId, type: 1, name: 'portfolio', description,
+    id: commandId, application_id: appId, ...expectedCommand,
   }]);
   assert.equal(await deployPortfolioCommand(h.env, 10000), 'verified');
   assert.equal(h.row?.last_result, 'verified');
   assert.equal(h.calls.filter(c => c.method === 'POST' && c.url.endsWith('/commands')).length, 0);
+});
+
+test('legacy guild-only /portfolio is upgraded to user installs in servers and DMs', async t => {
+  const h = harness(t, [
+    { id: commandId, application_id: appId, type: 1, name: 'portfolio',
+      description, integration_types: [0], contexts: [0, 1] },
+    { id: '555555555555555555', application_id: appId,
+      type: 4, name: 'Launch', handler: 2 },
+  ]);
+  assert.equal(await deployPortfolioCommand(h.env, 10000), 'registered');
+  const writes = h.calls.filter(call => call.method === 'POST' && call.url.endsWith('/commands'));
+  assert.equal(writes.length, 1);
+  assert.deepEqual(writes[0].body, expectedCommand);
+  assert.equal(h.row?.version, 2);
+  assert.ok(h.calls.every(call => !call.url.includes('/commands/555555555555555555')));
+  assert.ok(h.calls.every(call => call.method !== 'PATCH' && call.method !== 'DELETE'));
+  assert.equal(await deployPortfolioCommand(h.env, 10030), 'verified');
+  assert.equal(h.calls.filter(call => call.method === 'POST' && call.url.endsWith('/commands')).length, 1);
 });
 
 test('missing Discord secrets stop deployment rather than quietly skipping commands', async t => {
