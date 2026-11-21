@@ -1,0 +1,232 @@
+/*
+ * Desktop composition: restore simultaneous dashboard cards while keeping
+ * the no-scrollbar viewport and paginated long lists from fit.css.
+ * Mobile remains intentionally tabbed.
+ */
+@media (min-width:761px) {
+  /* Fit the rail to one icon and one short label. */
+  .shell-body{grid-template-columns:74px minmax(0,1fr)!important}
+  .sidebar{width:74px;padding:7px 3px!important}
+  .sidebar nav{gap:4px;padding:0;min-height:0}
+  .sidebar .nav-button{
+    width:100%;min-width:0;min-height:0;height:100%;padding:4px 1px;
+    gap:4px;white-space:normal;line-height:1.1;
+  }
+  .sidebar .nav-button svg{width:21px;height:21px}
+  .sidebar .nav-button span{
+    display:block;max-width:100%;font-size:10px;
+    overflow-wrap:anywhere;text-align:center;
+  }
+
+  /* Desktop already displays cards; do not waste vertical space on tab buttons. */
+  .content-wrap > .screen-tabs,
+  .stock-page-controls > .screen-tabs,
+  .challenge-layout > .screen-tabs{display:none!important}
+  .stock-page-controls{min-height:31px}
+
+  .overview-layout,.trade-overview,.stock-workspace,.challenge-layout,
+  .details-stack.portfolio-stack{
+    display:grid!important;flex:1;min-width:0;min-height:0!important;
+    max-height:100%;gap:9px;overflow:hidden!important;
+  }
+
+  /* DASHBOARD: 2 x 2 card grid, with independently paged lists. */
+  .overview-layout{
+    grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);
+    grid-template-rows:repeat(2,minmax(0,1fr));
+  }
+  .overview-layout > .panel,
+  .overview-layout[data-pane] > .panel{
+    display:flex!important;flex-direction:column;flex:none;
+    min-width:0;min-height:0!important;height:100%;
+  }
+  .overview-layout .overview-positions{grid-area:1/1}
+  .overview-layout .overview-leaders{grid-area:1/2}
+  .overview-layout .overview-activity{grid-area:2/1}
+  .overview-layout .overview-pulse{grid-area:2/2}
+  .overview-layout .fit-pager{flex:1;min-height:0}
+  .overview-layout .pulse-summary{flex:none;padding:4px 9px}
+  .overview-layout .pulse-stat{padding:5px 8px}
+
+  /* TRADE: quote universe and live market overview visible together. */
+  .trade-overview{
+    grid-template-columns:minmax(0,1.55fr) minmax(215px,.85fr);
+    grid-template-rows:minmax(0,1fr);align-items:stretch;
+  }
+  .trade-overview > .trade-universe,
+  .trade-overview[data-pane] > .trade-universe{
+    display:flex!important;min-width:0;min-height:0!important;
+    height:100%;flex-direction:column;
+  }
+  .trade-overview > .trade-insights,
+  .trade-overview[data-pane] > .trade-insights{
+    display:grid!important;min-width:0;min-height:0!important;
+    height:100%;grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(85px,.24fr) minmax(0,1fr);gap:9px;
+  }
+  .trade-insights > .panel{display:flex!important;min-width:0;min-height:0!important}
+  .trade-insights > .trade-breadth{height:100%}
+  .trade-insights > .trade-movers{height:100%;flex:1}
+  .trade-overview .fit-pager{flex:1;min-height:0}
+  .trade-universe .stock-row{height:56px;padding-block:0}
+  .trade-universe .stock-head{flex:none}
+  .trade-breadth .pulse-summary{padding:4px 8px}
+  .trade-movers .market-mover{min-height:0;padding:9px 12px}
+
+  /* STOCK: chart left; compact order form and quote facts right. */
+  .stock-workspace{
+    grid-template-columns:minmax(0,1.45fr) minmax(245px,.85fr);
+    grid-template-rows:minmax(0,1.5fr) minmax(125px,.78fr);
+    align-items:stretch;
+  }
+  .stock-workspace > .stock-research,
+  .stock-workspace[data-pane] > .stock-research{
+    display:contents!important;
+  }
+  .stock-workspace .chart-panel,
+  .stock-workspace[data-pane] .chart-panel{
+    display:flex!important;grid-area:1/1;min-height:0!important;
+    height:100%;
+  }
+  /* Mobile three-stage ticket is hidden on desktop. */
+  .stock-workspace > .trade-panel:not(.trade-panel-desktop){
+    display:none!important;
+  }
+  .stock-workspace > .trade-panel-desktop,
+  .stock-workspace[data-pane] > .trade-panel-desktop{
+    display:flex!important;grid-area:1/2/3/3;flex-direction:column;
+    min-width:0;min-height:0!important;height:100%;
+  }
+  .stock-workspace .stock-quote-facts,
+  .stock-workspace[data-pane] .stock-quote-facts{
+    display:flex!important;grid-area:2/1;min-height:0!important;
+    height:100%;
+  }
+  .stock-workspace .stock-quote-facts .stock-facts{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-rows:repeat(2,minmax(0,1fr));min-height:0;
+  }
+  .stock-workspace .stock-quote-facts .stock-fact{
+    min-width:0;min-height:0;padding:6px 8px;
+  }
+  .stock-workspace .stock-quote-facts .stock-fact strong{
+    font-size:clamp(11px,1vw,14px);line-height:1.2;
+  }
+  .stock-workspace .stock-quote-facts .stock-fact span{
+    font-size:9px;line-height:1.15;
+  }
+  .stock-workspace .trade-panel .ticket-body{min-height:0;overflow:hidden}
+  .trade-panel-desktop .ticket-body{
+    display:flex;flex-direction:column;min-height:0!important;
+    overflow:hidden!important;justify-content:flex-start;
+    gap:clamp(6px,.9vh,11px);padding:clamp(8px,1vh,13px);
+  }
+  .trade-panel-desktop .side-selector button{min-height:31px;padding:7px 3px}
+  .trade-panel-desktop .ticket-order-control{gap:4px}
+  .trade-panel-desktop .trade-kind,
+  .trade-panel-desktop .trigger-input{min-height:36px;padding:7px 9px;font-size:13px}
+  .trade-panel-desktop .ticket-trigger{gap:4px}
+  .trade-panel-desktop .quantity-wrapper{min-height:36px}
+  .trade-panel-desktop .quantity-wrapper input{padding:7px 10px;font-size:15px}
+  .trade-panel-desktop .quantity-presets button{min-height:29px}
+  .trade-panel-desktop .ticket-breakdown{gap:0;padding-top:0}
+  .trade-panel-desktop .ticket-breakdown .ticket-total{padding-top:7px}
+  .trade-panel-desktop .execute-button{min-height:38px}
+  .trade-panel-desktop .subtle-link{min-height:29px;align-self:flex-start}
+
+  .stock-workspace .trade-panel .panel-heading{min-height:0}
+  .stock-workspace .chart-panel .candle-frame{min-height:0;flex:1}
+  .stock-workspace .chart-panel .candle-chart{min-height:0;flex:1}
+
+  /* PORTFOLIO: positions and queued orders side by side. */
+  .details-stack.portfolio-stack{
+    grid-template-columns:minmax(0,1.55fr) minmax(255px,.9fr);
+    grid-template-rows:minmax(0,1fr);align-items:stretch;
+  }
+  .details-stack.portfolio-stack > .details-panel,
+  .details-stack.portfolio-stack[data-pane] > .details-panel{
+    display:flex!important;grid-area:1/1;min-width:0;min-height:0!important;
+    max-height:100%;height:100%;
+  }
+  .details-stack.portfolio-stack > .orders-panel,
+  .details-stack.portfolio-stack[data-pane] > .orders-panel{
+    display:flex!important;grid-area:1/2;min-width:0;min-height:0!important;
+    max-height:100%;height:100%;
+  }
+  .details-stack.portfolio-stack .fit-pager{flex:1;min-height:0}
+  .details-stack.portfolio-stack .orders-foot{display:none}
+
+  /* CHALLENGES: forecasts, predictions, achievements and discovery together. */
+  .challenge-layout{
+    grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);
+    grid-template-rows:repeat(2,minmax(0,1fr));align-content:stretch;
+  }
+  .challenge-layout > .panel,
+  .challenge-layout[data-pane] > .panel{
+    display:flex!important;flex-direction:column;flex:none;
+    min-width:0;min-height:0!important;height:100%;
+  }
+  .challenge-layout .prediction-panel{grid-area:1/1}
+  .challenge-layout .prediction-history{grid-area:1/2}
+  .challenge-layout .achievement-panel{grid-area:2/1}
+  .challenge-layout .challenge-explore{grid-area:2/2}
+  .challenge-layout .fit-pager{flex:1;min-height:0}
+  .challenge-layout .prediction-compose{gap:clamp(5px,.85vh,9px)}
+  .challenge-layout .prediction-direction button{min-height:31px}
+  .challenge-layout .prediction-compose select{min-height:32px}
+  .challenge-layout .achievement-grid{grid-template-columns:1fr}
+}
+
+/* Narrow Discord desktop: maintain two columns, but put more width into the
+   stock chart and simplify compact card text. No horizontal scrolling. */
+@media (min-width:761px) and (max-width:1080px) {
+  .overview-layout,.challenge-layout{gap:7px}
+  .trade-overview,.stock-workspace,.details-stack.portfolio-stack{gap:7px}
+  .trade-overview{grid-template-columns:minmax(0,1.4fr) minmax(215px,.8fr)}
+  .stock-workspace{grid-template-columns:minmax(0,1.35fr) minmax(235px,.95fr)}
+  .details-stack.portfolio-stack{grid-template-columns:minmax(0,1.25fr) minmax(235px,.9fr)}
+  .content-wrap{gap:6px}
+  .overview-layout .subtle-link{min-height:28px;font-size:10px}
+  .panel-heading{padding:6px 8px}
+  .panel-heading h2,.panel-heading>h2{font-size:12px}
+  .stock-workspace .chart-source{font-size:9px}
+  .stock-workspace .stock-fact strong{font-size:11px}
+  .challenge-layout .prediction-totals strong{font-size:15px}
+}
+
+/* If the desktop window is short, keep all cards visible by reducing
+   nonessential padding rather than replacing them with page tabs. */
+@media (min-width:761px) and (max-height:610px) {
+  .content-wrap{padding:5px 8px;gap:5px}
+  .headline h1{font-size:18px}
+  .stats-grid{gap:5px}
+  .overview-layout,.trade-overview,.stock-workspace,
+  .details-stack.portfolio-stack,.challenge-layout{gap:5px}
+  .panel-heading{padding:4px 7px}
+  .overview-layout .pulse-summary{padding:2px 6px}
+  .overview-layout .pulse-stat{padding:3px}
+  .stock-workspace{grid-template-rows:minmax(0,1.5fr) minmax(100px,.72fr)}
+  .stock-workspace .trade-panel-desktop .ticket-body{gap:4px;padding:5px 7px}
+  .trade-panel-desktop .side-selector button{min-height:27px;padding:4px}
+  .trade-panel-desktop .trade-kind,.trade-panel-desktop .trigger-input{min-height:30px;padding:4px 7px}
+  .trade-panel-desktop .quantity-wrapper{min-height:30px}
+  .trade-panel-desktop .quantity-wrapper input{padding:5px}
+  .trade-panel-desktop .quantity-presets button{min-height:23px}
+  .trade-panel-desktop .execute-button{min-height:31px}
+  .trade-panel-desktop .ticket-order-control,.trade-panel-desktop .ticket-trigger{gap:2px}
+  .trade-panel-desktop .subtle-link{min-height:24px}
+  .challenge-layout .prediction-compose{padding:5px 8px;gap:4px}
+  .challenge-layout .prediction-direction button{min-height:28px}
+}
+
+/* Mobile retains one panel at a time and the original bottom navigation. */
+@media (max-width:760px) {
+  .stock-workspace > .trade-panel-desktop{display:none!important}
+  .challenge-layout[data-pane] > .panel{display:none!important}
+  .challenge-layout[data-pane="forecast"] > .prediction-panel,
+  .challenge-layout[data-pane="history"] > .prediction-history,
+  .challenge-layout[data-pane="badges"] > .achievement-panel,
+  .challenge-layout[data-pane="stocks"] > .challenge-explore{
+    display:flex!important;flex:1;min-width:0;min-height:0!important;
+  }
+}

@@ -19,9 +19,9 @@ export function Challenges({quotes,predictions,summary,achievements,pending,subm
   const [direction,setDirection]=useState<PredictionDirection>('UP');
   const [review,setReview]=useState(false);
   const quote=quotes.find(q=>q.symbol===symbol);
-  return <div className="challenge-layout fitted-panel">
+  return <div className="challenge-layout fitted-panel" data-pane={tab}>
     <SectionTabs items={directions} value={tab} onChange={setTab} label="Challenge sections"/>
-    {tab==='forecast' && <section className="panel prediction-panel">
+    <section className="panel prediction-panel">
       <div className="panel-heading"><h2><Target size={18}/> Next session</h2><span className="count-pill">+10 PTS</span></div>
       <div className="prediction-compose">
         {!review ? <>
@@ -42,8 +42,8 @@ export function Challenges({quotes,predictions,summary,achievements,pending,subm
           <p className="gameplay-hint">One call per stock per session. Verified closing quotes determine results.</p>
         </>}
       </div>
-    </section>}
-    {tab==='history' && <section className="panel prediction-history">
+    </section>
+    <section className="panel prediction-history">
       <div className="panel-heading"><h2><CalendarClock size={18}/> Prediction history</h2></div>
       <div className="prediction-totals">
         <div><span>POINTS</span><strong>{summary.points}</strong></div>
@@ -61,8 +61,8 @@ export function Challenges({quotes,predictions,summary,achievements,pending,subm
             <small>{p.closePriceCents?money(p.closePriceCents)+' · ':''}{p.points>0?'+':''}{p.points} pts</small>
           </div>
         </div>)}</div>}/>
-    </section>}
-    {tab==='badges' && <section className="panel achievement-panel">
+    </section>
+    <section className="panel achievement-panel">
       <div className="panel-heading"><h2><Award size={18}/> Achievements</h2>
         <span className="count-pill">{achievements.filter(a=>a.unlockedAt).length} / {achievements.length}</span></div>
       <FitPager items={achievements} rowHeight={94} compactRowHeight={104} empty="Achievements unavailable."
@@ -73,14 +73,14 @@ export function Challenges({quotes,predictions,summary,achievements,pending,subm
             <small>{a.unlockedAt?'Unlocked '+new Date(a.unlockedAt*1000).toLocaleDateString():a.progress+' / '+a.target}</small>
           </div>
         </div>)}</div>}/>
-    </section>}
-    {tab==='stocks' && <section className="panel challenge-explore">
+    </section>
+    <section className="panel challenge-explore">
       <div className="panel-heading"><h2>Browse stocks</h2></div>
       <FitPager items={quotes} rowHeight={60} compactRowHeight={65} empty="Market data unavailable."
         render={items=><div className="challenge-stocks">{items.map(q=><button key={q.symbol} type="button" onClick={()=>openStock(q.symbol)}>
           <span><strong>{q.symbol}</strong><small>{q.name}</small></span><strong>{money(q.priceCents)}</strong>
         </button>)}</div>}/>
-    </section>}
+    </section>
   </div>;
 }
 

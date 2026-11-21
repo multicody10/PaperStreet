@@ -20,6 +20,7 @@ import './gameplay.css';
 import './desktop.css';
 import './layout.css';
 import './fit.css';
+import './desktop-cards.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -296,11 +297,11 @@ function App() {
       <div className="shell-body">
         <aside className="sidebar">
           <nav aria-label="Main navigation">
-            {links.map(({ id, label, icon: Icon }) => {
+            {links.map(({ id, label, mobileLabel, icon: Icon }) => {
               const active = tab === id || (tab === 'stock' && id === 'trade');
               return <button type="button" key={id} title={label} className={'nav-button ' + (active ? 'active' : '')}
                 aria-current={active ? 'page' : undefined} onClick={() => goToPage(id)}>
-                <Icon size={22} aria-hidden="true"/><span>{label}</span>
+                <Icon size={22} aria-hidden="true"/><span>{mobileLabel ?? label}</span>
               </button>;
             })}
           </nav>
@@ -416,7 +417,8 @@ function App() {
                   </div></section>
                 </div>
                 <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
-              </div> : tab === 'challenges' ? <Challenges quotes={quotes} predictions={predictions} summary={predictionSummary} achievements={achievements} pending={forecastPending} submit={(symbol,direction) => void submitForecast(symbol,direction)} openStock={openStock}/> : <div className="details-stack" data-pane={tab === 'portfolio' ? portfolioPane : 'positions'}>
+                <DesktopTradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
+              </div> : tab === 'challenges' ? <Challenges quotes={quotes} predictions={predictions} summary={predictionSummary} achievements={achievements} pending={forecastPending} submit={(symbol,direction) => void submitForecast(symbol,direction)} openStock={openStock}/> : <div className={tab === 'portfolio' ? 'details-stack portfolio-stack' : 'details-stack'} data-pane={tab === 'portfolio' ? portfolioPane : 'positions'}>
                 {tab === 'portfolio' && <OrderList orders={orders} onCancel={id => void cancelQueuedOrder(id)} canceling={cancelingOrder}/>}
                 <section className="panel details-panel">
                   <div className="panel-heading details-heading">
@@ -526,6 +528,52 @@ function TradeTicket({selected,side,setSide,shares,setShares,total,positionShare
         <div className="ticket-step-actions"><button type="button" className="subtle-link" onClick={()=>setStep(1)}><ArrowLeft size={16}/> Back</button>
           <button type="button" className="subtle-link" onClick={viewOrders}>Queued orders <ChevronRight size={15}/></button></div>
       </>}
+    </div>
+  </section>;
+}
+
+function DesktopTradeTicket({selected,side,setSide,shares,setShares,total,positionShares,canTrade,pending,execute,portfolio,orderKind,setOrderKind,triggerPrice,setTriggerPrice,viewOrders}:{
+  selected?:Quote;side:'BUY'|'SELL';setSide:(v:'BUY'|'SELL')=>void;shares:string;setShares:(v:string)=>void;
+  total:number;positionShares:number;canTrade:boolean;pending:boolean;execute:()=>void;portfolio:Portfolio|null;
+  orderKind:'IMMEDIATE'|OrderKind;setOrderKind:(v:'AUTO'|'IMMEDIATE'|OrderKind)=>void;
+  triggerPrice:string;setTriggerPrice:(v:string)=>void;viewOrders:()=>void;
+}) {
+  const max=side==='BUY'&&selected?Math.min(100_000,Math.floor((portfolio?.cashCents??0)/selected.priceCents)):Math.min(100_000,positionShares);
+  const queued=orderKind!=='IMMEDIATE';
+  return <section className="panel trade-panel trade-panel-desktop" aria-label="Desktop order ticket">
+    <div className="panel-heading"><h2><ArrowLeftRight size={19}/> Order ticket</h2><span className="trade-tag">{queued?'QUEUED':'IMMEDIATE'}</span></div>
+    <div className="ticket-body">
+      <div className="side-selector">
+        <button type="button" className={side==='BUY'?'current buy':''} aria-pressed={side==='BUY'} onClick={()=>setSide('BUY')}>Buy</button>
+        <button type="button" className={side==='SELL'?'current sell':''} aria-pressed={side==='SELL'} onClick={()=>setSide('SELL')}>Sell</button>
+      </div>
+      <div className="ticket-order-control">
+        <label htmlFor="desktop-order-kind">ORDER TYPE</label>
+        <select id="desktop-order-kind" className="trade-kind" value={orderKind} onChange={e=>setOrderKind(e.target.value as 'IMMEDIATE'|OrderKind)}>
+          {selected?.marketOpen&&<option value="IMMEDIATE">Immediate market order</option>}
+          <option value="MARKET">Queue market order</option>
+          <option value="LIMIT">Queue limit order</option>
+          <option value="STOP">Queue stop order</option>
+        </select>
+      </div>
+      {(orderKind==='LIMIT'||orderKind==='STOP')&&<div className="ticket-trigger">
+        <label htmlFor="desktop-trigger-price">{orderKind==='LIMIT'?'LIMIT PRICE (USD)':'STOP PRICE (USD)'}</label>
+        <input id="desktop-trigger-price" className="trigger-input" type="number" min=".01" step=".01" inputMode="decimal"
+          placeholder="0.00" value={triggerPrice} onChange={e=>setTriggerPrice(e.target.value)}/>
+      </div>}
+      <label className="field-label" htmlFor="desktop-shares">SHARES <span>{side==='BUY'?'CASH':'OWNED'}: {side==='BUY'?money(portfolio?.cashCents??0):positionShares}</span></label>
+      <div className="quantity-wrapper"><input id="desktop-shares" type="number" inputMode="numeric" min="1" max="100000" step="1"
+        value={shares} onChange={e=>setShares(e.target.value)}/><span>SHARES</span></div>
+      <div className="quantity-presets">
+        {[1,5,10].map(n=><button type="button" key={n} onClick={()=>setShares(String(n))} disabled={n>max}>{n}</button>)}
+        <button type="button" onClick={()=>setShares(String(max))} disabled={max<1}>Max</button>
+      </div>
+      <div className="ticket-breakdown"><div className="ticket-total"><span>{queued?'Estimated value':'Estimated '+(side==='BUY'?'cost':'proceeds')}</span><strong>{money(total)}</strong></div></div>
+      <button type="button" className={'execute-button '+side.toLowerCase()} disabled={!canTrade||pending} onClick={execute}>
+        {pending?<LoaderCircle size={17} className="spin"/>:<ArrowLeftRight size={17}/>}
+        {pending?'Processing…':(queued?'Queue ':'')+(side==='BUY'?'Buy ':'Sell ')+(selected?.symbol??'shares')}
+      </button>
+      <button type="button" className="subtle-link" onClick={viewOrders}>Queued orders <ChevronRight size={15}/></button>
     </div>
   </section>;
 }
