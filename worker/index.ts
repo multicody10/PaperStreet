@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { discordInteraction } from './interactions';
-import { checkDiscordLaunch } from './launch';
+import { checkDiscordLaunch, checkDiscordLaunchAfterAuth } from './launch';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
@@ -95,6 +95,11 @@ app.post('/api/auth', async c => {
     .bind(user.id, displayName, STARTING_CASH_CENTS, STARTING_CASH_CENTS, avatarHash, avatarDiscriminator).run();
   invalidateMemo('leaderboard');
   const session = await createSession(c.env.SESSION_SECRET, user.id);
+  // An authenticated Activity launch triggers verification independently of
+  // Cloudflare Cron delivery. This must never delay or block user sign-in.
+  c.executionCtx.waitUntil(checkDiscordLaunchAfterAuth(c.env).catch(() => {
+    console.error('Discord launch verification fallback failed');
+  }));
   return noStore({ access_token: token.access_token, session, user: { id: user.id, displayName, avatarUrl } });
 });
 

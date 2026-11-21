@@ -16,6 +16,11 @@ const STATUS_VALUES = new Set([
   'discord_api_429', 'discord_api_unavailable', 'discord_oauth_unavailable',
   'invalid_oauth_token', 'no_primary_entry_point', 'wrong_application',
   'discord_update_rejected', 'discord_verification_failed', 'worker_error',
+  'd1_state_read_failed', 'discord_oauth_fetch_failed', 'discord_oauth_invalid_json',
+  'discord_commands_fetch_failed', 'discord_commands_invalid_json',
+  'discord_update_fetch_failed', 'discord_update_invalid_json',
+  'discord_verify_fetch_failed', 'discord_verify_invalid_json',
+  'd1_state_write_failed',
 ]);
 export function launchConfigurationIssue(env: LaunchSyncEnv): string | null {
   if (!env.DISCORD_CLIENT_ID || !/^\d{15,22}$/.test(env.DISCORD_CLIENT_ID)) return 'missing_app_id';
@@ -37,6 +42,7 @@ export function launchFailureCode(error: unknown): string {
   if (message.includes('Expected one primary entry command')) return 'no_primary_entry_point';
   if (message.includes('did not acknowledge APP_HANDLER')) return 'discord_update_rejected';
   if (message.includes('did not persist APP_HANDLER')) return 'discord_verification_failed';
+  if (STATUS_VALUES.has(message)) return message;
   return 'worker_error';
 }
 export async function recordLaunchSyncStatus(env: LaunchSyncEnv, code: string, now: number) {
@@ -65,6 +71,19 @@ export async function checkDiscordLaunch(env: LaunchSyncEnv, now: number): Promi
   }
 }
 
+// Authenticated sessions provide an immediate fallback when Cron delivery is delayed.
+// Recent attempts in D1 prevent clients from repeatedly hitting Discord's API.
+export async function checkDiscordLaunchAfterAuth(
+  env: LaunchSyncEnv, now = Math.floor(Date.now() / 1000),
+): Promise<void> {
+  const previous = await env.DB.prepare(
+    'SELECT checked_at FROM service_state WHERE key=?'
+  ).bind(STATUS_KEY).first<{ checked_at: number }>()
+    .catch(() => null);
+  if (previous && now - previous.checked_at >= 0 && now - previous.checked_at < 120) return;
+  await checkDiscordLaunch(env, now);
+}
+
 type Entry = { id: string; application_id: string; type: number; handler?: number; version?: string };
 const API = 'https://discord.com/api/v10';
 const STATE_KEY = 'discord-primary-entry-app-handler-v1';
@@ -82,7 +101,8 @@ export async function synchronizeDiscordLaunch(
   }
   const state = await env.DB.prepare(
     'SELECT value,checked_at FROM service_state WHERE key=?'
-  ).bind(STATE_KEY).first<StoredSync>();
+  ).bind(STATE_KEY).first<StoredSync>()
+    .catch(() => { throw new Error('d1_state_read_failed'); });
   if (state?.value === appId && now - state.checked_at < VERIFY_INTERVAL_SECONDS) return 'skipped';
 
   // A client credentials token only updates this application's own commands.
@@ -92,9 +112,11 @@ export async function synchronizeDiscordLaunch(
       grant_type: 'client_credentials', scope: 'applications.commands.update',
       client_id: appId, client_secret: env.DISCORD_CLIENT_SECRET,
     }),
-  });
+  }).catch(() => { throw new Error('discord_oauth_fetch_failed'); });
   if (!tokenResponse.ok) throw new Error(`Discord command authorization: HTTP ${tokenResponse.status}`);
-  const tokenData = await tokenResponse.json() as { access_token?: unknown };
+  const tokenData = await tokenResponse.json().catch(() => {
+    throw new Error('discord_oauth_invalid_json');
+  }) as { access_token?: unknown };
   if (typeof tokenData.access_token !== 'string' || !tokenData.access_token)
     throw new Error('Discord command authorization returned no access token');
   const headers = {
@@ -102,15 +124,15 @@ export async function synchronizeDiscordLaunch(
     'Content-Type': 'application/json',
   };
   const root = `${API}/applications/${appId}/commands`;
-  async function discord<T>(url: string, init: RequestInit = {}): Promise<T> {
+  async function discord<T>(url: string, stage: 'commands' | 'update' | 'verify', init: RequestInit = {}): Promise<T> {
     const response = await fetch(url, {
       headers, redirect: 'error', signal: AbortSignal.timeout(8000), ...init,
-    });
+    }).catch(() => { throw new Error(`discord_${stage}_fetch_failed`); });
     // Never include response bodies in errors: OAuth/provider responses may be sensitive.
     if (!response.ok) throw new Error(`Discord command API: HTTP ${response.status}`);
-    return await response.json() as T;
+    return await response.json().catch(() => { throw new Error(`discord_${stage}_invalid_json`); }) as T;
   }
-  const commands = await discord<Entry[]>(root);
+  const commands = await discord<Entry[]>(root, 'commands');
   if (!Array.isArray(commands)) throw new Error('Discord command list was invalid');
   const candidates = commands.filter(command => command.type === 4 && command.application_id === appId);
   if (candidates.length !== 1 || !/^\d{15,22}$/.test(candidates[0].id))
@@ -121,19 +143,20 @@ export async function synchronizeDiscordLaunch(
   // This can refresh stale client-side command versions after earlier configuration.
   const mustPatch = entry.handler !== 1 || !state || state.value !== appId;
   if (mustPatch) {
-    const updated = await discord<Entry>(`${root}/${entry.id}`, {
+    const updated = await discord<Entry>(`${root}/${entry.id}`, 'update', {
       method: 'PATCH', body: JSON.stringify({ handler: 1 }),
     });
     if (updated.id !== entry.id || updated.application_id !== appId || updated.handler !== 1)
       throw new Error('Discord did not acknowledge APP_HANDLER for the selected entry point');
   }
-  const verified = await discord<Entry>(`${root}/${entry.id}`);
+  const verified = await discord<Entry>(`${root}/${entry.id}`, 'verify');
   if (verified.id !== entry.id || verified.application_id !== appId || verified.handler !== 1)
     throw new Error('Discord did not persist APP_HANDLER; the automatic invitation remains enabled');
 
   await env.DB.prepare(`INSERT INTO service_state(key,value,checked_at) VALUES(?,?,?)
     ON CONFLICT(key) DO UPDATE SET value=excluded.value,checked_at=excluded.checked_at`)
-    .bind(STATE_KEY, appId, now).run();
+    .bind(STATE_KEY, appId, now).run()
+    .catch(() => { throw new Error('d1_state_write_failed'); });
   console.info(`PaperStreet Discord entry point verified: APP_HANDLER (1), command version ${verified.version ?? 'unknown'}`);
   return mustPatch ? 'updated' : 'verified';
 }

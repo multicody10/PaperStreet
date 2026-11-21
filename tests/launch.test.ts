@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import { synchronizeDiscordLaunch, checkDiscordLaunch, launchConfigurationIssue, launchFailureCode } from '../worker/launch';
+import { synchronizeDiscordLaunch, checkDiscordLaunch, checkDiscordLaunchAfterAuth, launchConfigurationIssue, launchFailureCode } from '../worker/launch';
 
 const appId = '123456789012345678';
 const commandId = '987654321098765432';
@@ -115,4 +115,59 @@ test('Discord HTTP failures map to nonsecret error categories', () => {
   assert.equal(launchFailureCode(new Error('Discord command API: HTTP 500')), 'discord_api_unavailable');
   assert.equal(launchFailureCode(new Error('Expected one primary entry command for the PaperStreet application, got 0')), 'no_primary_entry_point');
   assert.equal(launchFailureCode(new Error('Sensitive token: abc')), 'worker_error');
+});
+
+test('unexpected fetch and response failures retain the exact safe phase', () => {
+  for (const phase of [
+    'd1_state_read_failed',
+    'discord_oauth_fetch_failed',
+    'discord_oauth_invalid_json',
+    'discord_commands_fetch_failed',
+    'discord_commands_invalid_json',
+    'discord_update_fetch_failed',
+    'discord_update_invalid_json',
+    'discord_verify_fetch_failed',
+    'discord_verify_invalid_json',
+    'd1_state_write_failed',
+  ]) {
+    assert.equal(launchFailureCode(new Error(phase)), phase);
+  }
+});
+
+test('authenticated session fallback skips Discord if a recent attempt exists', async t => {
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    throw new Error('Unexpected external fetch');
+  });
+  const db = {
+    prepare() {
+      return { bind() { return this; }, async first() { return { checked_at: 2000 }; } };
+    },
+  } as unknown as D1Database;
+  await checkDiscordLaunchAfterAuth({
+    DB: db, DISCORD_CLIENT_ID: appId, DISCORD_CLIENT_SECRET: 'secret',
+    DISCORD_PUBLIC_KEY: publicKey,
+  }, 2100);
+  assert.equal(calls, 0);
+});
+
+test('authenticated session fallback records configuration failure without a cron', async t => {
+  t.mock.method(globalThis, 'fetch', async () => { throw new Error('Unexpected network request'); });
+  const records: unknown[][] = [];
+  const db = {
+    prepare() {
+      return {
+        bind(...args: unknown[]) { this.args = args; return this; },
+        args: [] as unknown[],
+        async first() { return null; },
+        async run() { records.push(this.args); return { success: true }; },
+      };
+    },
+  } as unknown as D1Database;
+  await checkDiscordLaunchAfterAuth({
+    DB: db, DISCORD_CLIENT_ID: appId, DISCORD_CLIENT_SECRET: '',
+    DISCORD_PUBLIC_KEY: publicKey,
+  }, 2110);
+  assert.deepEqual(records, [['discord-primary-entry-sync-result-v1', 'missing_client_secret', 2110]]);
 });
