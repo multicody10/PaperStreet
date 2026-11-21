@@ -43,7 +43,11 @@ test('stock page uses real quote, chart, position and own ticker data',()=>{
   assert.match(main,/if \(tab !== 'stock' \|\| !canSubmitOrder/);
   assert.match(stock,/portfolio\?\.positions\.find\(v=>v\.symbol===p\.symbol\)/);
   assert.match(stock,/p\.quote\.priceCents-p\.quote\.previousCloseCents/);
-  assert.match(stock,/p\.quote\?\.sessionBar\?\.openCents/);
+  assert.match(stock,/const session=p\.quote\?\.sessionBar/);
+  assert.match(stock,/className="stock-terminal-snapshot"/);
+  assert.match(stock,/className="stock-terminal-range-track"/);
+  assert.match(stock,/position\.marketValueCents/);
+  assert.doesNotMatch(stock,/className="stock-terminal-hero-facts"|Prev\. close|Held shares/);
   assert.match(stock,/key=\{p\.symbol\+':'\+p\.range\}/);
   assert.match(stock,/<StockPredictions key=\{p\.symbol\}/);
   assert.match(stock,/trades\.filter\(t=>t\.symbol===symbol\)/);

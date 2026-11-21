@@ -17,7 +17,9 @@ test('header title and quote summary are independently sized, not overlapped',()
  assert.match(css,/grid-template-rows:minmax\(40px,auto\) minmax\(0,1fr\)/);
  assert.match(css,/stock-terminal-hero-title\{\s*display:grid!important/);
  assert.match(css,/stock-terminal-quote-summary\{\s*display:grid!important/);
- assert.match(css,/stock-terminal-hero-facts>div\{\s*display:flex!important;flex-direction:column!important/);
+ assert.match(component,/className="stock-terminal-snapshot"/);
+ assert.match(component,/className="stock-terminal-snapshot-range"/);
+ assert.match(read('src/paperstreet-black.css'),/\.stock-terminal-snapshot\{/);
  assert.match(css,/stock-terminal-name-row h1\{[\s\S]*?text-overflow:ellipsis/);
  assert.match(component,/className="stock-terminal-hero-title"/);
  assert.match(component,/className="stock-terminal-quote-summary"/);

@@ -49,7 +49,7 @@ test('every allowed ticker uses the reference-inspired stock workspace',()=>{
   assert.match(app,/tab === 'stock' \? <StockTerminal/);
   assert.match(app,/import '\.\/stock-terminal\.css'/);
   assert.match(stock,/data-pane=\{p\.pane\}/);
-  for(const section of ['stock-terminal-hero','stock-terminal-quote-summary','stock-terminal-hero-facts',
+  for(const section of ['stock-terminal-hero','stock-terminal-quote-summary','stock-terminal-snapshot',
     'stock-terminal-chart','stock-terminal-ticket',
     'stock-terminal-related','stock-terminal-activity'])
     assert.ok(stock.includes(section),section);
