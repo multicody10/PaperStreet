@@ -1,5 +1,6 @@
 import { STOCKS, HISTORY_RANGES, type Candle, type ChartHistory, type HistoryRange, type Quote, type SymbolCode } from '../shared/stocks';
 import { memoized, invalidateMemo } from './memo';
+import { easternMarketClock, marketSessionOn } from '../shared/marketCalendar';
 
 export interface MarketEnv { DB: D1Database; FINNHUB_API_KEY?: string }
 type CacheRow = { price_cents: number; previous_close_cents: number; fetched_at: number; provider_at: number | null; mode: string;
@@ -13,62 +14,10 @@ const MAX_OFFHOURS_AGE_SECONDS = 7 * 86400; // Last verified exchange price can 
 const LEASE_SECONDS = 12;
 const MAX_PRICE_CENTS = 100_000_000;
 
-function nthWeekday(year: number, month: number, weekday: number, nth: number): number {
-  const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  return 1 + (weekday - first + 7) % 7 + (nth - 1) * 7;
-}
-function lastWeekday(year: number, month: number, weekday: number): number {
-  const last = new Date(Date.UTC(year, month, 0));
-  return last.getUTCDate() - (last.getUTCDay() - weekday + 7) % 7;
-}
-function observed(year: number, month: number, day: number): string {
-  const date = new Date(Date.UTC(year, month - 1, day));
-  const weekday = date.getUTCDay();
-  if (weekday === 6) date.setUTCDate(date.getUTCDate() - 1);
-  if (weekday === 0) date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-function easterSunday(year: number): Date {
-  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
-  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4), k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k + 7 * 6) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = (h + l - 7 * m + 114) % 31 + 1;
-  return new Date(Date.UTC(year, month - 1, day));
-}
 function calculateUsMarketOpen(now: number): boolean {
-  const fields = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
-  }).formatToParts(new Date(now * 1000));
-  const p = Object.fromEntries(fields.map(({ type, value }) => [type, value]));
-  if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
-  const year = Number(p.year), month = Number(p.month), day = Number(p.day);
-  const date = `${p.year}-${p.month}-${p.day}`;
-  const goodFriday = easterSunday(year);
-  goodFriday.setUTCDate(goodFriday.getUTCDate() - 2);
-  const holidays = new Set([
-    observed(year - 1, 1, 1), observed(year, 1, 1), observed(year + 1, 1, 1),
-    `${year}-01-${String(nthWeekday(year, 1, 1, 3)).padStart(2, '0')}`, // MLK Day
-    `${year}-02-${String(nthWeekday(year, 2, 1, 3)).padStart(2, '0')}`, // Presidents' Day
-    goodFriday.toISOString().slice(0, 10),
-    `${year}-05-${String(lastWeekday(year, 5, 1)).padStart(2, '0')}`,
-    observed(year, 6, 19), observed(year, 7, 4),
-    `${year}-09-${String(nthWeekday(year, 9, 1, 1)).padStart(2, '0')}`,
-    `${year}-11-${String(nthWeekday(year, 11, 4, 4)).padStart(2, '0')}`,
-    observed(year, 12, 25),
-  ]);
-  if (holidays.has(date)) return false;
-  const minutes = Number(p.hour) * 60 + Number(p.minute);
-  if (minutes < 570) return false;
-  const thanksgiving = nthWeekday(year, 11, 4, 4);
-  const earlyClose = (month === 11 && day === thanksgiving + 1) ||
-    (month === 7 && day === 3) || (month === 12 && day === 24);
-  return minutes < (earlyClose ? 780 : 960);
+  const { date, minute } = easternMarketClock(new Date(now * 1000));
+  const session = marketSessionOn(date);
+  return session.kind !== 'closed' && minute >= 570 && minute < session.closeMinute;
 }
 
 let lastMarketMinute = -1;
