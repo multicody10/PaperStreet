@@ -1,0 +1,303 @@
+/* Screen-fit mode: no body, page, list or panel scrollbars. Content uses tabs and paging. */
+html,body,#root{height:100%;overflow:hidden}
+.app-shell{height:100dvh;max-height:100dvh;overflow:hidden}
+.shell-body,.main-content{min-width:0;min-height:0;overflow:hidden!important}
+.main-content{height:100%}
+.content-wrap{
+  display:flex;flex:1;flex-direction:column;min-width:0;min-height:0;
+  height:100%;max-height:100%;overflow:hidden!important;
+  gap:clamp(5px,.8vh,10px);padding:clamp(6px,.85vh,11px) clamp(8px,1.2vw,17px);
+}
+.content-wrap>.headline{flex:none;min-height:0;height:auto;line-height:1.15}
+.headline h1{font-size:clamp(18px,2vw,25px)}
+.app-footer{display:none!important}
+.feedback{position:absolute;bottom:clamp(12px,3vh,34px);right:12px;left:min(14vw,150px);
+  max-height:85px;z-index:20;overflow:hidden;font-size:12px;box-shadow:0 7px 26px #0009}
+.feedback span{display:block;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+.feedback button{min-width:30px;min-height:30px}
+.panel{min-width:0;min-height:0!important;overflow:hidden!important}
+.panel-heading{flex:none;min-height:0;flex-wrap:nowrap;gap:6px;padding:clamp(6px,.8vh,10px) 11px}
+.panel-heading h2,.panel-heading>h2{font-size:clamp(12px,1.2vw,15px);min-width:0}
+.panel-heading h2 svg{width:15px;height:15px}
+.panel-heading p{display:none}
+.count-pill{font-size:10px;padding:5px 7px}
+.screen-tabs{
+  display:flex;align-items:center;flex:none;gap:3px;min-height:34px;
+  border:1px solid var(--line);border-radius:8px;background:#121c23;
+  padding:3px;min-width:0;overflow:hidden;
+}
+.screen-tabs button{
+  min-height:28px;min-width:0;flex:1;padding:4px 7px;border:0;border-radius:5px;
+  background:transparent;color:#9fb4b9;font-size:clamp(10px,.95vw,12px);
+  font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.screen-tabs button.active{background:#185038;color:#beffda}
+.screen-tabs button:focus-visible{outline:2px solid var(--mint);outline-offset:-2px}
+.fit-pager{display:flex;flex:1;min-width:0;min-height:0;flex-direction:column;overflow:hidden}
+.fit-pager-viewport{display:block;flex:1;min-width:0;min-height:0;overflow:hidden}
+.fit-pager-viewport>*{height:100%;min-height:0;max-height:100%;overflow:hidden!important}
+.fit-pager-controls{
+  display:flex;flex:none;align-items:center;justify-content:center;gap:13px;
+  min-height:31px;height:31px;border-top:1px solid var(--line);
+  color:#9eb5ba;font-size:11px;font-variant-numeric:tabular-nums;
+}
+.fit-pager-controls button{
+  display:grid;place-items:center;min-width:36px;min-height:27px;
+  border:1px solid #384d4b;border-radius:6px;background:#173025;color:#a1f3bd;
+}
+.fit-pager-controls button:disabled{opacity:.25}
+.fit-pager-viewport .responsive-table{overflow:hidden!important}
+.fit-pager-viewport .responsive-table table{width:100%;min-width:0;table-layout:auto}
+.fit-pager-viewport .responsive-table td,.fit-pager-viewport .responsive-table th{padding:9px 10px}
+.fit-pager-viewport .responsive-table tbody{min-width:0}
+.rail-empty{display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;text-align:center}
+.full-leaderboard,.holding-list,.leaderboard-list,.activity-list,.pulse-list,
+.stock-list,.panel-scroll,.queued-list,.prediction-list,.responsive-table,
+.ticket-body,.achievement-grid,.challenge-stocks,.details-stack,.trade-insights,
+.chart-panel,.overview-layout,.trade-overview,.stock-workspace,.challenge-layout,
+.sidebar nav,.sidebar{scrollbar-width:none!important;overflow:hidden!important}
+*::-webkit-scrollbar{display:none!important}
+.sidebar nav{min-height:0}
+.sidebar .nav-button{min-height:0!important;height:100%;padding:3px;gap:3px}
+.sidebar .nav-button svg{width:20px;height:20px}
+.sidebar .nav-button span{font-size:clamp(9px,1vw,11px)}
+.sidebar nav{display:grid;grid-template-rows:repeat(6,minmax(0,1fr));gap:4px}
+.sidebar{padding:6px 4px}
+.stats-grid{flex:none;min-height:0;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.stat-card{display:flex;min-height:0;flex-direction:column;justify-content:center;padding:7px 10px;gap:4px}
+.stat-card>strong{font-size:clamp(15px,1.8vw,23px);line-height:1.12;overflow-wrap:anywhere}
+.stat-card small{font-size:10px}
+.stat-top{font-size:10px}
+.stat-icon svg{width:17px;height:17px}
+.overview-layout,.trade-overview,.stock-workspace,.challenge-layout,.details-stack{
+  display:flex!important;flex:1;flex-direction:column;min-width:0;min-height:0!important;
+  max-height:100%;gap:0;overflow:hidden!important;
+}
+.overview-layout>.panel{display:none;flex:1;min-height:0}
+.overview-layout[data-pane="holdings"]>.overview-positions,
+.overview-layout[data-pane="leaders"]>.overview-leaders,
+.overview-layout[data-pane="activity"]>.overview-activity,
+.overview-layout[data-pane="market"]>.overview-pulse{display:flex}
+.overview-layout .pulse-summary{flex:none;padding:5px 11px;gap:8px}
+.overview-layout .pulse-stat{min-height:0;padding:6px 9px}
+.overview-layout .pulse-stat strong{font-size:18px;margin-top:1px}
+.overview-layout .pulse-stat span{font-size:10px}
+.trade-overview>.trade-universe,.trade-overview>.trade-insights{display:none;flex:1;min-height:0}
+.trade-overview[data-pane="stocks"]>.trade-universe{display:flex}
+.trade-overview[data-pane="movers"]>.trade-insights{display:flex}
+.trade-insights{flex-direction:column;gap:6px}
+.trade-insights>.trade-breadth{display:flex;flex:none;min-height:0}
+.trade-breadth .pulse-summary{padding:0 10px 7px}
+.trade-breadth .pulse-stat{padding:5px 10px}
+.trade-breadth .pulse-stat span{font-size:10px}
+.trade-breadth .pulse-stat strong{font-size:16px;margin-top:2px}
+.trade-insights>.trade-movers{flex:1;min-height:0}
+.stock-row{height:60px;min-height:0}
+.stock-list{height:100%}
+.stock-head{height:29px;min-height:0;flex:none}
+.market-panel .search-field{min-width:0;min-height:31px;max-width:52%;padding:4px 7px}
+.market-panel .search-field input{font-size:13px}
+.stock-page-controls{display:flex;align-items:center;flex:none;gap:7px;min-width:0}
+.stock-page-controls>.stock-back{flex:none;min-height:32px;padding-inline:5px}
+.stock-page-controls>.screen-tabs{flex:1}
+.stock-workspace>.stock-research,.stock-workspace>.trade-panel{display:none;flex:1;min-height:0}
+.stock-workspace[data-pane="chart"]>.stock-research,
+.stock-workspace[data-pane="facts"]>.stock-research{display:flex;flex-direction:column}
+.stock-workspace[data-pane="order"]>.trade-panel{display:flex}
+.stock-research{display:flex!important;flex:1;min-height:0;flex-direction:column;gap:0}
+.stock-workspace[data-pane="order"]>.stock-research{display:none!important}
+.stock-workspace .chart-panel,.stock-workspace .stock-quote-facts{display:none;flex:1;min-height:0}
+.stock-workspace[data-pane="chart"] .chart-panel{display:flex}
+.stock-workspace[data-pane="facts"] .stock-quote-facts{display:flex}
+.stock-workspace[data-pane="chart"] .chart-panel{padding-bottom:0}
+.stock-workspace .chart-top{padding:6px 11px 0;min-height:0}
+.stock-workspace .chart-price{padding:3px 11px}
+.stock-workspace .chart-price>strong{font-size:clamp(18px,2vw,25px)}
+.stock-workspace .chart-range-bar{padding:3px 9px;gap:4px}
+.stock-workspace .chart-range-bar button{min-width:0;min-height:28px;flex:1;padding:4px 2px;font-size:11px}
+.stock-workspace .candle-chart{flex:1;min-height:0;overflow:hidden;padding:4px 9px 0}
+.stock-workspace .candle-heading{min-height:0}
+.stock-workspace .candle-heading strong{font-size:11px}
+.stock-workspace .candle-heading span{font-size:10px}
+.stock-workspace .bar-readout{margin:3px 0;row-gap:0;font-size:10px;line-height:1.2}
+.stock-workspace .candle-frame{flex:1;min-height:0;height:auto}
+.stock-workspace .candle-plot{min-height:0}
+.stock-workspace .candle-times{height:18px;font-size:9px}
+.stock-workspace .candle-foot{padding-top:2px;min-height:0;font-size:9px}
+.stock-quote-facts .stock-facts{display:grid;flex:1;min-height:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+.stock-quote-facts .stock-fact{min-width:0;min-height:0;padding:10px;justify-content:center;border-bottom:1px solid var(--line)}
+.stock-quote-facts .stock-fact strong{font-size:clamp(12px,1.2vw,16px);overflow-wrap:anywhere}
+.stock-workspace .trade-panel{min-height:0!important}
+.stock-workspace .trade-panel .ticket-body{display:flex;flex:1;min-height:0;justify-content:flex-start;gap:clamp(5px,.85vh,10px);padding:clamp(7px,1vh,13px)}
+.staged-ticket .side-selector button{min-height:33px;padding:5px}
+.staged-ticket .ticket-order-control{gap:3px}
+.staged-ticket .trade-kind,.staged-ticket .trigger-input{min-height:34px;padding:5px 8px;font-size:14px}
+.staged-ticket .quantity-wrapper{min-height:35px}
+.staged-ticket .quantity-wrapper input{padding:5px 10px;font-size:15px}
+.staged-ticket .quantity-presets button{min-height:27px}
+.staged-ticket .execute-button{min-height:35px}
+.ticket-step-actions{display:flex;gap:8px;min-height:0;align-items:stretch}
+.ticket-step-actions>.execute-button{width:auto;flex:1}
+.ticket-step-actions>.subtle-link{flex:none;min-height:35px;justify-content:center}
+.staged-ticket .ticket-asset{padding:7px}
+.staged-ticket .ticket-breakdown{gap:0}
+.staged-ticket .ticket-breakdown .ticket-total{padding-top:6px}
+.staged-ticket .ticket-disclaimer{font-size:10px;line-height:1.3}
+.details-stack>.orders-panel,.details-stack>.details-panel{display:none;flex:1;min-height:0!important;max-height:none}
+.details-stack[data-pane="orders"]>.orders-panel,.details-stack[data-pane="positions"]>.details-panel{display:flex}
+.details-stack .orders-foot{display:none}
+.details-stack .responsive-table{height:100%;overflow:hidden!important}
+.details-stack .responsive-table table{width:100%}
+.challenge-layout{display:flex!important;flex-direction:column;gap:7px;min-height:0!important}
+.challenge-layout>.screen-tabs{flex:none}
+.challenge-layout>.panel{flex:1;min-height:0!important}
+.challenge-layout .prediction-compose{display:flex;flex:1;min-height:0;gap:clamp(6px,1vh,12px);padding:7px 12px}
+.challenge-layout .prediction-compose select{min-height:35px;font-size:14px}
+.challenge-layout .prediction-direction button{min-height:37px}
+.challenge-layout .execute-button{min-height:35px}
+.challenge-layout .prediction-price{flex:none}
+.challenge-layout .achievement-grid{display:grid;grid-template-columns:1fr;align-content:start;gap:5px;padding:5px 8px}
+.challenge-layout .achievement{padding:8px;min-height:0}
+.challenge-layout .achievement-icon{width:32px;height:32px}
+.challenge-layout .achievement-info strong{font-size:12px}
+.challenge-layout .achievement-info p{font-size:11px;margin:2px 0 4px}
+.challenge-layout .achievement-info small{font-size:10px;margin-top:3px}
+.challenge-layout .prediction-list{min-height:0}
+.challenge-layout .prediction-row{min-height:0;padding:8px 12px}
+.challenge-layout .prediction-totals{flex:none;gap:6px;padding:0 8px 5px}
+.challenge-layout .prediction-totals>div{padding:6px}
+.challenge-layout .prediction-totals strong{font-size:17px;margin-top:0}
+.challenge-layout .challenge-stocks{display:flex;flex-direction:column;gap:4px;padding:5px 8px}
+.challenge-layout .challenge-stocks button{flex:none;min-height:45px}
+.challenge-layout .gameplay-hint{font-size:10px;line-height:1.3}
+.orders-panel .queued-list{max-height:100%;height:100%}
+.orders-panel .queued-row{padding:7px 10px}
+.orders-panel .queued-description{gap:2px}
+.orders-panel .queued-status{gap:2px}
+.orders-panel .small-action{min-height:26px;padding:4px 8px}
+.welcome-panel{min-height:0;flex:1;overflow:hidden}
+@media(max-width:1280px){.stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1140px){.trade-overview,.stock-workspace{display:flex!important}.stock-workspace .stock-research{min-height:0}}
+@media(max-width:1020px){.overview-layout>.panel,.challenge-layout>.panel{min-height:0!important}.trade-overview>.trade-universe{height:auto}}
+@media(max-width:930px) and (min-width:761px){
+  .sidebar nav{grid-template-rows:repeat(6,minmax(0,1fr))}
+  .details-stack .responsive-table table{display:block;min-width:0}
+  .details-stack .responsive-table tbody{display:grid;grid-template-columns:1fr;gap:4px;padding:5px}
+  .details-stack .responsive-table tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:7px}
+  .details-stack .responsive-table td[data-label="Asset"],
+  .details-stack .responsive-table td[data-label="Action"]{grid-column:auto}
+}
+@media(max-width:760px){
+  .app-shell{grid-template-rows:48px minmax(0,1fr) 58px}
+  .global-header{min-height:0}
+  .main-content{height:100%;overflow:hidden!important}
+  .content-wrap{height:100%;min-height:0;flex:1;padding:7px 8px;gap:6px;overflow:hidden!important}
+  .headline{min-height:0;flex:none}
+  .headline h1{font-size:19px;line-height:1.2}
+  .mobile-nav{min-height:0;max-height:58px;padding:2px 4px calc(2px + env(safe-area-inset-bottom,0px))}
+  .mobile-nav button{min-height:0;padding:2px 0;gap:2px;font-size:9px}
+  .mobile-nav button svg{width:18px;height:18px}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .stat-card{min-height:0;padding:5px 7px;gap:1px}
+  .stat-top{font-size:9px}
+  .stat-card>strong{font-size:clamp(13px,3.7vw,17px)}
+  .stat-card small{font-size:9px}
+  .panel-heading{padding:6px 9px;gap:5px}
+  .panel-heading h2,.panel-heading>h2{font-size:13px}
+  .screen-tabs{min-height:32px}
+  .screen-tabs button{min-height:27px;padding:4px 3px;font-size:10px}
+  .fit-pager-controls{min-height:29px;height:29px}
+  .fit-pager-controls button{min-height:26px}
+  .trade-overview>.trade-universe{min-height:0;height:auto}
+  .trade-universe .stock-list{overflow:hidden}
+  .trade-universe .stock-head{height:24px}
+  .trade-universe .stock-row{min-height:0;height:55px;padding:5px 9px}
+  .trade-universe .stock-name small{font-size:10px}
+  .trade-universe .stock-name strong{font-size:12px}
+  .market-panel .panel-heading>h2{flex:none}
+  .market-panel .search-field{flex:1;min-height:30px;max-width:100%}
+  .trade-insights{min-height:0}
+  .trade-insights>.panel{min-height:0!important}
+  .trade-breadth .pulse-summary{padding:2px 7px 5px}
+  .trade-breadth .pulse-stat{padding:4px 8px}
+  .stock-page-controls>.stock-back{font-size:11px}
+  .stock-workspace{min-height:0}
+  .stock-workspace .chart-panel{height:auto;min-height:0!important}
+  .stock-research{min-height:0!important}
+  .stock-workspace .chart-range-bar button{min-height:28px;padding:4px 2px}
+  .stock-workspace .candle-frame{height:auto;min-height:0}
+  .stock-workspace .candle-chart{min-height:0}
+  .stock-workspace .candle-times{height:16px}
+  .stock-workspace .candle-foot{display:none}
+  .stock-workspace .chart-source{font-size:9px}
+  .stock-workspace .bar-readout{column-gap:6px}
+  .stock-workspace .chart-top .symbol-badge{width:30px;height:30px}
+  .stock-workspace .chart-identity h1{font-size:17px}
+  .stock-workspace .chart-identity span{font-size:10px}
+  .stock-workspace .stock-quote-facts .stock-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stock-workspace .stock-quote-facts .stock-fact{padding:7px}
+  .stock-workspace .trade-panel .ticket-body{overflow:hidden;padding:6px 9px;gap:6px}
+  .staged-ticket .ticket-order-control select,.staged-ticket .ticket-trigger input{min-height:32px;font-size:16px}
+  .staged-ticket .quantity-wrapper{min-height:32px}
+  .staged-ticket .quantity-presets button{min-height:27px}
+  .staged-ticket .execute-button{min-height:34px}
+  .staged-ticket .ticket-step-actions>.subtle-link{min-height:34px}
+  .staged-ticket .field-label{font-size:10px}
+  .staged-ticket .field-label span{font-size:10px}
+  .details-stack>.details-panel{min-height:0!important}
+  .details-stack .responsive-table{overflow:hidden!important}
+  .details-stack .responsive-table table{display:block;min-width:0}
+  .details-stack .responsive-table tbody{display:grid;grid-template-columns:1fr;gap:4px;padding:4px 6px}
+  .details-stack .responsive-table tr{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:6px;min-width:0}
+  .details-stack .responsive-table td{font-size:10px;line-height:1.2}
+  .details-stack .responsive-table td::before{font-size:9px;margin-bottom:2px}
+  .details-stack .responsive-table td[data-label="Asset"],
+  .details-stack .responsive-table td[data-label="Action"]{grid-column:auto}
+  .details-stack .responsive-table .small-action{min-height:25px;padding:4px 6px}
+  .details-stack .responsive-table td small{font-size:9px;margin-top:1px}
+  .details-stack .full-leaderboard{overflow:hidden}
+  .details-stack .full-leader-row{padding:5px 9px}
+  .challenge-layout .achievement-grid{grid-template-columns:1fr}
+  .challenge-layout .achievement{padding:6px}
+  .challenge-layout .prediction-compose{gap:5px;padding:6px 9px}
+  .challenge-layout .prediction-direction button{min-height:34px}
+  .challenge-layout .prediction-compose select{min-height:32px}
+  .challenge-layout .prediction-totals{padding:0 5px 4px}
+  .challenge-layout .prediction-totals>div{padding:4px}
+  .challenge-layout .prediction-totals strong{font-size:15px}
+  .challenge-layout .prediction-row{padding:5px 8px}
+  .challenge-layout .challenge-stocks button{min-height:42px;padding:5px 8px}
+  .feedback{left:7px;right:7px;bottom:65px}
+}
+@media(max-height:560px) {
+  .app-shell{grid-template-rows:45px minmax(0,1fr)}
+  .screen-tabs{min-height:28px;padding:2px}
+  .screen-tabs button{min-height:23px;padding:2px;font-size:10px}
+  .content-wrap{gap:4px;padding-block:4px}
+  .headline h1{font-size:17px}
+  .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  .stat-card{padding:4px;min-height:45px}
+  .stat-card small,.stat-icon{display:none}
+  .stat-top{font-size:8px;line-height:1.1}
+  .stat-card>strong{font-size:clamp(11px,2.3vw,15px)}
+  .panel-heading{padding:4px 8px}
+  .panel-heading h2,.panel-heading>h2{font-size:12px}
+  .fit-pager-controls{min-height:26px;height:26px}
+  .fit-pager-controls button{min-height:23px}
+  .stock-workspace .chart-top{padding:3px 6px}
+  .stock-workspace .chart-range-bar button{min-height:25px}
+  .stock-workspace .candle-heading{display:none}
+  .stock-workspace .candle-times{display:none}
+  .stock-workspace .chart-price{padding:0 6px}
+  .stock-workspace .bar-readout{font-size:9px}
+  .staged-ticket .quantity-presets{display:none}
+  .staged-ticket .side-selector button{min-height:29px}
+  .staged-ticket .execute-button{min-height:30px}
+  .staged-ticket .ticket-body{gap:4px}
+  .welcome-panel{gap:5px;padding:9px}
+  .welcome-panel p,.welcome-panel small{display:none}
+}
+
+@media(max-width:760px) and (max-height:560px) {
+  .app-shell{grid-template-rows:45px minmax(0,1fr) 50px}
+}
