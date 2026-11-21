@@ -1,12 +1,13 @@
 # PaperStreet
 
-**PaperStreet is a Discord Activity for stock paper trading.** Each new player starts with **$1,000 in virtual cash**, builds a portfolio, and competes on a global equity leaderboard. This first version runs as an embedded Discord Activity; the standalone slash command bot can be added later without operating a persistent Discord Gateway connection.
+**PaperStreet is a Discord Activity for stock paper trading.** Each new player starts with **$1,000 in virtual cash**, builds a portfolio, and competes on a global equity leaderboard. It runs as an embedded Discord Activity with a dedicated `/portfolio` Discord slash command, all on Cloudflare Workers Free without a Gateway process.
 
 The entire stack runs on **Cloudflare Workers Free**: a single Worker for the API, Worker Static Assets for the React interface, and a D1 SQLite database. No always-on servers, queues, paid Workers features, or background jobs are required.
 
 ## Features
 
 - Native Discord Activity authentication using the Embedded App SDK and Discord OAuth2.
+- **`/portfolio` slash command:** a polished Discord embed containing the invoking trader's equity, cash, invested value, all-time return and holdings, valued using genuine cached Finnhub prices. It never accepts another user's ID and does not change Discord's Activity Launch command.
 - One click market buys and sells of whole shares from a deliberately limited set of 12 US stocks/ETFs.
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
@@ -25,7 +26,10 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 2. Under **OAuth2**, add `https://127.0.0.1` as a redirect URI. The Embedded App SDK manages the Activity's authorize redirect automatically.
 3. Under **Activities → Settings**, enable Activities.
 4. Under **Activities → URL Mappings**, map `/` to your deployed Worker hostname, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, without `https://`). Requests to `/api/*` use the same mapped origin.
-5. Configure the application's installation settings so players can launch PaperStreet using Discord's default Activity **Play / Launch** entry point. No separate Discord interaction webhook or Gateway process is required.
+5. Configure the application's installation settings so players can launch PaperStreet using Discord's default Activity **Play / Launch** entry point. The `/portfolio` slash command does not modify that handler.
+6. Under **General Information → Interactions Endpoint URL**, set `https://paperstreet.gobydev.workers.dev/api/discord/interactions`. The endpoint verifies Discord's Ed25519 signature and responds to Discord's signed PING. If this URL was already configured, you do not need to change it.
+7. Ensure `DISCORD_PUBLIC_KEY` is configured as a Worker secret from your application's **General Information** public key. The five-minute Worker schedule registers `/portfolio` using the existing `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` Worker secrets. No local credential file, gateway bot, or paid plan is required.
+8. Open `https://paperstreet.gobydev.workers.dev/api/commands/status` to inspect the registration status and any nonsecret error code. Once `registered: true`, use `/portfolio` in Discord. Global commands can take some time to appear in clients.
 
 
 ## 2. Automatic Cloudflare deployment with GitHub Actions
@@ -44,6 +48,7 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
 5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment.
 6. **Before activating the real market** obtain a quote provider key and written approval to display/redistribute its market data to your Discord players (details in section 3). In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
    - `DISCORD_CLIENT_ID`: your Discord Application ID.
+   - `DISCORD_PUBLIC_KEY`: Discord's application public key, needed to verify signed slash command interactions.
    - `DISCORD_CLIENT_SECRET`: your Discord OAuth2 Client Secret.
    - `SESSION_SECRET`: a unique 64-character hexadecimal secret (`openssl rand -hex 32` in Git Bash).
    - `FINNHUB_API_KEY`: an authorized Finnhub API key, stored as **Secret**. Without this key PaperStreet displays no prices and disables trading.
@@ -109,7 +114,7 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 ## Resource design and constraints
 
 - Single Worker + static SPA, no separate Pages project or always-running bot process.
-- Indexed D1 tables and persistent history, batched market snapshot reads, coalesced quote fetches, and a single five-minute Free-plan Cron Trigger during market hours. No paid background queues, paid cache products or 24-hour compute process.
+- Indexed D1 tables and persistent history, batched market snapshot reads, coalesced quote fetches, and a single five-minute Free-plan Cron Trigger for both quote collection during market hours and idempotent `/portfolio` command registration. No paid background queues, paid cache products or 24-hour compute process.
 - `GET /api/market` is scoped to a signed account; `POST /api/trade` obtains the execution quote itself rather than accepting a client supplied price. The client supplied expected price is only a slippage guard.
 - Only the 12 preselected symbols are tradeable. Full market search and instant quote streaming would exceed the intended zero cost design.
 - Free tiers have enforceable limits. If player volume grows, additional HTTP request rate limiting, data rights and provider access may be necessary.
@@ -119,6 +124,8 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 | Route | Access | Purpose |
 | --- | --- | --- |
 | `GET /api/health` | Public | Health check |
+| `POST /api/discord/interactions` | Discord Ed25519 signature | Signed `/portfolio` invocation and PING; deferred embed response |
+| `GET /api/commands/status` | Public | Nonsecret command registration status |
 | `GET /api/config` | Public | Discord application ID, real provider and readiness |
 | `POST /api/auth` | OAuth code | Exchange with Discord; issue signed game session |
 | `GET /api/market` | Bearer session | Market quotes |
@@ -150,4 +157,4 @@ Wrangler can report a **local vs. Cloudflare Dashboard configuration difference*
 
 ## Future roadmap
 
-Dedicated Discord slash commands, per guild competitions with verified guild membership, more realistic exchange execution and corporate action accounting, seasonal tournaments, achievements, watchlists, richer historical charts and broader symbol support. This first release intentionally ships the core Activity before adding Gateway events or features that would stress Cloudflare's free plan.
+Additional Discord slash commands, per guild competitions with verified guild membership, more realistic exchange execution and corporate action accounting, seasonal tournaments, achievements, watchlists, richer historical charts and broader symbol support. This first release intentionally ships the core Activity before adding Gateway events or features that would stress Cloudflare's free plan.

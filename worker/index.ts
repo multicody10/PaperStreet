@@ -1,21 +1,29 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { portfolioInteraction } from './commands';
+import { ensurePortfolioCommand } from './registration';
+import { loadPortfolio } from './portfolio';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
-import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader, type Portfolio, type Position, type SymbolCode } from '../shared/stocks';
+import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader } from '../shared/stocks';
 
-type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; SESSION_SECRET: string };
+type Bindings = MarketEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; DISCORD_PUBLIC_KEY?: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
-type PlayerRow = { user_id: string; display_name: string; cash_cents: number; starting_cash_cents: number };
-type HoldingRow = { symbol: SymbolCode; shares: number; cost_basis_cents: number };
 type LeaderRow = Omit<Leader, 'changeCents' | 'avatarUrl'> & { avatarHash: string | null; avatarDiscriminator: string | null };
 const app = new Hono<App>();
 const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
+// Only signed Discord slash-command interactions use this unauthenticated route.
+// It never modifies Discord's separate Activity Launch entry point.
+app.post('/api/discord/interactions',
+  bodyLimit({ maxSize: 32 * 1024, onError: c => c.text('Payload too large', 413) }),
+  c => portfolioInteraction(c.req.raw, c.env, c.executionCtx));
+
 app.use('/api/*', async (c, next) => {
-  if (!['/api/config', '/api/auth', '/api/health'].includes(c.req.path)) {
+  if (!['/api/config', '/api/auth', '/api/health', '/api/commands/status'].includes(c.req.path)) {
     const match = /^Bearer (\S+)$/.exec(c.req.header('Authorization') ?? '');
     if (!match || !c.env.SESSION_SECRET) return c.json({ error: 'Authentication required' }, 401, { 'Cache-Control': 'no-store' });
     const userId = await verifySession(c.env.SESSION_SECRET, match[1]);
@@ -28,6 +36,18 @@ app.use('/api/*', async (c, next) => {
 });
 
 app.get('/api/health', c => c.json({ status: 'ok', service: 'paperstreet' }));
+app.get('/api/commands/status', async c => {
+  const state = await c.env.DB.prepare(`SELECT version,checked_at,last_attempt_at,last_result
+    FROM discord_command_registry WHERE name='portfolio'`)
+    .first<{ version: number; checked_at: number; last_attempt_at: number; last_result: string }>();
+  return noStore({
+    command: '/portfolio', registered: state?.version === 1 &&
+      (state.last_result === 'registered' || state.last_result === 'verified'),
+    lastVerifiedAt: state?.checked_at ?? null,
+    lastAttemptAt: state?.last_attempt_at ?? null,
+    lastResult: state?.last_result ?? 'not_run',
+  });
+});
 app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
   provider: 'finnhub',
@@ -88,21 +108,9 @@ app.get('/api/chart', async c => {
 });
 
 app.get('/api/portfolio', async c => {
-  const userId = c.get('userId');
-  const player = await c.env.DB.prepare('SELECT user_id, display_name, cash_cents, starting_cash_cents FROM players WHERE user_id = ?').bind(userId).first<PlayerRow>();
-  if (!player) return noStore({ error: 'Player not found. Reopen the Activity.' }, 401);
-  const { results } = await c.env.DB.prepare('SELECT symbol, shares, cost_basis_cents FROM holdings WHERE user_id = ? ORDER BY symbol').bind(userId).all<HoldingRow>();
-  const quotes = await Promise.all(results.map(h => quoteFor(h.symbol, c.env)));
-  const positions: Position[] = results.map((holding, i) => {
-    const quote = quotes[i];
-    const marketValueCents = quote.priceCents * holding.shares;
-    return { symbol: holding.symbol, shares: holding.shares, costBasisCents: holding.cost_basis_cents,
-      marketValueCents, profitCents: marketValueCents - holding.cost_basis_cents, quote };
-  });
-  const investedCents = positions.reduce((total, position) => total + position.marketValueCents, 0);
-  const portfolio: Portfolio = { userId, displayName: player.display_name, cashCents: player.cash_cents,
-    investedCents, startingCashCents: player.starting_cash_cents, equityCents: player.cash_cents + investedCents, profitCents: player.cash_cents + investedCents - player.starting_cash_cents, positions };
-  return noStore({ portfolio });
+  const result = await loadPortfolio(c.get('userId'), c.env);
+  if (!result) return noStore({ error: 'Player not found. Reopen the Activity.' }, 401);
+  return noStore({ portfolio: result.portfolio });
 });
 
 app.get('/api/history', async c => {
@@ -174,6 +182,8 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    ctx.waitUntil(ensurePortfolioCommand(env, Math.floor(controller.scheduledTime / 1000))
+      .catch(() => console.error('PaperStreet /portfolio registration task failed')));
     if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
     // Cron collects real quotes on weekdays without a connected user; no fake backfill.
     ctx.waitUntil(allQuotes(env).then(() => {}).catch(error => {

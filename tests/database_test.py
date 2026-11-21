@@ -7,6 +7,7 @@ SQL = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0001_init.sql')
 STARTING_CASH_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0003_starting_cash.sql').read_text()
 AVATAR_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0004_player_avatars.sql').read_text()
 MARKET_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0002_real_market.sql').read_text()
+COMMAND_MIGRATION = (pathlib.Path(__file__).resolve().parents[1] / 'migrations/0008_portfolio_slash_command.sql').read_text()
 UID = '123456789012345678'
 
 
@@ -115,6 +116,20 @@ class TradeLedgerTest(unittest.TestCase):
         self.assertEqual(self.db.execute(
             'SELECT COUNT(*) FROM quote_history WHERE symbol=?', ('MSFT',)
         ).fetchone()[0], 1)
+
+    def test_portfolio_slash_registration_state_keeps_trade_ledger_intact(self):
+        self.db.executescript(COMMAND_MIGRATION)
+        self.db.execute("""
+            INSERT INTO discord_command_registry(name,version,checked_at,last_attempt_at,last_result)
+            VALUES (?,?,?,?,?)
+        """, ('portfolio', 1, 1000, 1000, 'registered'))
+        self.assertEqual(self.db.execute(
+            'SELECT version,last_result FROM discord_command_registry WHERE name=?',
+            ('portfolio',)
+        ).fetchone(), (1, 'registered'))
+        self.assertEqual(self.balance(), 1000000)
+        self.order('after-command', 'BUY', 1)
+        self.assertEqual(self.balance(), 990000)
 
     def test_orders_idempotent(self):
         self.order('order-id', 'BUY', 1)
