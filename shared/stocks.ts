@@ -16,6 +16,9 @@ export const STOCKS = [
 
 export const HISTORY_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'] as const;
 export type HistoryRange = typeof HISTORY_RANGES[number];
+export type PriceBar = { openCents: number; highCents: number; lowCents: number; closeCents: number };
+export type Candle = PriceBar & { firstAt: number; lastAt: number; samples: number };
+export type ChartHistory = { candles: Candle[]; bucketSeconds: number };
 
 export type SymbolCode = (typeof STOCKS)[number]['symbol'];
 export const symbols = STOCKS.map(s => s.symbol);
@@ -25,6 +28,7 @@ export const isSymbol = (value: unknown): value is SymbolCode =>
 export type Quote = {
   symbol: SymbolCode; name: string; priceCents: number; previousCloseCents: number;
   changePct: number; fetchedAt: number; source: 'finnhub'; stale: boolean; marketOpen: boolean;
+  sessionBar?: PriceBar;
 };
 export type Position = { symbol: SymbolCode; shares: number; costBasisCents: number; marketValueCents: number; profitCents: number; quote: Quote };
 export type Portfolio = { userId: string; displayName: string; cashCents: number; startingCashCents: number; equityCents: number; investedCents: number; profitCents: number; positions: Position[] };

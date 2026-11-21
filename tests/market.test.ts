@@ -96,11 +96,11 @@ test('UI time ranges select observations without deleting historical records', (
   assert.equal(isHistoryRange('../../'), false);
 });
 
-test('fixed price history bucket spacing is bounded to about 240 actual data points', () => {
+test('history ranges keep candle payloads bounded across multiple years', () => {
   const now = et('2026-11-20T20:00:00Z');
   for (const range of ['1D', '1W', '1M', '3M', '1Y', 'ALL'] as const) {
     const { startAt, bucketSeconds } = historyQueryWindow(range, now - 4 * 365 * 86400, now);
-    assert.ok((now - startAt) / bucketSeconds <= 240);
+    assert.ok((now - startAt) / bucketSeconds <= 168);
     assert.ok(bucketSeconds >= 60);
   }
 });

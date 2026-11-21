@@ -89,8 +89,9 @@ app.get('/api/chart', async c => {
   if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
   const range = c.req.query('range') ?? '1W';
   if (!isHistoryRange(range)) return noStore({ error: 'Unsupported chart time range' }, 422);
-  const points = await quoteHistory(symbol, c.env, range);
-  return noStore({ points, available: points.length >= 2, range, source: 'finnhub' });
+  const history = await quoteHistory(symbol, c.env, range);
+  const points = history.candles.map(bar => ({ at: bar.lastAt, priceCents: bar.closeCents }));
+  return noStore({ ...history, points, available: points.length >= 2, range, source: 'finnhub' });
 });
 
 app.get('/api/portfolio', async c => {
