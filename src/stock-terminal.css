@@ -1,0 +1,389 @@
+/*
+ * Per-symbol trading workspace, styled after the provided NVIDIA reference.
+ * Uses existing verified quote, chart, portfolio, order and forecast data.
+ * Last imported stylesheet intentionally overrides legacy stock-workspace rules.
+ */
+.stock-terminal{
+  --stock-emerald:#23db8f;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(240px,.31fr);
+  grid-template-rows:27px minmax(100px,1.02fr) 33px minmax(0,2.45fr) minmax(0,1.10fr);
+  flex:1;min-width:0;min-height:0;height:100%;max-height:100%;
+  gap:clamp(6px,.75vw,11px);overflow:hidden;
+}
+.stock-terminal>.stock-terminal-breadcrumb{grid-area:1/1/2/-1}
+.stock-terminal>.stock-terminal-hero{grid-area:2/1}
+.stock-terminal>.screen-tabs{grid-area:3/1;display:flex!important}
+.stock-terminal>.stock-terminal-stage{grid-area:4/1}
+.stock-terminal>.stock-terminal-bottom{grid-area:5/1}
+.stock-terminal>.stock-terminal-rail{grid-area:2/2/6/3}
+.stock-terminal-breadcrumb{
+  display:flex;align-items:center;gap:9px;min-width:0;
+  color:#8999b0;font-size:11px;
+}
+.stock-terminal-breadcrumb button{
+  display:flex;align-items:center;gap:6px;padding:4px 7px;
+  border:0;border-radius:6px;background:transparent;color:#b7c9dc;font-size:11px;
+}
+.stock-terminal-breadcrumb button:hover{background:#182838;color:#d5f5ff}
+.stock-terminal-breadcrumb strong{color:#e8f3fb;font-weight:800}
+.stock-terminal-hero{
+  display:flex;flex-direction:column;gap:clamp(6px,.8vh,11px);
+  min-width:0;min-height:0;overflow:hidden;
+}
+.stock-terminal-hero-title{display:flex;align-items:center;gap:11px;min-width:0;flex:none}
+.stock-terminal-logo{
+  display:grid;place-items:center;flex:none;
+  width:clamp(43px,4vw,57px);height:clamp(43px,4vw,57px);
+  border:1px solid #286b56;border-radius:9px;
+  background:linear-gradient(130deg,#1c583c,#0c211c);color:#6cf3b4;
+  box-shadow:inset 0 0 0 1px #1b9c6d19;
+  font-size:clamp(13px,1.4vw,21px);font-weight:900;
+}
+.stock-terminal-name{min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:1px 9px}
+.stock-terminal-name h1{
+  font-size:clamp(19px,1.83vw,29px);font-weight:850;letter-spacing:-.7px;
+  color:#f4f8ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+}
+.stock-terminal-name>span{
+  font-size:11px;font-weight:800;background:#202633;border:1px solid #313e50;
+  color:#d4e1ef;border-radius:6px;padding:4px 8px;white-space:nowrap;
+}
+.stock-terminal-name>p{width:100%;font-size:11px;color:#9cabbd;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.stock-terminal-hero-action{
+  display:flex;align-items:center;justify-content:center;gap:7px;flex:none;
+  min-height:37px;margin-left:auto;padding:8px 14px;border:1px solid #1e9666;
+  border-radius:8px;background:linear-gradient(180deg,#29d988,#1abb77);
+  color:#051710;font-size:11px;font-weight:850;white-space:nowrap;
+}
+.stock-terminal-hero-action:hover{filter:brightness(1.1)}
+.stock-terminal-quote-summary{
+  display:grid;grid-template-columns:minmax(170px,1.05fr) minmax(0,1.52fr);
+  align-items:center;gap:12px;min-width:0;min-height:0;flex:1;
+}
+.stock-terminal-price{display:flex;flex-wrap:wrap;align-content:center;align-items:baseline;gap:5px 10px;min-width:0}
+.stock-terminal-price>strong{font-size:clamp(23px,2.5vw,36px);letter-spacing:-1.2px;line-height:1.1;color:#f8fbff;white-space:nowrap;font-weight:900}
+.stock-terminal-price>b{display:flex;align-items:center;gap:4px;font-size:clamp(11px,1.04vw,15px);white-space:nowrap}
+.stock-terminal-price>b svg{flex:none}
+.stock-terminal-price>small{width:100%;font-size:10px;color:#98aabf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-terminal-hero-facts{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-rows:repeat(2,auto);align-content:center;
+  gap:clamp(5px,.85vh,10px) clamp(7px,.85vw,11px);
+  min-width:0;min-height:0;padding-left:12px;
+  border-left:1px solid #344252;
+}
+.stock-terminal-hero-facts>div{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0}
+.stock-terminal-hero-facts>div span{color:#a0b3c5;font-size:10px;white-space:nowrap}
+.stock-terminal-hero-facts>div strong{color:#e9f5ff;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-terminal-hero-facts>div strong.positive{color:var(--gain)}
+.stock-terminal-hero-facts>div strong.negative{color:var(--red)}
+.stock-terminal>.screen-tabs{
+  min-height:33px;height:33px;flex:none;gap:4px;
+  background:transparent!important;border:0!important;border-bottom:1px solid #394555!important;
+  border-radius:0!important;padding:0!important;
+}
+.stock-terminal>.screen-tabs button{
+  min-height:31px;padding:5px clamp(9px,1.5vw,21px);border:0;
+  border-bottom:2px solid transparent;border-radius:5px 5px 0 0;
+  background:transparent!important;color:#adbdd0;font-size:12px;
+}
+.stock-terminal>.screen-tabs button.active{
+  color:#a1f8d2!important;background:linear-gradient(180deg,#143b2d,#0b211d)!important;
+  border-bottom-color:var(--stock-emerald);font-weight:850;
+}
+.stock-terminal>.screen-tabs button:hover{color:#f3f8ff}
+.stock-terminal-stage{
+  display:grid;grid-template-columns:minmax(0,2.1fr) minmax(220px,.86fr);
+  gap:clamp(6px,.8vw,11px);min-height:0;min-width:0;overflow:hidden;
+}
+.stock-terminal-chart,.stock-terminal-ticket,.stock-terminal-about,.stock-terminal-metrics,
+.stock-terminal-related,.stock-terminal-activity{
+  min-height:0!important;min-width:0;display:flex;flex-direction:column;
+  background:linear-gradient(145deg,#101723,#090f18)!important;
+  border:1px solid #3a4759!important;
+}
+.stock-terminal-chart-heading,.stock-terminal-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  min-height:33px;flex:none;gap:6px;padding:7px 11px;
+  border-bottom:1px solid #303e51;background:#111b29;
+}
+.stock-terminal-chart-heading h2,.stock-terminal-heading h2{
+  display:flex;align-items:center;gap:6px;min-width:0;
+  font-size:clamp(11px,.9vw,13px);font-weight:800;color:#eaf3fc;
+}
+.stock-terminal-chart-heading h2 svg,.stock-terminal-heading h2 svg{color:#6fdfb4;flex:none}
+.stock-terminal-chart-heading>span{color:#98abbe;font-size:10px;white-space:nowrap}
+.stock-terminal-chart>.chart-range-bar{
+  flex:none;justify-content:flex-start;gap:4px;padding:5px 9px;border-bottom:1px solid #273548;
+}
+.stock-terminal-chart>.chart-range-bar button{
+  min-width:0;min-height:26px;flex:0 1 auto;padding:3px clamp(6px,.63vw,10px);
+  font-size:10px;border-radius:6px;
+}
+.stock-terminal-chart>.chart-range-bar button.active{
+  color:#bffce3;border-color:#29855e;background:#12412f;
+}
+.stock-terminal-chart .candle-chart{
+  display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;
+  padding:5px 9px 3px;overflow:hidden!important;
+}
+.stock-terminal-chart .candle-heading{flex:none;font-size:10px}
+.stock-terminal-chart .bar-readout{flex:none;margin:3px 0;row-gap:2px;column-gap:8px;font-size:10px}
+.stock-terminal-chart .candle-frame{flex:1;min-height:0;height:auto}
+.stock-terminal-chart .candle-plot{min-height:0}
+.stock-terminal-chart .candle-times{flex:none;height:19px;min-height:19px;font-size:9px}
+.stock-terminal-chart .candle-foot{flex:none;font-size:9px;padding:0}
+.stock-terminal-chart .candle-grid{stroke:#263343}
+.stock-terminal-ticket{gap:0;overflow:hidden!important}
+.stock-terminal-ticket .stock-ticket-tabs{
+  margin:8px 9px 4px;flex:none;min-height:0;
+  border:1px solid #2e4051!important;background:#141e2c!important;
+}
+.stock-ticket-tabs button{min-height:31px;padding:5px;font-size:12px}
+.stock-terminal-ticket .stock-ticket-tabs .current.buy{
+  background:#14513a;color:#9ef6cb;border-bottom:2px solid #20dc91;
+}
+.stock-terminal-ticket .stock-ticket-tabs .current.sell{
+  background:#572a38;color:#ffc4d0;border-bottom:2px solid #f9738d;
+}
+.stock-ticket-body{display:flex;flex:1;flex-direction:column;gap:clamp(4px,.65vh,8px);min-height:0;overflow:hidden;padding:7px 10px}
+.stock-ticket-field{display:flex;flex-direction:column;gap:3px;flex:none;min-width:0}
+.stock-ticket-field label{display:flex;justify-content:space-between;align-items:center;gap:5px;color:#bdcada;font-size:10px;font-weight:720}
+.stock-ticket-field label small{color:#95a8ba;font-size:9px}
+.stock-ticket-control,.stock-ticket-quantity{
+  display:flex;align-items:center;gap:5px;flex:none;width:100%;min-width:0;min-height:30px;
+  padding:5px 8px;border:1px solid #34475a;background:#0c1320;color:#e8f5fe;
+  border-radius:6px;font-size:11px;
+}
+.stock-ticket-quantity input{min-width:0;flex:1;width:100%;border:0;outline:0;background:transparent;color:#edf5ff;font-size:13px}
+.stock-ticket-quantity span{font-size:9px;color:#95abc0}
+.stock-ticket-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;flex:none}
+.stock-ticket-presets button{min-height:28px;border:1px solid #38485c;border-radius:6px;background:#182434;color:#c5d5e5;font-size:10px}
+.stock-ticket-presets button:hover,.stock-ticket-presets button[aria-pressed="true"]{border-color:#27c188;background:#16422f;color:#a4f7d0}
+.stock-ticket-balance,.stock-ticket-total{display:flex;align-items:center;justify-content:space-between;gap:7px;font-size:10px;color:#a7b8c9}
+.stock-ticket-balance strong{color:#dce9f4}
+.stock-ticket-total{margin-top:auto;border-top:1px solid #313d4f;padding-top:7px}
+.stock-ticket-total strong{font-size:clamp(12px,1.1vw,16px);white-space:nowrap;color:#eaf7fe}
+.stock-terminal-ticket .execute-button{width:100%;min-height:34px;font-size:12px;border-radius:7px}
+.stock-terminal-ticket .execute-button.buy{background:linear-gradient(180deg,#2add8c,#17bf79)!important;color:#061810!important}
+.stock-terminal-ticket .execute-button.sell{background:linear-gradient(180deg,#f77e8e,#dd536d)!important;color:#20060f!important}
+.stock-ticket-note{font-size:9px;line-height:1.25;color:#96a9bc;text-align:center}
+.stock-ticket-orders-link{display:flex;align-items:center;justify-content:center;gap:5px;min-height:21px;flex:none;border:0;background:transparent;font-size:10px;color:#89d3b5}
+.stock-ticket-orders-link:hover{color:#c1ffde}
+.stock-terminal-bottom{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.4fr);gap:clamp(6px,.8vw,11px);min-height:0;min-width:0;overflow:hidden}
+.stock-terminal-about>p{flex:1;min-height:0;padding:10px 12px 4px;color:#b5c6d7;font-size:clamp(10px,.91vw,12px);line-height:1.5;overflow:hidden}
+.stock-terminal-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:5px 11px 9px}
+.stock-terminal-tags span{padding:4px 7px;border:1px solid #384658;background:#192130;border-radius:12px;color:#b6c9d9;font-size:9px}
+.stock-terminal-metrics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:0 10px;min-height:0;flex:1;padding:5px 10px}
+.stock-terminal-metric{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;border-bottom:1px solid #273448;font-size:10px}
+.stock-terminal-metric span{color:#a3b6c9;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.stock-terminal-metric strong{color:#eaf3ff;white-space:nowrap;font-size:10px;font-weight:800}
+.stock-terminal-rail{display:grid;grid-template-rows:minmax(0,.9fr) minmax(0,.69fr) minmax(0,1.1fr);gap:clamp(6px,.8vw,11px);min-width:0;min-height:0;overflow:hidden}
+.stock-terminal-related .fit-pager,.stock-terminal-activity .fit-pager{flex:1;min-height:0}
+.stock-terminal-related-list,.stock-terminal-activity-list{height:100%;overflow:hidden!important}
+.stock-terminal-related-row{display:grid;align-items:center;grid-template-columns:26px minmax(37px,.55fr) minmax(60px,1fr) minmax(49px,.85fr) 12px;gap:5px;
+  min-width:0;min-height:43px;width:100%;padding:0 8px;text-align:right;
+  border:0;border-bottom:1px solid #2a384a;background:transparent;color:#d9e7f1;font-size:10px}
+.stock-terminal-related-row:hover{background:#17283b}
+.stock-terminal-related-row strong{text-align:left;font-size:11px}
+.stock-terminal-related-row span:nth-of-type(2){white-space:nowrap}
+.stock-terminal-related-row b{font-size:10px;white-space:nowrap}
+.stock-terminal-related-row>svg{color:#778da3}
+.stock-terminal-peer-badge{display:grid;place-items:center;width:25px;height:25px;border:1px solid #2c6750;background:#10281f;color:#76e2af;border-radius:6px;font-size:9px;font-weight:800}
+.stock-terminal-activity .stock-terminal-heading>span{font-size:9px;color:#9cafc0}
+.stock-terminal-activity-row{display:grid;grid-template-columns:25px minmax(0,1fr) auto;gap:7px;align-items:center;min-height:43px;padding:3px 10px;border-bottom:1px solid #293747}
+.stock-terminal-activity-row>span{display:grid;place-items:center;width:24px;height:24px;border-radius:6px}
+.stock-terminal-activity-row>span.buy{background:#153e30;color:#36dea1}
+.stock-terminal-activity-row>span.sell{background:#3e2531;color:#ff8195}
+.stock-terminal-activity-row>div{display:flex;flex-direction:column;min-width:0;gap:3px}
+.stock-terminal-activity-row>div strong{font-size:10px;white-space:nowrap}
+.stock-terminal-activity-row>div small{font-size:9px;color:#98aabc}
+.stock-terminal-activity-row>b{font-size:10px;white-space:nowrap}
+.stock-terminal-rail .stock-prediction-panel{min-height:0!important;height:100%;border:1px solid #3a4759!important;background:#0d1520!important}
+.stock-terminal-rail .stock-prediction-panel .panel-heading{padding:7px 9px;min-height:33px}
+.stock-terminal-rail .stock-prediction-panel .panel-heading h2{font-size:12px}
+.stock-terminal-rail .stock-prediction-compose{display:flex;flex:1;min-height:0;flex-direction:column;gap:clamp(5px,.7vh,9px);padding:10px}
+.stock-terminal-rail .stock-prediction-panel .execute-button{min-height:33px}
+.stock-terminal-rail .stock-prediction-panel .prediction-direction button{min-height:30px}
+.stock-terminal-rail .stock-prediction-panel .fit-pager{min-height:0}
+/* The chosen pane emphasizes a real destination on desktop. */
+@media(min-width:761px){
+  .stock-terminal[data-pane="order"] .stock-terminal-ticket,
+  .stock-terminal[data-pane="facts"] .stock-terminal-metrics,
+  .stock-terminal[data-pane="predict"] .stock-terminal-rail .stock-prediction-panel{
+    border-color:#218f68!important;box-shadow:inset 0 0 0 1px #27db9332,0 0 15px #18c17c18;
+  }
+}
+@media(min-width:761px) and (max-width:1220px){
+  .stock-terminal{grid-template-columns:minmax(0,1fr) minmax(210px,.3fr)}
+  .stock-terminal-stage{grid-template-columns:minmax(0,1.8fr) minmax(190px,.92fr)}
+  .stock-terminal-logo{width:43px;height:43px}
+  .stock-terminal-hero-title{gap:7px}
+  .stock-terminal-hero-action{padding:6px 9px;font-size:10px}
+  .stock-terminal-name h1{font-size:19px}
+  .stock-terminal-quote-summary{grid-template-columns:minmax(136px,1fr) minmax(0,1.3fr);gap:5px}
+  .stock-terminal-hero-facts{gap:4px;padding-left:6px}
+  .stock-terminal-hero-facts>div{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+  .stock-terminal-hero-facts>div span,.stock-terminal-hero-facts>div strong{font-size:9px}
+  .stock-terminal-price>strong{font-size:23px}
+  .stock-terminal-bottom{grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr)}
+  .stock-ticket-body{gap:4px;padding:5px 7px}
+  .stock-ticket-note{font-size:8px}
+  .stock-terminal-related-row{grid-template-columns:21px minmax(30px,.5fr) minmax(0,1fr) minmax(43px,.8fr);gap:4px;padding:0 6px}
+  .stock-terminal-related-row>svg{display:none}
+  .stock-terminal-peer-badge{width:21px;height:21px;font-size:8px}
+}
+@media(min-width:761px) and (max-width:1050px){
+  .stock-terminal{grid-template-columns:minmax(0,1fr)}
+  .stock-terminal-breadcrumb{grid-column:1!important}
+  .stock-terminal-rail{display:none}
+  .stock-terminal-stage{grid-template-columns:minmax(0,1.65fr) minmax(200px,.8fr)}
+  .stock-terminal[data-pane="predict"]>.stock-terminal-stage,.stock-terminal[data-pane="predict"]>.stock-terminal-bottom{display:none}
+  .stock-terminal[data-pane="predict"]>.stock-terminal-rail{
+    display:flex;flex-direction:column;grid-area:4/1/6/2;
+  }
+  .stock-terminal[data-pane="predict"] .stock-terminal-related,
+  .stock-terminal[data-pane="predict"] .stock-terminal-activity{display:none}
+  .stock-terminal[data-pane="predict"] .stock-prediction-panel{flex:1}
+}
+@media(min-width:761px) and (max-height:735px){
+  .stock-terminal{grid-template-rows:23px minmax(75px,.88fr) 31px minmax(0,2.75fr) minmax(0,.95fr);gap:5px}
+  .stock-terminal-breadcrumb{font-size:10px}
+  .stock-terminal-logo{width:36px;height:36px}
+  .stock-terminal-name h1{font-size:18px}
+  .stock-terminal-name>p{font-size:9px}
+  .stock-terminal-hero-action{min-height:28px;padding:4px 9px}
+  .stock-terminal-price>strong{font-size:21px}
+  .stock-terminal-hero-facts{gap:2px}
+  .stock-terminal-chart-heading,.stock-terminal-heading{min-height:28px;padding:4px 7px}
+  .stock-terminal-chart>.chart-range-bar{padding:2px 7px}
+  .stock-terminal-chart>.chart-range-bar button{min-height:23px}
+  .stock-terminal-chart .candle-heading,.stock-terminal-chart .candle-foot{display:none}
+  .stock-ticket-tabs button{min-height:25px;padding:3px}
+  .stock-terminal-ticket .stock-ticket-tabs{margin:4px 6px 2px}
+  .stock-ticket-body{gap:3px;padding:3px 6px}
+  .stock-ticket-field{gap:2px}
+  .stock-ticket-control,.stock-ticket-quantity{min-height:25px;padding:3px 6px}
+  .stock-ticket-presets button{min-height:24px}
+  .stock-ticket-balance,.stock-ticket-note{display:none}
+  .stock-ticket-total{padding-top:4px}
+  .stock-terminal-ticket .execute-button{min-height:28px}
+  .stock-ticket-orders-link{min-height:16px}
+  .stock-terminal-rail .stock-prediction-compose{gap:4px;padding:5px 7px}
+  .stock-terminal-rail .stock-prediction-panel .execute-button{min-height:27px}
+  .stock-terminal-rail .stock-prediction-panel .prediction-direction button{min-height:24px}
+  .stock-terminal-about>p{padding:6px;font-size:10px;line-height:1.25}
+  .stock-terminal-tags{padding:2px 7px}
+}
+@media(min-width:761px) and (max-height:555px){
+  .stock-terminal{grid-template-rows:20px minmax(52px,.62fr) 27px minmax(0,3.2fr) minmax(0,.7fr)}
+  .stock-terminal-hero-title{gap:4px}
+  .stock-terminal-logo{width:29px;height:29px}
+  .stock-terminal-quote-summary{gap:3px}
+  .stock-terminal-hero-facts>div:nth-child(n+4){display:none}
+  .stock-terminal-hero-facts{grid-template-rows:1fr}
+  .stock-ticket-orders-link,.stock-ticket-balance,.stock-ticket-note{display:none}
+  .stock-terminal-tags,.stock-terminal-activity{display:none}
+  .stock-terminal-rail{grid-template-rows:minmax(0,.85fr) minmax(0,1.15fr)}
+  .stock-terminal-about>p{font-size:9px;line-height:1.2}
+}
+/* Phone: single viewport panel per selected tab, never scroll the Activity. */
+@media(max-width:760px){
+  .stock-terminal{
+    display:flex;flex-direction:column;gap:5px;min-height:0;overflow:hidden;
+  }
+  .stock-terminal-breadcrumb{order:0;flex:none;min-height:22px}
+  .stock-terminal-hero{order:1;flex:none;gap:4px}
+  .stock-terminal-logo{width:31px;height:31px;font-size:11px}
+  .stock-terminal-name h1{font-size:16px}
+  .stock-terminal-name>span{font-size:9px;padding:2px 5px}
+  .stock-terminal-name>p{font-size:9px}
+  .stock-terminal-hero-action{min-height:27px;padding:4px 8px;font-size:10px}
+  .stock-terminal-hero-action svg{width:12px}
+  .stock-terminal-quote-summary{grid-template-columns:minmax(0,1fr);gap:2px}
+  .stock-terminal-hero-facts{display:none}
+  .stock-terminal-price{flex-wrap:nowrap;align-items:baseline}
+  .stock-terminal-price>strong{font-size:19px}
+  .stock-terminal-price>b{font-size:10px}
+  .stock-terminal-price>b svg{width:12px;height:12px}
+  .stock-terminal-price>small{display:none}
+  .stock-terminal>.screen-tabs{order:2;flex:none;min-height:30px!important}
+  .stock-terminal>.screen-tabs button{flex:1;padding:4px 5px;font-size:11px}
+  .stock-terminal>.stock-terminal-stage,.stock-terminal>.stock-terminal-bottom,.stock-terminal>.stock-terminal-rail{display:none;order:3;flex:1;min-height:0}
+  .stock-terminal[data-pane="chart"]>.stock-terminal-stage,.stock-terminal[data-pane="order"]>.stock-terminal-stage{display:flex;flex-direction:column}
+  .stock-terminal[data-pane="chart"] .stock-terminal-chart,.stock-terminal[data-pane="order"] .stock-terminal-ticket{display:flex;flex:1;min-height:0}
+  .stock-terminal[data-pane="chart"] .stock-terminal-ticket,.stock-terminal[data-pane="order"] .stock-terminal-chart{display:none}
+  .stock-terminal[data-pane="facts"]>.stock-terminal-bottom{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,.85fr) minmax(0,1.15fr)}
+  .stock-terminal[data-pane="predict"]>.stock-terminal-rail{display:flex;flex-direction:column}
+  .stock-terminal[data-pane="predict"] .stock-terminal-related,
+  .stock-terminal[data-pane="predict"] .stock-terminal-activity{display:none}
+  .stock-terminal[data-pane="predict"] .stock-prediction-panel{display:flex;flex:1;min-height:0}
+  .stock-terminal-chart-heading{min-height:32px}
+  .stock-terminal-chart>.chart-range-bar{padding:4px 6px}
+  .stock-terminal-chart>.chart-range-bar button{flex:1;min-height:29px;padding:4px 2px}
+  .stock-terminal-chart .candle-chart{flex:1;min-height:0}
+  .stock-terminal-ticket .stock-ticket-tabs{margin:8px}
+  .stock-ticket-tabs button{min-height:36px}
+  .stock-ticket-body{gap:clamp(5px,1vh,10px);padding:9px}
+  .stock-ticket-control,.stock-ticket-quantity{min-height:37px}
+  .stock-ticket-presets button{min-height:34px}
+  .stock-ticket-balance,.stock-ticket-note{display:flex}
+  .stock-ticket-total{padding-top:8px}
+  .stock-terminal-ticket .execute-button{min-height:39px}
+  .stock-terminal-about>p{font-size:11px;line-height:1.45}
+  .stock-terminal-tags{flex:none}
+  .stock-terminal-metrics-grid{grid-template-rows:repeat(4,minmax(0,1fr))}
+  .stock-terminal-metric{font-size:10px}
+  .stock-terminal-rail .stock-prediction-compose{padding:12px;gap:10px}
+  .stock-terminal-rail .stock-prediction-panel .execute-button{min-height:41px}
+  .stock-terminal-rail .stock-prediction-panel .prediction-direction button{min-height:40px}
+}
+@media(max-width:760px) and (max-height:570px){
+  .stock-terminal{gap:3px}
+  .stock-terminal-breadcrumb{min-height:19px}
+  .stock-terminal-logo{width:27px;height:27px}
+  .stock-terminal-name h1{font-size:14px}
+  .stock-terminal-hero-action{min-height:24px}
+  .stock-terminal>.screen-tabs{min-height:26px!important;height:26px}
+  .stock-ticket-body{gap:4px;padding:5px}
+  .stock-ticket-control,.stock-ticket-quantity{min-height:30px}
+  .stock-ticket-presets button{min-height:27px}
+  .stock-ticket-balance,.stock-ticket-note{display:none}
+  .stock-terminal-ticket .execute-button{min-height:31px}
+  .stock-terminal-rail .stock-prediction-compose{gap:6px;padding:7px}
+  .stock-terminal-rail .stock-prediction-panel .execute-button{min-height:31px}
+}
+@media(max-width:385px){
+  .stock-terminal-hero-action{font-size:0;min-width:30px;padding:3px}
+  .stock-terminal-hero-action svg{width:16px;height:16px}
+  .stock-terminal-price>b{font-size:9px}
+  .stock-terminal>.screen-tabs button{font-size:10px;padding:3px}
+}
+
+/* Trade is now a full-width market discovery screen. Orders belong to each
+ * /trade/SYMBOL page, never to the aggregate market listing. */
+@media(min-width:761px){
+  .trade-terminal{display:flex!important;flex-direction:column;min-width:0;min-height:0}
+  .trade-terminal-main{
+    display:grid!important;grid-template-rows:auto minmax(51px,.4fr) minmax(185px,1.22fr) minmax(195px,1.7fr)!important;
+    flex:1;min-width:0;min-height:0;gap:clamp(6px,.9vh,10px);
+  }
+  .trade-market-overview-body{grid-template-columns:minmax(175px,.43fr) minmax(0,2.3fr)}
+  .trade-market-table-head,.trade-market-table-row{grid-template-columns:minmax(80px,.75fr) minmax(110px,1.6fr) minmax(85px,.8fr) minmax(85px,.8fr) minmax(78px,.8fr) minmax(92px,.8fr) minmax(140px,1.3fr)}
+  .trade-market-table-head>span:nth-child(6),.trade-market-table-row>span:nth-child(6),
+  .trade-market-table-head>span:nth-child(4),.trade-market-table-row>span:nth-child(4){display:block}
+}
+@media(min-width:761px) and (max-width:1070px){
+  .trade-market-table-head,.trade-market-table-row{
+    grid-template-columns:minmax(58px,.7fr) minmax(91px,1.5fr) minmax(70px,.85fr) minmax(69px,.85fr) minmax(74px,.8fr) minmax(120px,1.2fr)
+  }
+  .trade-market-table-head>span:nth-child(6),.trade-market-table-row>span:nth-child(6){display:none}
+  .trade-market-table-head>span:nth-child(4),.trade-market-table-row>span:nth-child(4){display:block}
+}
+@media(max-width:760px){
+  .trade-terminal .trade-market-overview,.trade-terminal .trade-market-list{order:3}
+  .trade-terminal[data-section="overview"] .trade-market-overview,
+  .trade-terminal[data-section="stocks"] .trade-market-list{display:flex!important;flex:1;min-height:0}
+  .trade-terminal>.screen-tabs button{flex:1}
+}

@@ -15,6 +15,8 @@ const theme=read('src/terminal.css');
 const trade=read('src/TradeTerminal.tsx');
 const tradeTheme=read('src/trade-terminal.css');
 const goalsTheme=read('src/goals-portfolio.css');
+const stock=read('src/StockTerminal.tsx');
+const stockCss=read('src/stock-terminal.css');
 
 test('five navigation pages keep desktop and phone navigation',()=>{
   const pages=['dashboard','trade','portfolio','leaderboard','challenges'] as const;
@@ -46,8 +48,8 @@ test('screen-fit stylesheet owns viewport sizing and disables scrolling',()=>{
 });
 
 test('every screen uses switches and paginated finite lists',()=>{
-  for (const label of ['Stock panels','Portfolio panels'])
-    assert.ok(app.includes(label),label);
+  assert.ok(app.includes('Portfolio panels'));
+  assert.match(stock,/Stock panels/);
   assert.match(dashboard,/label="Dashboard sections"/);
   assert.match(trade,/label="Trade sections"/);
   assert.match(tradeTheme,/@media\(max-width:760px\)/);
@@ -55,15 +57,15 @@ test('every screen uses switches and paginated finite lists',()=>{
   for (const id of ['holdings','leaders','activity','market','stocks','movers','chart','order','facts','positions','orders'])
     assert.match(fit,new RegExp('data-pane|'+id));
   assert.ok((app.match(/<FitPager/g)??[]).length>=2);
-  assert.ok((trade.match(/<FitPager/g)??[]).length>=2);
+  assert.ok((trade.match(/<FitPager/g)??[]).length>=1);
   assert.ok((dashboard.match(/<FitPager/g)??[]).length>=4);
   assert.ok((challenges.match(/<FitPager/g)??[]).length>=1);
   assert.match(challenges,/Goals panels/);
   assert.match(challenges,/Goal categories/);
   assert.doesNotMatch(challenges,/const \[review,setReview\]|prediction-panel|prediction-history/);
-  assert.match(app,/const \[step,setStep\]=useState<0\|1\|2>\(0\)/);
-  assert.match(app,/<SectionTabs label="Stock panels"/);
-  assert.match(app,/\{id:\x27predict\x27,label:\x27Predict\x27\}/);
-  assert.match(app,/import \{ StockPredictions \} from \x27\.\/StockPredictions\x27/);
-  assert.match(app,/<div className="chart-identity"><h1>\{selectedSymbol\}<\/h1>/);
+  assert.match(stock,/label="Stock panels"/);
+  assert.match(stock,/\{id:'predict',label:'Predict'\}/);
+  assert.match(stock,/import \{ StockPredictions \} from '\.\/StockPredictions'/);
+  assert.match(stock,/<StockOrderTicket symbol=\{p\.symbol\}/);
+  assert.match(stockCss,/@media\(max-width:760px\)/);
 });

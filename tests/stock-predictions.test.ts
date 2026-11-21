@@ -35,6 +35,8 @@ test('forecasts stay on stock pages while achievements also feed dashboard goals
   assert.match(main,/if \(view === 'stock'\)\s+jobs.push\(request<\{ predictions: Prediction\[\] \}>\('\/api\/predictions'/);
   assert.match(main,/if \(view === 'dashboard' \|\| view === 'challenges'\)\s+jobs.push\(request<\{ achievements: Achievement\[\] \}>\('\/api\/achievements'/);
   assert.match(main,/await refresh\(token,'stock'\)/);
-  assert.match(main,/<StockPredictions key=\{selectedSymbol\} symbol=\{selectedSymbol\} quote=\{selected\} predictions=\{predictions\}/);
+  const stock=readFileSync(new URL('../src/StockTerminal.tsx',import.meta.url),'utf8');
+  assert.match(main,/tab === 'stock' \? <StockTerminal/);
+  assert.match(stock,/<StockPredictions key=\{p\.symbol\} symbol=\{p\.symbol\} quote=\{p\.quote\} predictions=\{p\.predictions\}/);
   assert.doesNotMatch(goals,/\bpredictions\b|prediction-panel|prediction-history|submitForecast/);
 });
