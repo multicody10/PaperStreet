@@ -5,7 +5,6 @@ import { deployPortfolioCommand } from './registration';
 import { inspectProductionDeployIdentity } from './deploy-identity';
 import { loadPortfolio } from './portfolio';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
-import { backfillHistoricalBars, historyBackfillStatus } from './history';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
@@ -72,7 +71,6 @@ app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
   provider: 'finnhub',
   dataConfigured: Boolean(c.env.FINNHUB_API_KEY),
-  historyConfigured: Boolean(c.env.ALPHA_VANTAGE_API_KEY),
   startingCashCents: STARTING_CASH_CENTS,
 }));
 
@@ -123,17 +121,10 @@ app.get('/api/chart', async c => {
   if (!c.env.FINNHUB_API_KEY) return noStore({ error: 'Real market data is not configured on this Worker' }, 503);
   const range = c.req.query('range') ?? '1W';
   if (!isHistoryRange(range)) return noStore({ error: 'Unsupported chart time range' }, 422);
-  // Optional, rate-capped real historical backfill. Any provider failure falls
-  // back to the existing observed Finnhub price series; never affects trading.
-  if (range !== '1D' && c.env.ALPHA_VANTAGE_API_KEY)
-    await backfillHistoricalBars(symbol,range,c.env).catch(()=>{});
-  const [history, backfill] = await Promise.all([
-    quoteHistory(symbol, c.env, range),
-    historyBackfillStatus(symbol,range,c.env).catch(()=>({code:'storage_error' as const})),
-  ]);
+  const history = await quoteHistory(symbol, c.env, range);
   const points = history.candles.map(bar => ({ at: bar.lastAt, priceCents: bar.closeCents }));
-  return noStore({ ...history, backfill, points, available: points.length >= 2,
-    range, source: history.source ?? 'finnhub' });
+  return noStore({ ...history, points, available: points.length >= 2,
+    range, source: 'finnhub' });
 });
 
 app.get('/api/portfolio', async c => {

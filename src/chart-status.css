@@ -1,0 +1,9 @@
+/* This line remains visible when short viewports hide the optional candle heading. */
+.app-shell.activity-theme .candle-chart>.chart-data-status{
+  display:block!important;flex:none!important;position:relative;
+  min-height:17px;max-height:20px;line-height:17px;
+  margin:0;padding:0 7px;font-size:clamp(10px,.85vw,12px);font-weight:600;
+  color:#b5c4d3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;
+}
+.app-shell.activity-theme .candle-chart>.chart-data-status.warning{color:#f2c47e}
+.app-shell.activity-theme .candle-chart>.chart-data-status[title]{cursor:help}
