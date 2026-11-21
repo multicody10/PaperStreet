@@ -1,0 +1,139 @@
+/* Larger, readable desktop trading interface. Mobile layouts remain in mobile.css. */
+@media (min-width: 761px) {
+  .app-shell { grid-template-rows: 68px minmax(0, 1fr); }
+  .content-wrap { padding: 20px 22px 15px; gap: 15px; }
+  .headline { min-height: 64px; }
+  .eyebrow { font-size: 11px; letter-spacing: 1.1px; }
+  .headline h1 { font-size: clamp(24px, 2.2vw, 32px); line-height: 1.16; }
+  .headline p { font-size: 13px; margin-top: 6px; }
+  .connection-pill { font-size: 12px; padding: 9px 12px; }
+  .header-actions { gap: 11px; }
+  .top-link { font-size: 14px; gap: 7px; }
+  .market-mode { font-size: 10px; }
+  .user-copy strong { font-size: 13px; }
+  .user-copy small { font-size: 11px; }
+  .icon-button { width: 38px; height: 38px; }
+
+  /* Portfolio KPIs */
+  .stats-grid { min-height: 108px; gap: 13px; }
+  .stat-card { padding: 14px 16px 12px; gap: 4px; }
+  .stat-top { font-size: 11px; }
+  .stat-card > strong { font-size: clamp(20px, 1.9vw, 28px); }
+  .stat-card small { font-size: 12px; }
+
+  /* Cards, dashboard details and leaderboards */
+  .panel-heading { padding: 15px 17px 12px; gap: 12px; }
+  .panel-heading h2, .panel-heading > h2 { font-size: 16px; }
+  .panel-heading p { font-size: 12px; line-height: 1.35; }
+  .subtle-link, .small-action { min-height: 34px; padding: 7px 10px; font-size: 12px; }
+  .count-pill { font-size: 11px; padding: 8px 10px; }
+  .holding-row { padding: 11px 15px; }
+  .holding-name strong, .holding-value strong { font-size: 13px; }
+  .holding-name small, .holding-value small { font-size: 11px; }
+  .leader-row { padding: 10px 9px; }
+  .leader-name, .leader-return { font-size: 13px; }
+  .rank { font-size: 13px; }
+  .rail-empty, .empty { font-size: 12px; line-height: 1.5; }
+  .activity-row { padding: 13px 16px; }
+  .activity-row strong, .pulse-row strong { font-size: 13px; }
+  .activity-row small, .pulse-row small { font-size: 11px; }
+  .pulse-stat span { font-size: 12px; }
+  .pulse-stat strong { font-size: 25px; }
+  .read-only-note, .market-brief { font-size: 12px; }
+  .market-mover { padding: 14px 16px; }
+  .market-mover strong { font-size: 14px; }
+  .market-mover small, .market-mover .change { font-size: 12px; }
+  .after-hours-card strong { font-size: 15px; }
+  .after-hours-card p, .after-hours-card button { font-size: 13px; }
+
+  /* Quote discovery and charts */
+  .search-field { min-height: 39px; }
+  .search-field input { font-size: 13px; }
+  .stock-head { height: 32px; font-size: 11px; }
+  .trade-universe .stock-row { height: 64px; }
+  .trade-universe .stock-row .stock-name strong, .stock-name strong { font-size: 14px; }
+  .trade-universe .stock-row .stock-name small, .stock-name small { font-size: 12px; }
+  .stock-price, .change { font-size: 13px; }
+  .range-ends span, .stock-fact .range-ends span { font-size: 10px; }
+  .chart-identity strong { font-size: 18px; }
+  .chart-identity span { font-size: 12px; }
+  .chart-source { font-size: 11px; }
+  .chart-price > strong { font-size: clamp(26px, 2.35vw, 34px); }
+  .chart-price > span { font-size: 13px; }
+  .chart-range-bar button { font-size: 12px; min-width: 40px; min-height: 30px; }
+  .candle-heading strong { font-size: 14px; }
+  .candle-heading span, .candle-foot, .bar-readout, .candle-scale, .candle-extreme { font-size: 12px; }
+  .candle-times { font-size: 11px; }
+  .stock-back { font-size: 13px; min-height: 34px; }
+  .stock-nav > span, .stock-fact span { font-size: 11px; }
+  .stock-fact strong { font-size: 14px; }
+  .stock-fact small { font-size: 11px; }
+  .stock-fact { padding: 14px 15px; }
+
+  /* Trading ticket */
+  .ticket-body { padding: 14px 17px 16px; gap: 13px; }
+  .trade-tag { font-size: 10px; }
+  .side-selector button { font-size: 14px; min-height: 39px; }
+  .ticket-asset-name strong, .ticket-asset > strong { font-size: 15px; }
+  .ticket-asset-name small { font-size: 12px; }
+  .field-label, .field-label span { font-size: 12px; }
+  .quantity-wrapper span { font-size: 11px; }
+  .quantity-presets button { font-size: 13px; min-height: 36px; }
+  .ticket-breakdown > div { font-size: 13px; }
+  .ticket-total strong { font-size: 19px; }
+  .execute-button { min-height: 46px; font-size: 14px; }
+  .ticket-disclaimer { font-size: 11px; }
+  .ticket-order-control label, .ticket-trigger label { font-size: 12px; }
+  .ticket-order-control small, .ticket-queue-note { font-size: 12px; }
+  .ticket-order-control select, .ticket-trigger input { font-size: 15px; }
+
+  /* Tables, challenge cards and achievements */
+  .responsive-table table { font-size: 14px; }
+  .responsive-table th { font-size: 11px; padding: 14px 18px; }
+  .responsive-table td { padding: 15px 18px; }
+  .responsive-table td small { font-size: 12px; }
+  .full-leader-name strong, .full-leader-value strong { font-size: 14px; }
+  .full-leader-value small { font-size: 12px; }
+  .feedback { font-size: 13px; }
+  .app-footer { font-size: 11px; }
+  .gameplay-hint { font-size: 12px; }
+  .prediction-price, .prediction-direction button { font-size: 14px; }
+  .prediction-price strong { font-size: 21px; }
+  .prediction-totals span, .prediction-row small { font-size: 11px; }
+  .prediction-row strong { font-size: 14px; }
+  .prediction-row strong span { font-size: 12px; }
+  .prediction-row { padding: 13px 15px; }
+  .achievement-info strong, .queued-description strong { font-size: 14px; }
+  .achievement-info p, .achievement-info small, .queued-description small, .queued-status small { font-size: 12px; }
+  .queued-description > span, .queued-status > strong { font-size: 13px; }
+  .challenge-stocks strong { font-size: 13px; }
+  .challenge-stocks small { font-size: 11px; }
+}
+
+/* Avoid squeezing expanded labels into the icon-only desktop navigation. */
+@media (min-width: 931px) {
+  .sidebar { padding-top: 22px; }
+  .sidebar-label { font-size: 11px; }
+  .nav-button { height: 48px; font-size: 14px; }
+  .sidebar-promo strong { font-size: 15px; }
+  .sidebar-promo p, .sidebar-promo button { font-size: 12px; }
+  .sidebar-foot { font-size: 11px; }
+  .brand-words strong { font-size: 22px; }
+  .brand-words small { font-size: 9px; letter-spacing: 1.2px; }
+}
+@media (min-width: 1400px) {
+  .global-header { grid-template-columns: 220px minmax(0,1fr) auto; }
+  .shell-body { grid-template-columns: 205px minmax(0,1fr); }
+  .brand-words strong { font-size: 24px; }
+}
+/* Short Discord desktop windows still need room for the ticket and chart. */
+@media (min-width: 761px) and (max-height: 760px) {
+  .app-shell { grid-template-rows: 56px minmax(0,1fr); }
+  .content-wrap { padding: 11px 16px 9px; gap: 9px; }
+  .headline { min-height: 47px; }
+  .stats-grid { min-height: 86px; gap: 9px; }
+  .stat-card { padding: 8px 11px; }
+  .trade-universe .stock-row { height: 55px; }
+  .panel-heading { padding-block: 10px; }
+  .ticket-body { padding: 9px 13px 11px; gap: 9px; }
+}

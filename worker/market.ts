@@ -119,7 +119,7 @@ export function parseFinnhubQuote(symbol: SymbolCode, body: ProviderPayload, now
     fetchedAt: t, source: 'finnhub', stale: now - t > (marketOpen ? MAX_TRADE_AGE_SECONDS : MAX_OFFHOURS_AGE_SECONDS), marketOpen };
 }
 
-// The virtual exchange remains available after hours; only quote validity controls execution.
+// Quote freshness is necessary but not sufficient for fills: trade routes also check the session.
 export const isQuoteExecutable = (quote: Quote): boolean =>
   quote.source === 'finnhub' && !quote.stale && Number.isSafeInteger(quote.priceCents) && quote.priceCents > 0;
 
