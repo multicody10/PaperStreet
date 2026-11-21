@@ -94,7 +94,9 @@ test('no-scroll viewport and mobile section controls remain intact',()=>{
   assert.match(fit,/\.fit-pager-controls/);
   assert.match(source('src/TradingDashboard.tsx'),/label="Dashboard sections"/);
   assert.match(source('src/TradeTerminal.tsx'),/label="Trade sections"/);
-  assert.match(source('src/StockTerminal.tsx'),/label="Stock panels"/);
+  assert.doesNotMatch(source('src/StockTerminal.tsx'),/label="Stock panels"|<SectionTabs/);
+  assert.match(source('src/StockTerminal.tsx'),/className="stock-terminal-menu-toggle"/);
+  assert.match(source('src/StockTerminal.tsx'),/className="stock-terminal-hero-action"/);
   assert.match(app,/label="Portfolio panels"/);
   assert.match(challenge,/label="Goals panels"/);
   assert.match(cards,/\.content-wrap > \.screen-tabs,[\s\S]*?display:none!important/);
