@@ -1,9 +1,10 @@
-import { STOCKS, HISTORY_RANGES, type HistoryRange, type Quote, type SymbolCode } from '../shared/stocks';
+import { STOCKS, HISTORY_RANGES, type Candle, type ChartHistory, type HistoryRange, type Quote, type SymbolCode } from '../shared/stocks';
 import { memoized, invalidateMemo } from './memo';
 
 export interface MarketEnv { DB: D1Database; FINNHUB_API_KEY?: string }
-type CacheRow = { price_cents: number; previous_close_cents: number; fetched_at: number; provider_at: number | null; mode: string };
-type ProviderPayload = { c?: unknown; pc?: unknown; t?: unknown };
+type CacheRow = { price_cents: number; previous_close_cents: number; fetched_at: number; provider_at: number | null; mode: string;
+  open_cents: number | null; high_cents: number | null; low_cents: number | null };
+type ProviderPayload = { c?: unknown; pc?: unknown; t?: unknown; o?: number; h?: number; l?: number };
 const STOCK_NAMES = new Map<SymbolCode, string>(STOCKS.map(s => [s.symbol, s.name]));
 const MARKET_CACHE_SECONDS = 300;
 const CLOSED_CACHE_SECONDS = 3600;
@@ -90,9 +91,18 @@ const HISTORY_SECONDS: Record<Exclude<HistoryRange, 'ALL'>, number> = {
 export function historyQueryWindow(range: HistoryRange, oldest: number, now: number) {
   // Never delete historical observations. Only limit which ones the chart requests.
   const startAt = range === 'ALL' ? oldest : Math.max(oldest, now - HISTORY_SECONDS[range]);
-  const bucketSeconds = Math.max(60, Math.ceil((now - startAt) / 240 / 60) * 60);
+  const intervals = { '1D': 900, '1W': 3600, '1M': 86400, '3M': 86400, '1Y': 7 * 86400 };
+  const bucketSeconds = range === 'ALL' ? Math.max(1, Math.ceil((now - startAt) / (100 * 86400))) * 86400 : intervals[range];
   return { startAt, bucketSeconds };
 }
+
+function sessionBar(open: number | null, high: number | null, low: number | null, close: number) {
+  if (open === null || high === null || low === null ||
+      ![open, high, low].every(Number.isSafeInteger) || low <= 0 || high > MAX_PRICE_CENTS ||
+      low > Math.min(open, close) || high < Math.max(open, close)) return undefined;
+  return { openCents: open, highCents: high, lowCents: low, closeCents: close };
+}
+const providerCents = (price: unknown) => typeof price === 'number' ? Math.round(price * 100) : null;
 
 export function parseFinnhubQuote(symbol: SymbolCode, body: ProviderPayload, now = Math.floor(Date.now() / 1000)): Quote {
   const { c, pc, t } = body;
@@ -104,6 +114,7 @@ export function parseFinnhubQuote(symbol: SymbolCode, body: ProviderPayload, now
       priceCents > MAX_PRICE_CENTS || previousCloseCents > MAX_PRICE_CENTS) throw new Error('Quote outside supported range');
   const marketOpen = isUsMarketOpen(now);
   return { symbol, name: STOCK_NAMES.get(symbol)!, priceCents, previousCloseCents,
+    sessionBar: sessionBar(providerCents(body.o), providerCents(body.h), providerCents(body.l), priceCents),
     changePct: Math.round((priceCents / previousCloseCents - 1) * 10000) / 100,
     fetchedAt: t, source: 'finnhub', stale: now - t > (marketOpen ? MAX_TRADE_AGE_SECONDS : MAX_OFFHOURS_AGE_SECONDS), marketOpen };
 }
@@ -123,6 +134,7 @@ function fromStored(symbol: SymbolCode, row: CacheRow | null, now: number): Quot
       row.provider_at < now - 30 * 86400) return null;
   const marketOpen = isUsMarketOpen(now);
   return { symbol, name: STOCK_NAMES.get(symbol)!, priceCents: row.price_cents,
+    sessionBar: sessionBar(row.open_cents, row.high_cents, row.low_cents, row.price_cents),
     previousCloseCents: row.previous_close_cents,
     changePct: Math.round((row.price_cents / row.previous_close_cents - 1) * 10000) / 100,
     fetchedAt: row.provider_at, source: 'finnhub',
@@ -139,7 +151,7 @@ export async function quoteFor(
   if (!env.FINNHUB_API_KEY) throw new Error('Real market data is not configured');
   const row = provided === undefined
     ? await memoized<CacheRow | null>('quote:' + symbol, 12000, () =>
-      env.DB.prepare(`SELECT price_cents,previous_close_cents,fetched_at,provider_at,mode
+      env.DB.prepare(`SELECT price_cents,previous_close_cents,fetched_at,provider_at,mode,open_cents,high_cents,low_cents
         FROM quote_cache WHERE symbol=? AND mode='finnhub'`).bind(symbol).first<CacheRow>())
     : provided;
   const previous = fromStored(symbol, row, now);
@@ -164,11 +176,13 @@ export async function quoteFor(
       const response = await fetch(endpoint, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(4500) });
       if (!response.ok) throw new Error(`Provider HTTP ${response.status}`);
       const quote = parseFinnhubQuote(symbol, await response.json() as ProviderPayload, now);
-      await env.DB.prepare(`INSERT INTO quote_cache(symbol,price_cents,previous_close_cents,fetched_at,provider_at,mode)
-        VALUES(?,?,?,?,?,'finnhub') ON CONFLICT(symbol) DO UPDATE SET price_cents=excluded.price_cents,
+      await env.DB.prepare(`INSERT INTO quote_cache(symbol,price_cents,previous_close_cents,fetched_at,provider_at,mode,open_cents,high_cents,low_cents)
+        VALUES(?,?,?,?,?,'finnhub',?,?,?) ON CONFLICT(symbol) DO UPDATE SET price_cents=excluded.price_cents,
+        open_cents=excluded.open_cents,high_cents=excluded.high_cents,low_cents=excluded.low_cents,
         previous_close_cents=excluded.previous_close_cents,fetched_at=excluded.fetched_at,
         provider_at=excluded.provider_at,mode='finnhub' WHERE excluded.fetched_at >= quote_cache.fetched_at`)
-        .bind(symbol, quote.priceCents, quote.previousCloseCents, now, quote.fetchedAt).run();
+        .bind(symbol, quote.priceCents, quote.previousCloseCents, now, quote.fetchedAt,
+          quote.sessionBar?.openCents ?? null, quote.sessionBar?.highCents ?? null, quote.sessionBar?.lowCents ?? null).run();
       invalidateMemo('quote:' + symbol);
       invalidateMemo('market:rows');
       invalidateMemo('market:response');
@@ -195,7 +209,7 @@ export async function allQuotes(env: MarketEnv, now = Math.floor(Date.now() / 10
   // One indexed D1 query instead of a dozen separate reads per screen refresh.
   const rows = await memoized<StoredRow[]>('market:rows', 12000, async () => {
     const { results } = await env.DB.prepare(`SELECT symbol,price_cents,previous_close_cents,
-      fetched_at,provider_at,mode FROM quote_cache WHERE mode='finnhub'`).all<StoredRow>();
+      fetched_at,provider_at,mode,open_cents,high_cents,low_cents FROM quote_cache WHERE mode='finnhub'`).all<StoredRow>();
     return results;
   });
   const cache = new Map(rows.map(row => [row.symbol, row]));
@@ -218,24 +232,26 @@ export async function allQuotes(env: MarketEnv, now = Math.floor(Date.now() / 10
 export async function quoteHistory(
   symbol: SymbolCode, env: MarketEnv, range: HistoryRange = '1W',
   now = Math.floor(Date.now() / 1000),
-): Promise<{ at: number; priceCents: number }[]> {
+): Promise<ChartHistory> {
   if (!env.FINNHUB_API_KEY) throw new Error('Real market data is not configured');
   return memoized('history:' + symbol + ':' + range, 90000, async () => {
     // The WITHOUT ROWID table is indexed by (symbol, observed_at). All points are retained.
     const oldest = await env.DB.prepare(`SELECT observed_at AS at FROM quote_history
       WHERE symbol=? ORDER BY observed_at ASC LIMIT 1`).bind(symbol).first<{ at: number }>();
-    if (!oldest) return [];
-    const { startAt, bucketSeconds } = historyQueryWindow(range, oldest.at, now);
+    const { startAt, bucketSeconds } = historyQueryWindow(range, oldest?.at ?? now, now);
+    if (!oldest) return { candles: [], bucketSeconds };
+    // Offset buckets to Monday 1970-01-05 UTC so weekly bars start on Mondays.
     const { results } = await env.DB.prepare(`WITH buckets AS (
-        SELECT MAX(observed_at) AS at FROM quote_history
+        SELECT MIN(observed_at) AS firstAt, MAX(observed_at) AS lastAt,
+          MIN(price_cents) AS lowCents, MAX(price_cents) AS highCents, COUNT(*) AS samples FROM quote_history
         WHERE symbol=? AND observed_at>=? AND observed_at<=?
-        GROUP BY CAST(observed_at / ? AS INTEGER)
+        GROUP BY CAST((observed_at - 345600) / ? AS INTEGER)
       )
-      SELECT history.observed_at AS at,history.price_cents AS priceCents
-      FROM buckets JOIN quote_history history ON history.symbol=? AND history.observed_at=buckets.at
-      ORDER BY history.observed_at ASC LIMIT 300`)
-      .bind(symbol, startAt, now, bucketSeconds, symbol)
-      .all<{ at: number; priceCents: number }>();
-    return results;
+      SELECT buckets.*, first.price_cents AS openCents, last.price_cents AS closeCents FROM buckets
+      JOIN quote_history first ON first.symbol=? AND first.observed_at=buckets.firstAt
+      JOIN quote_history last ON last.symbol=? AND last.observed_at=buckets.lastAt
+      ORDER BY firstAt`)
+      .bind(symbol, startAt, now, bucketSeconds, symbol, symbol).all<Candle>();
+    return { candles: results, bucketSeconds };
   });
 }
