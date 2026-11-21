@@ -51,7 +51,8 @@ test('removed History route opens Portfolio and global ticker retains market dat
   assert.match(app,/<PortfolioHistory trades=\{trades\}/);
   assert.match(app,/view === 'dashboard' \|\| view === 'portfolio' \|\| view === 'stock'\)\s+jobs.push\(request<\{ trades: Trade\[\] \}>/);
   assert.match(app,/jobs.push\(request<\{ quotes: Quote\[\] \}>\('\/api\/market'/);
-  assert.match(dashboard,/onClick=\{p\.onHistory\}/);
+  assert.match(dashboard,/activityMode==='positions'\?\(\)=>p\.onNavigate\('portfolio'\):p\.onHistory/);
+  assert.match(dashboard,/title="Positions & trades"/);
 });
 test('larger top ticker has correct directional arrow and consistent bordered dark cards',()=>{
   const app=source('src/main.tsx');

@@ -27,7 +27,7 @@ test('dashboard matches trading terminal reference with simultaneous live cards'
   assert.match(app,/import '\.\/terminal\.css';/);
   assert.match(app,/<TradingDashboard/);
   for (const area of ['terminal-summary','terminal-watch','terminal-chart-panel','terminal-lower',
-    'terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-activity','terminal-bottom-allocation'])
+    'terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-portfolio','terminal-bottom-allocation'])
     assert.ok(dashboard.includes(area),area);
   assert.match(theme,/\.terminal-dashboard\s*\{[^}]*display:grid/);
   assert.match(theme,/\.terminal-middle\s*\{grid-template-columns/);
@@ -50,7 +50,7 @@ test('every allowed ticker uses the reference-inspired stock workspace',()=>{
   assert.match(app,/import '\.\/stock-terminal\.css'/);
   assert.match(stock,/data-pane=\{p\.pane\}/);
   for(const section of ['stock-terminal-hero','stock-terminal-quote-summary','stock-terminal-hero-facts',
-    'stock-terminal-chart','stock-terminal-ticket','stock-terminal-about','stock-terminal-metrics',
+    'stock-terminal-chart','stock-terminal-ticket',
     'stock-terminal-related','stock-terminal-activity'])
     assert.ok(stock.includes(section),section);
   assert.match(stock,/<StockPredictions key=\{p\.symbol\}/);
@@ -96,7 +96,9 @@ test('no-scroll viewport and mobile section controls remain intact',()=>{
   assert.match(source('src/TradeTerminal.tsx'),/label="Trade sections"/);
   assert.doesNotMatch(source('src/StockTerminal.tsx'),/label="Stock panels"|<SectionTabs/);
   assert.match(source('src/StockTerminal.tsx'),/className="stock-terminal-menu-toggle"/);
-  assert.match(source('src/StockTerminal.tsx'),/className="stock-terminal-hero-action"/);
+  assert.doesNotMatch(source('src/StockTerminal.tsx'),/className="stock-terminal-hero-action"/);
+  assert.match(source('src/StockTerminal.tsx'),/Buy or sell shares/);
+  assert.match(source('src/stock-page-cleanup.css'),/grid-area:3\/1/);
   assert.match(app,/label="Portfolio panels"/);
   assert.match(challenge,/label="Goals panels"/);
   assert.match(cards,/\.content-wrap > \.screen-tabs,[\s\S]*?display:none!important/);
