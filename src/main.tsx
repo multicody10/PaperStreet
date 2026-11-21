@@ -84,7 +84,6 @@ function App() {
   const [quickSearch,setQuickSearch] = useState('');
   const [history, setHistory] = useState<{ key: string; data?: ChartHistory; error?: string }>();
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
-  const [dashboardPane, setDashboardPane] = useState<'holdings'|'leaders'|'activity'|'market'>('holdings');
   const [tradePane, setTradePane] = useState<'stocks'|'movers'>('stocks');
   const [stockPane, setStockPane] = useState<'chart'|'order'|'facts'|'predict'>('chart');
   const [portfolioPane, setPortfolioPane] = useState<'positions'|'orders'>('positions');
