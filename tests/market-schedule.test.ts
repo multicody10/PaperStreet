@@ -59,3 +59,12 @@ test('header status opens a real accessible calendar without changing trading ro
   assert.match(market, /marketSessionOn\(date\)/);
   assert.match(file('worker/index.ts'), /if \(!isUsMarketOpen\(\)\) return noStore/);
 });
+
+test('the market calendar fits inside its popover without a scrollbar',()=>{
+ const css=file('src/market-schedule.css');
+ const ui=file('src/MarketSchedule.tsx');
+ assert.match(css,/max-height:calc\(100dvh - 16px\);overflow:hidden/);
+ assert.doesNotMatch(css,/overflow-y:auto/);
+ assert.match(ui,/window.innerHeight-height-8/);
+ assert.match(ui,/ResizeObserver\(place\)/);
+});
