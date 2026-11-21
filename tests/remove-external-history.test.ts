@@ -34,6 +34,6 @@ test('external history implementation and obsolete migrations are absent',()=>{
   assert.equal(existsSync(file(path)),false,path);
  for(const path of ['worker/index.ts','worker/market.ts','src/PriceChart.tsx',
                     'src/main.tsx','shared/stocks.ts','README.md'])
-  assert.doesNotMatch(readFileSync(file(path),'utf8'),/ALPHA_VANTAGE|alphavantage|Alpha Vantage|historyConfigured/);
- assert.match(readFileSync(file('README.md'),'utf8'),/Collected chart history only/);
+  assert.doesNotMatch(readFileSync(file(path),'utf8'),/ALPHA_VANTAGE|alphavantage|Alpha Vantage/);
+ assert.match(readFileSync(file('README.md'),'utf8'),/Alpaca historical candles when configured/);
 });

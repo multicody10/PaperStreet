@@ -10,7 +10,7 @@ const fullDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric
 const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: et });
 const fields = [['Open', 'openCents'], ['High', 'highCents'], ['Low', 'lowCents'], ['Close', 'closeCents']] as const;
 
-// Historical ranges use only Finnhub quote observations collected by PaperStreet.
+// Historical ranges prefer actual Alpaca IEX OHLC bars; Finnhub observations are the fallback.
 export function chartDataStatus(history?: ChartHistory, range: HistoryRange = '1W', error?: string) {
   if (error) return {text:'Price history request failed', warning:true};
   if (!history) return {text:'Loading recorded prices…', warning:false};
@@ -18,7 +18,8 @@ export function chartDataStatus(history?: ChartHistory, range: HistoryRange = '1
     text: range === '1D' ? 'No intraday prices recorded yet' : 'No prices recorded for this period yet',
     warning:false,
   };
-  return {text:`Finnhub observations · ${history.candles.length} ${history.candles.length===1?'candle':'candles'}`,warning:false};
+  const source = history.source === 'alpaca' ? 'Alpaca IEX' : 'Finnhub observations';
+  return {text:`${source} · ${history.candles.length} ${history.candles.length===1?'candle':'candles'}`,warning:false};
 }
 
 export function DayRange({ quote }: { quote: Quote }) {
@@ -46,7 +47,7 @@ export function PriceChart({ history, quote, range, error }: {
   const recorded = history?.candles ?? [];
   const dataStatus = chartDataStatus(history,range,error);
   const count = recorded.reduce((total, bar) => total + bar.samples, 0);
-  const session = count < 2 && quote?.sessionBar;
+  const session = !recorded.length && quote?.sessionBar;
   let bars = recorded;
   let caption = `${intervalLabel(history?.bucketSeconds ?? 900)} sampled candles`;
   if (session && quote) {
@@ -131,6 +132,6 @@ export function PriceChart({ history, quote, range, error }: {
     </div>
     <div className="candle-times">{[...new Set([0, Math.floor(lastIndex / 2), lastIndex])].map(i =>
       <span key={i} style={{ left: x(i) + '%', transform: bars.length === 1 ? 'translateX(-50%)' : i === 0 ? 'none' : i === lastIndex ? 'translateX(-100%)' : 'translateX(-50%)' }}>{axisDate(bars[i])}</span>)}</div>
-    <div className="candle-foot"><span>{atLabel}</span><span>{session ? 'Finnhub session OHLC' : singlePrint ? 'Single observation' : `${active.samples} observations in candle`}</span></div>
+    <div className="candle-foot"><span>{atLabel}</span><span>{session ? 'Finnhub session OHLC' : singlePrint ? 'Single observation' : `${active.samples} ${history?.source === 'alpaca' ? 'IEX bars' : 'observations'} in candle`}</span></div>
   </div>;
 }

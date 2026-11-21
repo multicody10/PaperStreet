@@ -4,14 +4,14 @@
 html,body,#root{background:#0E0E0E!important;color:#eeeeee!important}
 .app-shell.activity-theme,
 .app-shell.activity-theme:has(.reference-dashboard){
-  --bg:#0E0E0E;--surface:#141414;--surface-up:#1a1a1a;
+  --bg:#0E0E0E;--surface:#0E0E0E;--surface-up:#171717;
   --surface-soft:#101010;--line:#303030;--line-bright:#484848;
   --flat-line:#313131;--card-edge:#373737;--control:#171717;
   --ink:#eeeeee;--subtle:#cbcbcb;--muted:#a8a8a8;
   --cyan:#33d383;--mint:#33d383;--gain:#32da86;--red:#f06f7a;
-  --dashboard-bg:#0E0E0E;--dashboard-card:#141414;--dashboard-line:#383838;
+  --dashboard-bg:#0E0E0E;--dashboard-card:#0E0E0E;--dashboard-line:#383838;
   --dashboard-cyan:#33d383;--dashboard-gain:#32da86;--dashboard-loss:#f06f7a;
-  --dashboard-muted:#b1b1b1;--paper-bg:#0E0E0E;--paper-card:#141414;
+  --dashboard-muted:#b1b1b1;--paper-bg:#0E0E0E;--paper-card:#0E0E0E;
   --paper-card-deep:#101010;--paper-header:#121212;--paper-border:#373737;
   --paper-border-hover:#565656;--paper-control:#161616;
   --paper-accent:#33d383;--paper-active:#1f2d25;
@@ -36,7 +36,7 @@ html,body,#root{background:#0E0E0E!important;color:#eeeeee!important}
  .portfolio-history-panel,.details-panel,.page-insight,.portfolio-card,.leader-card,
  .achievement,.challenge-stocks button,.prediction-totals>div),
 .app-shell.activity-theme .reference-dashboard :is(.terminal-summary-card,.terminal-card,.terminal-chart-panel){
-  background:#151515!important;background-image:none!important;
+  background:#0E0E0E!important;background-image:none!important;
   border-color:#383838!important;box-shadow:none!important;
 }
 .app-shell.activity-theme :is(.panel-heading,.terminal-card-heading,.terminal-chart-header,
@@ -151,4 +151,40 @@ html,body,#root{background:#0E0E0E!important;color:#eeeeee!important}
   .app-shell.activity-theme .reference-dashboard .terminal-lower{
     background:#0E0E0E!important;
   }
+}
+
+/* PaperStreet authoritative palette: pure black nav, charcoal cards, mint titles. */
+.app-shell.activity-theme .sidebar,
+.app-shell.activity-theme:has(.reference-dashboard) .sidebar{
+  background:#000000!important;background-image:none!important;
+}
+.app-shell.activity-theme :is(.panel,.terminal-card,.terminal-chart-panel,
+ .terminal-summary-card,.stat-card,.welcome-panel,.trade-market-overview,.trade-market-list,
+ .trade-terminal-snapshot,.goals-stat,.goals-feature,.goals-primary,.goals-unlock-badge,
+ .goals-completion,.goals-all,.goals-unlocks,.stock-terminal-ticket,.stock-terminal-chart,
+ .stock-terminal-hero,.stock-terminal-related,.stock-terminal-activity,.stock-prediction-panel,
+ .portfolio-history-panel,.details-panel,.page-insight,.portfolio-card,.leader-card,
+ .achievement,.overview-panel,.balance-card,.orders-panel),
+.app-shell.activity-theme .reference-dashboard :is(.terminal-card,.terminal-chart-panel,.terminal-summary-card){
+  background-color:#0E0E0E!important;background-image:none!important;
+}
+.app-shell.activity-theme{
+  --paper-card:#0E0E0E;--dashboard-card:#0E0E0E;--paper-accent:#31D49D;
+}
+.app-shell.activity-theme :is(.panel-heading,.terminal-card-heading,.terminal-chart-header,
+ .goals-panel-heading,.trade-market-overview-head,.trade-market-list-bar,
+ .trade-market-table-head,.terminal-watch-head,.terminal-position-head,
+ .terminal-trades-head,.stock-head,.stock-terminal-heading,.stock-terminal-chart-heading,
+ .overview-panel-heading,.portfolio-history-head,.terminal-portfolio-switch){
+  background:#0E0E0E!important;
+}
+.app-shell.activity-theme :is(.panel-heading h2,.panel-heading h3,.terminal-card-title h2,
+ .terminal-chart-header h2,.terminal-card-heading h2,.goals-panel-heading h2,
+ .trade-market-overview-head h2,.trade-market-list-bar h2,.stock-terminal-heading h2,
+ .stock-terminal-chart-heading h2,.overview-panel-heading h2,.portfolio-history-head h2,
+ .terminal-watch-head h2,.terminal-position-head h2,.terminal-trades-head h2,
+ .terminal-card-heading strong,.terminal-watch-head strong,.terminal-position-head strong,
+ .trade-market-overview-head strong,.trade-market-list-bar strong,.panel-heading strong,
+ .terminal-kicker){
+  color:#31D49D!important;
 }

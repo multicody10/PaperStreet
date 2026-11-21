@@ -6,3 +6,6 @@ SESSION_SECRET="REPLACE_WITH_RANDOM_64_CHARACTER_SECRET"
 # Real prices are the only market source. Obtain Finnhub's written redistribution approval
 # before displaying data to third-party Discord players. No simulated fallback exists.
 FINNHUB_API_KEY="YOUR_APPROVED_PROVIDER_KEY"
+# Optional private Alpaca Basic IEX historical chart data; never send credentials to browsers.
+ALPACA_API_KEY_ID="YOUR_ALPACA_KEY_ID"
+ALPACA_API_SECRET_KEY="YOUR_ALPACA_SECRET_KEY"
