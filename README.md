@@ -171,3 +171,12 @@ Wrangler can report a **local vs. Cloudflare Dashboard configuration difference*
 ## Future roadmap
 
 Additional Discord slash commands, per guild competitions with verified guild membership, more realistic exchange execution and corporate action accounting, seasonal tournaments, achievements, watchlists, richer historical charts and broader symbol support. This first release intentionally ships the core Activity before adding Gateway events or features that would stress Cloudflare's free plan.
+
+## Legal policies for Discord app verification
+
+The public legal pages are published as static assets in the same Worker deployment as the Activity:
+
+- Terms of Service: <https://paperstreet.gobydev.workers.dev/terms.html>
+- Privacy Policy: <https://paperstreet.gobydev.workers.dev/privacy.html>
+
+Enter these URLs in **Discord Developer Portal → PaperStreet → General Information** under the corresponding fields after deployment. These pages explain account data, public leaderboards, command visibility, data retention, and the account deletion request process. Keep them updated when data handling or game features change.
