@@ -48,6 +48,6 @@ test('every screen uses switches and paginated finite lists',()=>{
   assert.match(challenges,/Challenge sections/);
   assert.match(challenges,/const \[review,setReview\]/);
   assert.match(app,/const \[step,setStep\]=useState<0\|1\|2>\(0\)/);
-  assert.match(app,/aria-label="Stock panels"/);
+  assert.match(app,/<SectionTabs label="Stock panels"/);
   assert.match(app,/<div className="chart-identity"><h1>\{selectedSymbol\}<\/h1>/);
 });
