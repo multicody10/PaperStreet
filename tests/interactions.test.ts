@@ -57,7 +57,15 @@ test('public config explicitly reports Discord interaction verification readines
 test('Discord launch status reveals only the verified handler state, never secrets', async () => {
   const db = {
     prepare() {
-      return { bind() { return this; }, async first() { return { value: env.DISCORD_CLIENT_ID, checked_at: 1234 }; } };
+      return { bind() { return this; }, async all() {
+        return { results: [{
+          key: 'discord-primary-entry-app-handler-v1',
+          value: env.DISCORD_CLIENT_ID, checked_at: 1234,
+        }, {
+          key: 'discord-primary-entry-sync-result-v1',
+          value: 'verified', checked_at: 1234,
+        }] };
+      } };
     },
   } as unknown as D1Database;
   const response = await worker.fetch(new Request('https://example.test/api/launch-status'), { ...env, DB: db });
@@ -66,5 +74,31 @@ test('Discord launch status reveals only the verified handler state, never secre
     handler: 'APP_HANDLER',
     verified: true,
     checkedAt: 1234,
+    lastAttemptAt: 1234,
+    lastResult: 'verified',
+  });
+});
+
+test('launch status reports a safe failure code when no verified entry point exists', async () => {
+  const db = {
+    prepare() {
+      return { bind() { return this; }, async all() {
+        return { results: [{
+          key: 'discord-primary-entry-sync-result-v1',
+          value: 'missing_client_secret', checked_at: 2456,
+        }] };
+      } };
+    },
+  } as unknown as D1Database;
+  const response = await worker.fetch(new Request('https://example.test/api/launch-status'), {
+    ...env, DB: db, DISCORD_CLIENT_ID: '333333333333333333',
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    handler: 'APP_HANDLER',
+    verified: false,
+    checkedAt: null,
+    lastAttemptAt: 2456,
+    lastResult: 'missing_client_secret',
   });
 });

@@ -8,6 +8,63 @@ export type LaunchSyncEnv = {
   DISCORD_PUBLIC_KEY?: string;
 };
 type StoredSync = { value: string; checked_at: number };
+const STATUS_KEY = 'discord-primary-entry-sync-result-v1';
+const STATUS_VALUES = new Set([
+  'verified', 'updated', 'missing_app_id', 'missing_client_secret', 'missing_public_key',
+  'discord_oauth_401', 'discord_oauth_403', 'discord_oauth_429',
+  'discord_api_400', 'discord_api_401', 'discord_api_403', 'discord_api_404',
+  'discord_api_429', 'discord_api_unavailable', 'discord_oauth_unavailable',
+  'invalid_oauth_token', 'no_primary_entry_point', 'wrong_application',
+  'discord_update_rejected', 'discord_verification_failed', 'worker_error',
+]);
+export function launchConfigurationIssue(env: LaunchSyncEnv): string | null {
+  if (!env.DISCORD_CLIENT_ID || !/^\\d{15,22}$/.test(env.DISCORD_CLIENT_ID)) return 'missing_app_id';
+  if (!env.DISCORD_CLIENT_SECRET) return 'missing_client_secret';
+  if (!/^[0-9a-f]{64}$/i.test(env.DISCORD_PUBLIC_KEY ?? '')) return 'missing_public_key';
+  return null;
+}
+export function launchFailureCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (message.startsWith('Discord command authorization: HTTP ')) {
+    const code = message.split(' ').at(-1);
+    return STATUS_VALUES.has('discord_oauth_' + code) ? 'discord_oauth_' + code : 'discord_oauth_unavailable';
+  }
+  if (message.startsWith('Discord command API: HTTP ')) {
+    const code = message.split(' ').at(-1);
+    return STATUS_VALUES.has('discord_api_' + code) ? 'discord_api_' + code : 'discord_api_unavailable';
+  }
+  if (message.includes('authorization returned no access token')) return 'invalid_oauth_token';
+  if (message.includes('Expected one primary entry command')) return 'no_primary_entry_point';
+  if (message.includes('did not acknowledge APP_HANDLER')) return 'discord_update_rejected';
+  if (message.includes('did not persist APP_HANDLER')) return 'discord_verification_failed';
+  return 'worker_error';
+}
+export async function recordLaunchSyncStatus(env: LaunchSyncEnv, code: string, now: number) {
+  const safeCode = STATUS_VALUES.has(code) ? code : 'worker_error';
+  await env.DB.prepare(`INSERT INTO service_state(key,value,checked_at) VALUES(?,?,?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value,checked_at=excluded.checked_at`)
+    .bind(STATUS_KEY, safeCode, now).run();
+}
+export async function checkDiscordLaunch(env: LaunchSyncEnv, now: number): Promise<void> {
+  const issue = launchConfigurationIssue(env);
+  if (issue) {
+    await recordLaunchSyncStatus(env, issue, now);
+    console.warn('Discord entry point verification blocked:', issue);
+    return;
+  }
+  try {
+    const result = await synchronizeDiscordLaunch(env, now);
+    if (result !== 'skipped') {
+      await recordLaunchSyncStatus(env, result, now);
+      console.info('Discord entry point verification:', result);
+    }
+  } catch (error) {
+    const code = launchFailureCode(error);
+    await recordLaunchSyncStatus(env, code, now);
+    console.error('Discord entry point verification failed:', code);
+  }
+}
+
 type Entry = { id: string; application_id: string; type: number; handler?: number; version?: string };
 const API = 'https://discord.com/api/v10';
 const STATE_KEY = 'discord-primary-entry-app-handler-v1';

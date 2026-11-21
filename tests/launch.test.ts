@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import { synchronizeDiscordLaunch } from '../worker/launch';
+import { synchronizeDiscordLaunch, checkDiscordLaunch, launchConfigurationIssue, launchFailureCode } from '../worker/launch';
 
 const appId = '123456789012345678';
 const commandId = '987654321098765432';
@@ -88,4 +88,31 @@ test('wrong Discord application response does not change command registration', 
   await assert.rejects(() => synchronizeDiscordLaunch(h.env, 100000), /Expected one primary entry command/);
   assert.equal(h.patched, 0);
   assert.equal(h.state, null);
+});
+
+test('monitor reports safe configuration errors before calling the Discord API', async t => {
+  t.mock.method(globalThis, 'fetch', async () => { throw new Error('Discord must not be called'); });
+  const saved: { key: string; code: string; checkedAt: number }[] = [];
+  const db = {
+    prepare() { return {
+      bind(key: string, code: string, checkedAt: number) {
+        saved.push({ key, code, checkedAt }); return this;
+      }, async run() { return { success: true }; },
+    }; },
+  } as unknown as D1Database;
+  const env = { DB: db, DISCORD_CLIENT_ID: appId, DISCORD_CLIENT_SECRET: '', DISCORD_PUBLIC_KEY: publicKey };
+  assert.equal(launchConfigurationIssue(env), 'missing_client_secret');
+  await checkDiscordLaunch(env, 10100);
+  assert.deepEqual(saved, [{
+    key: 'discord-primary-entry-sync-result-v1',
+    code: 'missing_client_secret', checkedAt: 10100,
+  }]);
+});
+
+test('Discord HTTP failures map to nonsecret error categories', () => {
+  assert.equal(launchFailureCode(new Error('Discord command authorization: HTTP 401')), 'discord_oauth_401');
+  assert.equal(launchFailureCode(new Error('Discord command API: HTTP 403')), 'discord_api_403');
+  assert.equal(launchFailureCode(new Error('Discord command API: HTTP 500')), 'discord_api_unavailable');
+  assert.equal(launchFailureCode(new Error('Expected one primary entry command for the PaperStreet application, got 0')), 'no_primary_entry_point');
+  assert.equal(launchFailureCode(new Error('Sensitive token: abc')), 'worker_error');
 });

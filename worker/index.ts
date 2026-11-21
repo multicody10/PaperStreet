@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { discordInteraction } from './interactions';
-import { synchronizeDiscordLaunch } from './launch';
+import { checkDiscordLaunch } from './launch';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
@@ -37,16 +37,25 @@ app.use('/api/*', async (c, next) => {
 
 app.get('/api/health', c => c.json({ status: 'ok', service: 'paperstreet' }));
 app.get('/api/launch-status', async c => {
-  // Public, read-only diagnostics. No OAuth tokens, secrets or user information.
-  const latest = await memoized('discord:launch-status', 60000, () =>
-    c.env.DB.prepare('SELECT value,checked_at FROM service_state WHERE key=?')
-      .bind('discord-primary-entry-app-handler-v1').first<{ value: string; checked_at: number }>());
+  // Public diagnostics contain only safe status codes. Never expose Discord
+  // credentials, bearer tokens, command IDs, or private player data.
+  const { results: rows } = await c.env.DB.prepare(`SELECT key,value,checked_at FROM service_state
+    WHERE key IN ('discord-primary-entry-app-handler-v1','discord-primary-entry-sync-result-v1')`)
+    .all<{ key: string; value: string; checked_at: number }>();
+  const success = rows.find(row => row.key === 'discord-primary-entry-app-handler-v1');
+  const attempt = rows.find(row => row.key === 'discord-primary-entry-sync-result-v1');
+  const verified = success?.value === c.env.DISCORD_CLIENT_ID &&
+    (attempt === undefined || success.checked_at >= attempt.checked_at ||
+      attempt.value === 'verified' || attempt.value === 'updated');
   return noStore({
     handler: 'APP_HANDLER',
-    verified: latest?.value === c.env.DISCORD_CLIENT_ID,
-    checkedAt: latest?.checked_at ?? null,
+    verified: Boolean(verified),
+    checkedAt: verified ? success?.checked_at : null,
+    lastAttemptAt: attempt?.checked_at ?? null,
+    lastResult: attempt?.value ?? 'not_run',
   });
 });
+
 app.get('/api/config', c => noStore({
   clientId: c.env.DISCORD_CLIENT_ID ?? null,
   interactionsConfigured: /^[0-9a-f]{64}$/i.test(c.env.DISCORD_PUBLIC_KEY ?? ''),
@@ -194,14 +203,10 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
-    // Use credentials already in Cloudflare to correct Discord's automatic-invite
-    // handler. Once verified, check only daily and store the result in D1.
-    ctx.waitUntil(synchronizeDiscordLaunch(env, Math.floor(controller.scheduledTime / 1000))
-      .then(result => {
-        if (result === 'updated' || result === 'verified') invalidateMemo('discord:launch-status');
-      })
+    ctx.waitUntil(checkDiscordLaunch(env, Math.floor(controller.scheduledTime / 1000))
       .catch(error => {
-        console.error('Discord launch sync failed', error instanceof Error ? error.message : 'Unknown error');
+        console.error('Discord sync monitoring unavailable',
+          error instanceof Error ? error.message : 'Unknown error');
       }));
     if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
     // Cron collects real quotes on weekdays without a connected user; no fake backfill.
