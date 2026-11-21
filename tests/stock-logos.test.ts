@@ -43,5 +43,5 @@ test('calendar popover is wider with readable day labels and footer at target de
   assert.match(css, /font:14px\/1\.45 Roboto/);
   assert.match(css, /height:40px;display:grid/);
   assert.match(css, /\.market-hours-explain\{color:#c4d0dc;font-size:14px;line-height:1\.6/);
-  assert.match(css, /max-height:calc\(100dvh - 76px\)/);
+  assert.match(css, /max-height:calc\(100dvh - 16px\);overflow:hidden/);
 });

@@ -80,6 +80,7 @@ function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const [token, setToken] = useState('');
+  const [activityChannelId, setActivityChannelId] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState('Connecting to Discord…');
   const [authError, setAuthError] = useState('');
   const [tab, setTab] = useState<View>(() => parseAppHash(window.location.hash).view);
@@ -174,6 +175,7 @@ function App() {
         const sdk = new DiscordSDK(settings.clientId);
         await sdk.ready();
         if (!active) return;
+        setActivityChannelId(/^\d{15,22}$/.test(sdk.channelId ?? '') ? sdk.channelId : null);
         setAuthStatus('Authorizing your Discord account…');
         const { code } = await sdk.commands.authorize({
           client_id: settings.clientId, response_type: 'code', state: '', prompt: 'none',
@@ -253,13 +255,13 @@ function App() {
         await request('/api/orders', token, { method: 'POST', body: JSON.stringify({
           symbol: selected.symbol, side, shares: quantity, kind: effectiveOrderKind,
           triggerPriceCents: effectiveOrderKind === 'MARKET' ? null : triggerCents,
-          orderId: crypto.randomUUID(),
+          orderId: crypto.randomUUID(), channelId: activityChannelId,
         }) });
         setFeedback({ kind: 'ok', message: 'Order queued for ' + selected.symbol + '. View or cancel it in Portfolio.' });
       } else {
         const response = await request<{ fillPriceCents?: number; duplicate?: boolean }>('/api/trade', token, {
           method: 'POST',
-          body: JSON.stringify({symbol:selected.symbol,side,shares:quantity,expectedPriceCents:selected.priceCents,orderId:crypto.randomUUID()}),
+          body: JSON.stringify({symbol:selected.symbol,side,shares:quantity,expectedPriceCents:selected.priceCents,orderId:crypto.randomUUID(),channelId:activityChannelId}),
         });
         setFeedback({
           kind:'ok', message:response.duplicate ? 'Order already filled.' :

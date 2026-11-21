@@ -9,3 +9,6 @@ FINNHUB_API_KEY="YOUR_APPROVED_PROVIDER_KEY"
 # Optional private Alpaca Basic IEX historical chart data; never send credentials to browsers.
 ALPACA_API_KEY_ID="YOUR_ALPACA_KEY_ID"
 ALPACA_API_SECRET_KEY="YOUR_ALPACA_SECRET_KEY"
+
+# Only required for Discord trade and queue-fill embeds, never send to browser.
+DISCORD_BOT_TOKEN="YOUR_DISCORD_BOT_TOKEN"

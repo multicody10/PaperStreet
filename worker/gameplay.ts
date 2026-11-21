@@ -63,14 +63,14 @@ export async function listOrders(userId: string, env: MarketEnv): Promise<Queued
   return results.map(asOrder);
 }
 export async function queueOrder(env: MarketEnv, userId: string, input: {
-  orderId: string; symbol: SymbolCode; side: OrderSide; shares: number; kind: OrderKind; triggerPriceCents: number | null;
+  orderId: string; symbol: SymbolCode; side: OrderSide; shares: number; kind: OrderKind; triggerPriceCents: number | null; channelId?: string | null;
 }): Promise<QueuedOrder> {
   const prior = await env.DB.prepare('SELECT ' + orderColumns + ' FROM queued_orders WHERE user_id=? AND client_order_id=?').bind(userId,input.orderId).first<OrderRow>();
   if (prior) return asOrder(prior);
   const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM queued_orders WHERE user_id=? AND status IN ('PENDING','PROCESSING')").bind(userId).first<{n:number}>();
   if ((active?.n ?? 0) >= 30) throw new Error('You can have at most 30 open queued orders.');
-  const created = await env.DB.prepare('INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,client_order_id) DO NOTHING RETURNING id')
-    .bind(userId,input.orderId,input.symbol,input.side,input.shares,input.kind,input.triggerPriceCents).first<{id:number}>();
+  const created = await env.DB.prepare('INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents,channel_id) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(user_id,client_order_id) DO NOTHING RETURNING id')
+    .bind(userId,input.orderId,input.symbol,input.side,input.shares,input.kind,input.triggerPriceCents,input.channelId??null).first<{id:number}>();
   const id = created?.id;
   const row = await env.DB.prepare('SELECT ' + orderColumns + ' FROM queued_orders WHERE user_id=? AND ' + (id ? 'id=?' : 'client_order_id=?')).bind(userId,id ?? input.orderId).first<OrderRow>();
   if (!row) throw new Error('Unable to save queued order');

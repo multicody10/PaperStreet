@@ -15,6 +15,7 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - **Goals and achievements:** a screenshot-inspired progress dashboard with real achievement counts, completed and active objectives, a 10% portfolio-return milestone, four featured achievement cards, completion ring, category filters, detailed progress table and recent unlocks. The activity does not invent XP, levels or streaks.
 - **Portfolio:** positions plus queued order management and executed **Trade History directly below Queued Orders**. Trade history is no longer a separate navigation page; legacy `#/history` links open Portfolio's History tab. Pending orders do not reserve funds or holdings; invalid balances are rejected at fill time.
 - Server authoritative execution, signed expiring sessions, duplicate order protection, and atomic SQLite balances.
+- **Discord trade announcements:** immediate trades create stylish buy/sell embeds in the proven Activity chat; queued fills post to that same channel and mention the player who placed the order even if offline. Pending announcements use a durable D1 outbox, Discord nonce deduplication and retries. Launching the Activity itself remains silent.
 - Portfolio equity, weighted cost basis, unrealized profit/loss, trade history, and global leaderboard ranked by portfolio equity.
 - The **Dashboard** watchlist shows **only stocks with shares currently held**; when no shares are held it provides a helpful empty state and an All Stocks link. Open Positions and Recent Paper Trades share one switchable activity card; the 10% equity milestone footer stays visible. The Goals page uses larger two-column featured achievements. All routes use a flat #0E0E0E base, muted gray cards and borders, green for gains/actions, and red for losses/sells.
 - The **Dashboard** is a read-only trading overview with a real quote watchlist, interactive stock chart, portfolio equity summary, 10% growth milestone, achievements, open positions, recent paper trades and allocation. Its former right-side order ticket and redundant top-right recent-trades summary were removed. Orders are placed on individual stock pages.
@@ -52,6 +53,12 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 ## 2. Automatic Cloudflare deployment with GitHub Actions
 
 Once set up, **every push or merged PR to `main` automatically tests, migrates D1, and deploys** the Activity and API to one Cloudflare Worker. You can also manually run **Actions → Deploy PaperStreet → Run workflow**. Pull requests only run checks and never deploy. No paid plan or always-on process is required.
+
+### Enable Discord trade notifications
+
+Create/reveal the token in [Discord Developer Portal](https://discord.com/developers/applications) → PaperStreet → **Bot**, and save it as the encrypted Cloudflare Worker secret `DISCORD_BOT_TOKEN`. Install the **bot** in each participating guild, granting **View Channel**, **Send Messages**, and **Embed Links** where PaperStreet is played. The existing Cloudflare Worker and Cron handle delivery; no Gateway process or paid hosting is required.
+
+The Worker only accepts channel IDs that match a **Discord signature-verified Activity launch** from that authenticated player. The verified channel is stored with each order, so a queued fill stays in the correct chat even after the user leaves. Without a signed launch context or bot access (including most user-only installs and group DMs), announcements cannot be posted. Already queued orders created before this migration do not have a verified destination and will not emit notifications. Discord 403/404 errors permanently block that specific announcement; transient errors are retried.
 
 ### One-time configuration
 

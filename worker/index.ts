@@ -9,10 +9,11 @@ import { alpacaHistory, type AlpacaHistoryEnv } from './alpaca-history';
 import { memoized, invalidateMemo } from './memo';
 import { createSession, verifySession } from './session';
 import { discordAvatarUrl } from './avatar';
+import { deliverTradeNotifications, verifiedActivityChannel, type TradeNotificationEnv } from './trade-notifications';
 import { listOrders, queueOrder, cancelOrder, listPredictions, getPredictionSummary, submitPrediction, getAchievements, processQueuedOrders, settlePredictions } from './gameplay';
 import { isSymbol, STARTING_CASH_CENTS, STOCKS, type Leader } from '../shared/stocks';
 
-type Bindings = MarketEnv & AlpacaHistoryEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; DISCORD_PUBLIC_KEY?: string; SESSION_SECRET: string };
+type Bindings = MarketEnv & AlpacaHistoryEnv & TradeNotificationEnv & { DISCORD_CLIENT_ID: string; DISCORD_CLIENT_SECRET: string; DISCORD_PUBLIC_KEY?: string; SESSION_SECRET: string };
 type App = { Bindings: Bindings; Variables: { userId: string } };
 type LeaderRow = Omit<Leader, 'changeCents' | 'avatarUrl'> & { avatarHash: string | null; avatarDiscriminator: string | null };
 const app = new Hono<App>();
@@ -150,7 +151,7 @@ app.post('/api/orders', async c => {
   if (Number(c.req.header('Content-Length') ?? 0) > 2048) return noStore({error:'Invalid queued order'},400);
   const input = await c.req.json().catch(()=>null) as {
     symbol?:unknown; side?:unknown; shares?:unknown; kind?:unknown;
-    triggerPriceCents?:unknown; orderId?:unknown;
+    triggerPriceCents?:unknown; orderId?:unknown; channelId?:unknown;
   } | null;
   const kind = input?.kind;
   const price = input?.triggerPriceCents;
@@ -163,10 +164,11 @@ app.post('/api/orders', async c => {
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.orderId))
     return noStore({error:'Invalid queued order fields'},422);
   try {
+    const channelId = await verifiedActivityChannel(c.env.DB,c.get('userId'),input.channelId);
     const order = await queueOrder(c.env,c.get('userId'),{
       orderId:input.orderId, symbol:input.symbol, side:input.side,
       shares:input.shares as number,kind:kind as 'MARKET'|'LIMIT'|'STOP',
-      triggerPriceCents: kind==='MARKET' ? null : price as number,
+      triggerPriceCents: kind==='MARKET' ? null : price as number, channelId,
     });
     return noStore({order});
   } catch(error) {
@@ -227,7 +229,7 @@ app.get('/api/leaderboard', async c => {
 
 app.post('/api/trade', async c => {
   if (Number(c.req.header('Content-Length') ?? 0) > 2048) return noStore({ error: 'Invalid order' }, 400);
-  const input = await c.req.json().catch(() => null) as { symbol?: unknown; side?: unknown; shares?: unknown; expectedPriceCents?: unknown; orderId?: unknown } | null;
+  const input = await c.req.json().catch(() => null) as { symbol?: unknown; side?: unknown; shares?: unknown; expectedPriceCents?: unknown; orderId?: unknown; channelId?: unknown } | null;
   if (!input || !isSymbol(input.symbol) || (input.side !== 'BUY' && input.side !== 'SELL') ||
       !Number.isSafeInteger(input.shares) || Number(input.shares) < 1 || Number(input.shares) > 100_000 ||
       !Number.isSafeInteger(input.expectedPriceCents) || Number(input.expectedPriceCents) <= 0 ||
@@ -245,9 +247,12 @@ app.post('/api/trade', async c => {
     return noStore({ error: 'Price moved by over 1%. Refresh quotes and retry.' }, 409);
   }
   try {
-    const result = await c.env.DB.prepare(`INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents)
-      VALUES(?,?,?,?,?,?) RETURNING id`).bind(userId, input.orderId, input.symbol, input.side,
-      input.shares, quote.priceCents).first<{ id: number }>();
+    const channelId = await verifiedActivityChannel(c.env.DB,userId,input.channelId);
+    const result = await c.env.DB.prepare(`INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents,channel_id)
+      VALUES(?,?,?,?,?,?,?) RETURNING id`).bind(userId, input.orderId, input.symbol, input.side,
+      input.shares, quote.priceCents,channelId).first<{ id: number }>();
+    if (result?.id) c.executionCtx.waitUntil(deliverTradeNotifications(c.env,Math.floor(Date.now()/1000),result.id).catch(()=>
+      console.error('Immediate trade announcement dispatch failed')));
     invalidateMemo('leaderboard');
     return noStore({ tradeId: result?.id, symbol: input.symbol, side: input.side, shares: input.shares, fillPriceCents: quote.priceCents });
   } catch (error) {
@@ -280,6 +285,8 @@ export default {
       await allQuotes(env).catch(error =>
         console.error('Quote collection failed', error instanceof Error ? error.message : 'Unknown'));
       await processQueuedOrders(env, now);
+      await deliverTradeNotifications(env, now).catch(()=>
+        console.error('Queued trade announcement dispatch failed'));
       // Grade completed sessions on a subsequent open-market run, never while closed.
       await settlePredictions(env, now);
     })().catch(error => {

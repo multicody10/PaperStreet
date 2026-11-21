@@ -62,3 +62,31 @@ for (const { label, context, identity } of [
     assert.deepEqual(messages[0].body.allowed_mentions, { parse: [] });
   });
 }
+
+test('only a signed Activity launch records its verified user and channel, without a chat invitation',async()=>{
+ const channel='555555555555555555';
+ const written:{sql:string;params:unknown[]}[]=[];
+ const db={
+   prepare(sql:string){return{
+     bind(...params:unknown[]){written.push({sql,params});return this;},
+     async run(){return {success:true};},
+   }}
+ } as unknown as D1Database;
+ const timestamp=String(Math.floor(Date.now()/1000));
+ const payload=JSON.stringify({application_id:appId,type:2,channel_id:channel,
+   member:{user:{id:userId}},data:{type:4,name:'Launch'}});
+ const signature=sign(null,Buffer.from(timestamp+payload),privateKey).toString('hex');
+ const request=new Request('https://paperstreet.example/api/discord/interactions',{
+   method:'POST',body:payload,
+   headers:{'X-Signature-Ed25519':signature,'X-Signature-Timestamp':timestamp},
+ });
+ const tasks:Promise<unknown>[]=[];
+ const response=await portfolioInteraction(request,
+   {DB:db,DISCORD_CLIENT_ID:appId,DISCORD_PUBLIC_KEY:key},
+   {waitUntil(task:Promise<unknown>){tasks.push(task);}});
+ assert.deepEqual(await response.json(),{type:12});
+ await Promise.all(tasks);
+ assert.equal(written.length,1);
+ assert.deepEqual(written[0].params,[userId,channel]);
+ assert.match(written[0].sql,/activity_launch_channels/);
+});

@@ -1,4 +1,5 @@
 import { loadPortfolio } from './portfolio';
+import { discordSnowflake } from './trade-notifications';
 import { STARTING_CASH_CENTS, type Portfolio } from '../shared/stocks';
 import type { MarketEnv } from './market';
 
@@ -8,7 +9,7 @@ export interface DiscordCommandEnv extends MarketEnv {
 }
 type DiscordUser = { id?: string; username?: string; avatar?: string | null; discriminator?: string | null };
 type DiscordInteraction = {
-  id?: string; token?: string; application_id?: string; type?: number;
+  id?: string; token?: string; application_id?: string; type?: number; channel_id?: string;
   member?: { user?: DiscordUser }; user?: DiscordUser;
   data?: { type?: number; name?: string };
 };
@@ -141,6 +142,14 @@ export async function portfolioInteraction(
   if (interaction.type === 2 && interaction.application_id === env.DISCORD_CLIENT_ID &&
       (interaction.data?.type === 4 ||
        (interaction.data?.type === 1 && interaction.data.name === 'paperstreet'))) {
+    const launchUser = interaction.member?.user?.id ?? interaction.user?.id;
+    if (discordSnowflake(launchUser) && discordSnowflake(interaction.channel_id)) {
+      ctx.waitUntil(env.DB.prepare(`INSERT INTO activity_launch_channels(user_id,channel_id,verified_at)
+        VALUES(?,?,unixepoch()) ON CONFLICT(user_id,channel_id)
+        DO UPDATE SET verified_at=excluded.verified_at`)
+        .bind(launchUser,interaction.channel_id).run().then(()=>undefined).catch(()=>
+          console.error('PaperStreet launch channel persistence failed')));
+    }
     return Response.json({ type: 12 });
   }
 

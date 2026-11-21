@@ -49,7 +49,11 @@ export function MarketSchedule({marketOpen}: Props) {
     if (!trigger.current) return;
     const rect = trigger.current.getBoundingClientRect();
     const width = Math.min(446, window.innerWidth - 16);
-    setPosition({top: rect.bottom + 8, left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))});
+    const height = panel.current?.getBoundingClientRect().height ?? 480;
+    const top = rect.bottom+8+height<=window.innerHeight-8 ? rect.bottom+8 :
+      rect.top-height>=16 ? rect.top-height-8 : Math.max(8,window.innerHeight-height-8);
+    const left = Math.max(8,Math.min(rect.left,window.innerWidth-width-8));
+    setPosition(current=>current.top===top&&current.left===left?current:{top,left});
   }, []);
   useEffect(() => {
     if (!visible) return;
@@ -57,10 +61,13 @@ export function MarketSchedule({marketOpen}: Props) {
     const sync = () => place();
     window.addEventListener('resize', sync);
     window.addEventListener('scroll', sync, true);
+    const resize = new ResizeObserver(place);
+    if (panel.current) resize.observe(panel.current);
     const refresh = setInterval(() => setNow(new Date()), 60000);
     return () => {
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync, true);
+      resize.disconnect();
       clearInterval(refresh);
     };
   }, [visible, place]);
