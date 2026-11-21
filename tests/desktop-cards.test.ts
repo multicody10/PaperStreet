@@ -19,17 +19,23 @@ test('desktop rail fits short icon labels while phone keeps bottom navigation',(
   assert.doesNotMatch(app,/className="top-nav"/);
 });
 
-test('dashboard and market display simultaneous paginated cards on desktop',()=>{
-  assert.match(cards,/\.overview-layout\s*\{[^}]*grid-template-columns:.*?1\.1fr/);
-  for (const area of ['overview-positions','overview-leaders','overview-activity','overview-pulse'])
-    assert.match(app,new RegExp('className="panel '+area+'(?: |")'));
-  assert.match(cards,/\.overview-layout > \.panel,[\s\S]*?display:flex!important/);
+test('dashboard matches trading terminal reference with simultaneous live cards',()=>{
+  const dashboard=source('src/TradingDashboard.tsx');
+  const theme=source('src/terminal.css');
+  assert.match(app,/import '\.\/terminal\.css';/);
+  assert.match(app,/<TradingDashboard/);
+  for (const area of ['terminal-summary','terminal-watch','terminal-chart-panel','terminal-order','terminal-lower',
+    'terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-activity','terminal-bottom-allocation'])
+    assert.ok(dashboard.includes(area),area);
+  assert.match(theme,/\.terminal-dashboard\s*\{[^}]*display:grid/);
+  assert.match(theme,/\.terminal-middle\s*\{grid-template-columns/);
+  assert.match(theme,/\.terminal-lower\s*\{grid-template-columns/);
   assert.match(cards,/\.trade-overview > \.trade-universe,[\s\S]*?display:flex!important/);
   assert.match(cards,/\.trade-overview > \.trade-insights,[\s\S]*?display:grid!important/);
   assert.match(app,/className="trade-insights"/);
-  assert.ok((app.match(/<FitPager /g)??[]).length>=9);
+  assert.ok((app.match(/<FitPager /g)??[]).length>=5);
+  assert.ok((dashboard.match(/<FitPager /g)??[]).length>=4);
 });
-
 test('stock has chart, quote facts and full desktop ticket without mobile wizard steps',()=>{
   assert.match(cards,/\.stock-workspace\s*\{[^}]*grid-template-columns/);
   assert.match(cards,/\.stock-workspace\[data-pane\] > \.stock-research\s*\{[^}]*display:contents!important/);
@@ -67,7 +73,7 @@ test('no-scroll viewport and mobile section controls remain intact',()=>{
   assert.match(fit,/\.app-shell\{height:100dvh;max-height:100dvh;overflow:hidden\}/);
   assert.match(fit,/\.content-wrap\s*\{[^}]*overflow:hidden!important/);
   assert.match(fit,/\.fit-pager-controls/);
-  assert.match(app,/label="Dashboard panels"/);
+  assert.match(source('src/TradingDashboard.tsx'),/label="Dashboard sections"/);
   assert.match(app,/label="Trade panels"/);
   assert.match(app,/label="Stock panels"/);
   assert.match(app,/label="Portfolio panels"/);

@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import {
   ArrowDownLeft, ArrowLeft, ArrowLeftRight, ArrowUpRight, BarChart3, CheckCircle2,
-  ChevronRight, Clock3, Landmark, LayoutDashboard,
+  ChevronRight, Clock3, LayoutDashboard,
   LoaderCircle, RefreshCw, Search, TrendingDown,
   TrendingUp, Trophy, Wallet, Award, X,
 } from 'lucide-react';
 import type { ChartHistory, HistoryRange, Leader, Portfolio, Quote, SymbolCode, Trade } from '../shared/stocks';
-import { HISTORY_RANGES, STARTING_CASH_CENTS } from '../shared/stocks';
+import { HISTORY_RANGES, STARTING_CASH_CENTS, STOCKS } from '../shared/stocks';
 import { appHash, parseAppHash, type Page, type View } from './navigation';
 import { DayRange, money, PriceChart } from './PriceChart';
 import { Challenges, OrderList } from './Challenges';
 import { StockPredictions } from './StockPredictions';
+import { TradingDashboard } from './TradingDashboard';
 import { FitPager, SectionTabs } from './FitPager';
 import type { Achievement, OrderKind, Prediction, PredictionDirection, QueuedOrder } from '../shared/gameplay';
 import './style.css';
@@ -23,6 +24,7 @@ import './layout.css';
 import './fit.css';
 import './desktop-cards.css';
 import './stock-predictions.css';
+import './terminal.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -79,6 +81,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null);
   const [search, setSearch] = useState('');
+  const [quickSearch,setQuickSearch] = useState('');
   const [history, setHistory] = useState<{ key: string; data?: ChartHistory; error?: string }>();
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
   const [dashboardPane, setDashboardPane] = useState<'holdings'|'leaders'|'activity'|'market'>('holdings');
@@ -133,7 +136,7 @@ function App() {
       jobs.push(request<{ orders: QueuedOrder[] }>('/api/orders', session).then(({ orders }) => setOrders(orders)));
     if (view === 'stock')
       jobs.push(request<{ predictions: Prediction[] }>('/api/predictions', session).then(({ predictions }) => setPredictions(predictions)));
-    if (view === 'challenges')
+    if (view === 'dashboard' || view === 'challenges')
       jobs.push(request<{ achievements: Achievement[] }>('/api/achievements', session).then(({ achievements }) => setAchievements(achievements)));
     const results = await Promise.allSettled(jobs);
     const failure = results.find(result => result.status === 'rejected');
@@ -193,7 +196,7 @@ function App() {
   }, [token, pending, tab, refresh]);
 
   useEffect(() => {
-    if (!token || tab !== 'stock') return;
+    if (!token || (tab !== 'stock' && tab !== 'dashboard')) return;
     const controller = new AbortController();
     request<ChartHistory>(`/api/chart?symbol=${selectedSymbol}&range=${historyRange}`, token, { signal: controller.signal })
       .then(data => { if (!controller.signal.aborted) setHistory({ key: historyKey, data }); })
@@ -220,7 +223,6 @@ function App() {
     [quotes, search],
   );
   const gainers = quotes.filter(q => q.changePct > 0).length;
-  const returnPercent = ((portfolio?.profitCents ?? 0) / (portfolio?.startingCashCents ?? STARTING_CASH_CENTS)) * 100;
   const refreshNow = () => {
     if (!token || loading) return;
     setFeedback(null);
@@ -229,7 +231,7 @@ function App() {
   };
 
   async function execute() {
-    if (tab !== 'stock' || !canSubmitOrder || !selected || !token || pending) return;
+    if ((tab !== 'stock' && tab !== 'dashboard') || !canSubmitOrder || !selected || !token || pending) return;
     setPending(true);
     setFeedback(null);
     try {
@@ -250,7 +252,7 @@ function App() {
             (side === 'BUY' ? 'Bought ' : 'Sold ') + quantity + ' ' + selected.symbol + ' at ' + money(response.fillPriceCents ?? selected.priceCents) + '.',
         });
       }
-      await refresh(token, 'stock');
+      await refresh(token, tab);
     } catch (error) { setFeedback({ kind:'error', message:errorMessage(error) }); }
     finally { setPending(false); }
   }
@@ -289,10 +291,44 @@ function App() {
   return (
     <div className="app-shell">
       <header className="global-header">
-        <div className="brand" aria-label="PaperStreet"><span className="brand-mark"><TrendingUp size={27} strokeWidth={3}/></span><span className="brand-words"><strong>Paper<span>Street</span></strong></span></div>
+        <div className="brand" aria-label="PaperStreet">
+          <span className="brand-mark"><TrendingUp size={26} strokeWidth={3}/></span>
+          <span className="brand-words"><strong>Paper<span>Street</span></strong></span>
+        </div>
+        <div className="header-market" aria-label="Market status and selected real quotes">
+          <div className={'header-market-status '+(quotes.length&&quotes.some(q=>q.marketOpen)?'open':'closed')}>
+            <span className="status-dot"/>{!quotes.length?'Quotes pending':quotes.some(q=>q.marketOpen)?'Markets Open':'Markets Closed'}
+          </div>
+          {(['SPY','AAPL','NVDA'] as SymbolCode[]).map(symbol=>{
+            const quote=quotes.find(q=>q.symbol===symbol);
+            return quote?<div className="header-ticker" key={symbol}><strong>{symbol}</strong><span>{money(quote.priceCents)}</span>
+              <b className={quote.changePct>=0?'positive':'negative'}>{pct(quote.changePct)}</b></div>:null;
+          })}
+        </div>
         <div className="header-actions">
-          <button type="button" className="icon-button" aria-label="Refresh market and portfolio" title="Refresh" disabled={!token || loading} onClick={refreshNow}><RefreshCw size={17} className={loading ? 'spin' : ''}/></button>
-          <div className="user-chip" title={account?.displayName ?? 'Discord user'}><ProfileAvatar className="user-avatar" url={account?.avatarUrl} name={account?.displayName ?? 'Discord user'}/><span className="user-copy"><strong>{short(account?.displayName ?? 'Discord user', 17)}</strong><small><span className="online-dot"/>{authStatus}</small></span></div>
+          <div className="header-search">
+            <Search size={17} aria-hidden="true"/>
+            <input type="search" aria-label="Find a stock" placeholder="Search symbols, companies..." value={quickSearch}
+              onChange={event=>setQuickSearch(event.target.value)}
+              onKeyDown={event=>{
+                if(event.key==='Enter'){
+                  const match=STOCKS.find(q=>(q.symbol+' '+q.name).toLowerCase().includes(quickSearch.trim().toLowerCase()));
+                  if(match&&quickSearch.trim()){openStock(match.symbol);setQuickSearch('');}
+                }
+                if(event.key==='Escape')setQuickSearch('');
+              }}/>
+            {quickSearch.trim()&&<div className="header-search-results" role="listbox" aria-label="Stock search results">
+              {STOCKS.filter(q=>(q.symbol+' '+q.name).toLowerCase().includes(quickSearch.trim().toLowerCase())).slice(0,5).map(q=>
+                <button type="button" key={q.symbol} onClick={()=>{openStock(q.symbol);setQuickSearch('')}}><strong>{q.symbol}</strong><span>{q.name}</span></button>)}
+            </div>}
+          </div>
+          <button type="button" className="icon-button" aria-label="Refresh market and portfolio" title="Refresh" disabled={!token||loading} onClick={refreshNow}>
+            <RefreshCw size={17} className={loading?'spin':''}/>
+          </button>
+          <div className="user-chip" title={account?.displayName??'Discord user'}>
+            <ProfileAvatar className="user-avatar" url={account?.avatarUrl} name={account?.displayName??'Discord user'}/>
+            <span className="user-copy"><strong>{short(account?.displayName??'Discord user',17)}</strong><small><span className="online-dot"/>{authStatus}</small></span>
+          </div>
         </div>
       </header>
       <div className="shell-body">
@@ -309,19 +345,11 @@ function App() {
         </aside>
         <main className="main-content">
           <div className="content-wrap">
-            {tab !== 'stock' && <div className="headline"><h1>{title}</h1></div>}
+            {tab !== 'stock' && tab !== 'dashboard' && <div className="headline"><h1>{title}</h1></div>}
             {!account ? <section className="welcome-panel"><div className="welcome-icon"><BarChart3 size={30}/></div><h2>Start with {money(STARTING_CASH_CENTS)}</h2><p>Connect through the Discord App Launcher to start trading stocks using virtual cash.</p><div className="auth-status" role="status">{authError || authStatus}</div><small>PaperStreet is a game. No real money is exchanged.</small></section> : <>
               {!config?.dataConfigured && <div className="feedback error" role="alert"><span><X size={17}/> Market data is not configured. The operator must add FINNHUB_API_KEY as a Cloudflare Worker secret.</span></div>}
-              {tab === 'dashboard' && <div className="stats-grid">
-                <Stat title="PORTFOLIO VALUE" value={portfolio ? money(portfolio.equityCents) : '—'} sub={portfolio ? signedMoney(portfolio.profitCents) : 'Awaiting real quotes'} icon={<Wallet size={19}/>} subClass={(portfolio?.profitCents ?? 0) >= 0 ? 'positive' : 'negative'}/>
-                <Stat title="CASH" value={portfolio ? money(portfolio.cashCents) : '—'} icon={<Landmark size={19}/>}/>
-                <Stat title="TOTAL HOLDINGS" value={portfolio ? money(portfolio.investedCents) : '—'} sub={`${portfolio?.positions.length ?? 0} open positions`} icon={<BarChart3 size={19}/>}/>
-                <Stat title="ALL TIME RETURN" value={portfolio ? pct(returnPercent) : '—'} icon={<TrendingUp size={19}/>} valueClass={returnPercent >= 0 ? 'positive' : 'negative'}/>
-              </div>}
               {feedback && <div className={`feedback ${feedback.kind}`} role="status"><span>{feedback.kind === 'ok' ? <CheckCircle2 size={17}/> : <X size={17}/>} {feedback.message}</span><button type="button" aria-label="Dismiss notice" onClick={() => setFeedback(null)}><X size={16}/></button></div>}
 
-              {tab === 'dashboard' && <SectionTabs label="Dashboard panels" value={dashboardPane} onChange={setDashboardPane}
-                items={[{id:'holdings',label:'Holdings'},{id:'leaders',label:'Traders'},{id:'activity',label:'Activity'},{id:'market',label:'Market'}]}/>}
               {tab === 'trade' && <SectionTabs label="Trade panels" value={tradePane} onChange={setTradePane}
                 items={[{id:'stocks',label:'Stocks'},{id:'movers',label:'Movers'}]}/>}
               {tab === 'stock' && <div className="stock-page-controls">
@@ -331,49 +359,16 @@ function App() {
               </div>}
               {tab === 'portfolio' && <SectionTabs label="Portfolio panels" value={portfolioPane} onChange={setPortfolioPane}
                 items={[{id:'positions',label:'Positions'},{id:'orders',label:'Queued orders'}]}/>}
-              {tab === 'dashboard' ? <div className="overview-layout" data-pane={dashboardPane} aria-label="Portfolio dashboard">
-                <section className="panel overview-positions">
-                  <div className="panel-heading"><h2><Wallet size={18}/> Holdings</h2><button type="button" className="subtle-link" onClick={() => goToPage('portfolio')}>View all <ChevronRight size={14}/></button></div>
-                  <FitPager items={portfolio?.positions??[]} rowHeight={67} compactRowHeight={71} empty="No holdings."
-                    render={items=><div className="holding-list">{items.map(p=><div key={p.symbol} className="holding-row">
-                      <span className="holding-name"><span className="ticker-icon tiny">{p.symbol.slice(0,2)}</span><span>
-                        <strong>{p.symbol}</strong><small>{p.shares} shares · {p.quote.name}</small>
-                      </span></span>
-                      <span className="holding-value"><strong>{money(p.marketValueCents)}</strong>
-                        <small className={p.profitCents>=0?'positive':'negative'}>{signedMoney(p.profitCents)}</small>
-                      </span>
-                    </div>)}</div>}/>
-                </section>
-                <section className="panel overview-leaders leader-panel">
-                  <div className="panel-heading"><h2><Trophy size={18}/> Top traders</h2><button type="button" className="subtle-link" onClick={() => goToPage('leaderboard')}>Leaderboard <ChevronRight size={14}/></button></div>
-                  <FitPager items={leaders} rowHeight={58} compactRowHeight={64} empty="No traders yet."
-                    render={(items,start)=><div className="leaderboard-list">{items.map((leader,i)=><div key={leader.userId} className={'leader-row '+(leader.userId===account.id?'self':'')}>
-                      <span className="rank">{start+i+1}</span>
-                      <ProfileAvatar className="leader-avatar" url={leader.avatarUrl} name={leader.displayName}/>
-                      <span className="leader-name">{short(leader.displayName,16)}{leader.userId===account.id&&<small> YOU</small>}</span>
-                      <span className={leader.changeCents>=0?'leader-return positive':'leader-return negative'}>{pct((leader.changeCents/leader.startingCashCents)*100)}</span>
-                    </div>)}</div>}/>
-                </section>
-                <section className="panel overview-activity">
-                  <div className="panel-heading"><h2><Clock3 size={18}/> Recent trades</h2><button type="button" className="subtle-link" onClick={() => goToPage('history')}>View all <ChevronRight size={14}/></button></div>
-                  <FitPager items={trades} rowHeight={67} compactRowHeight={78} empty="No trades yet."
-                    render={items=><div className="activity-list">{items.map(order=><div className="activity-row" key={order.id}>
-                      <span><span className={'activity-action '+order.side.toLowerCase()}>{order.side}</span><span>
-                        <strong>{order.shares} {order.symbol} shares</strong><small>{new Date(order.executedAt*1000).toLocaleString()}</small>
-                      </span></span>
-                      <span><strong>{money(order.priceCents*order.shares)}</strong><small>{money(order.priceCents)} / share</small></span>
-                    </div>)}</div>}/>
-                </section>
-                <section className="panel overview-pulse">
-                  <div className="panel-heading"><h2><BarChart3 size={18}/> Market pulse</h2></div>
-                  <div className="pulse-summary"><div className="pulse-stat"><span>Advancing</span><strong className="positive">{gainers}</strong></div><div className="pulse-stat"><span>Declining</span><strong className="negative">{quotes.filter(q => q.changePct < 0).length}</strong></div></div>
-                  <FitPager items={[...quotes].sort((a,b)=>Math.abs(b.changePct)-Math.abs(a.changePct))} rowHeight={50} compactRowHeight={56} empty="No quotes."
-                    render={items=><div className="pulse-list">{items.map(q=><div key={q.symbol} className="pulse-row">
-                      <strong>{q.symbol} <small>{money(q.priceCents)}</small></strong>
-                      <span className={q.changePct>=0?'change positive':'change negative'}>{pct(q.changePct)}</span>
-                    </div>)}</div>}/>
-                </section>
-              </div> : tab === 'trade' ? <div className="trade-overview" data-pane={tradePane} aria-label="Market overview and stock selection">
+              {tab === 'dashboard' ? <TradingDashboard
+                portfolio={portfolio} quotes={quotes} trades={trades} achievements={achievements}
+                selectedSymbol={selectedSymbol} setSelectedSymbol={setSelectedSymbol}
+                onOpenStock={symbol=>openStock(symbol)} onNavigate={goToPage}
+                selected={selected} history={currentHistory?.data} historyError={currentHistory?.error}
+                range={historyRange} setRange={setHistoryRange}
+                side={side} setSide={setSide} shares={shares} setShares={setShares}
+                orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice}
+                total={total} canSubmit={canSubmitOrder} pending={pending} execute={()=>void execute()}
+              /> : tab === 'trade' ? <div className="trade-overview" data-pane={tradePane} aria-label="Market overview and stock selection">
                 <section className="panel market-panel trade-universe">
                   <div className="panel-heading"><h2><BarChart3 size={18}/> Stocks</h2><label className="search-field"><Search size={15}/><input aria-label="Search market symbols" placeholder="Search stocks" value={search} onChange={event => setSearch(event.target.value)}/></label></div>
                   <div className="stock-head"><span>COMPANY</span><span>LAST PRICE</span><span>DAY RANGE</span><span>CHANGE</span></div>
@@ -479,11 +474,6 @@ function App() {
     </div>
   );
 }
-
-function Stat({ title, value, sub, icon, valueClass = '', subClass = '' }: { title: string; value: string; sub?: string; icon: ReactNode; valueClass?: string; subClass?: string }) {
-  return <div className="stat-card"><div className="stat-top"><span>{title}</span><span className="stat-icon">{icon}</span></div><strong className={valueClass}>{value}</strong>{sub && <small className={subClass}>{sub}</small>}</div>;
-}
-
 
 function TradeTicket({selected,side,setSide,shares,setShares,total,positionShares,canTrade,pending,execute,portfolio,orderKind,setOrderKind,triggerPrice,setTriggerPrice,viewOrders}:{
   selected?:Quote;side:'BUY'|'SELL';setSide:(v:'BUY'|'SELL')=>void;shares:string;setShares:(v:string)=>void;

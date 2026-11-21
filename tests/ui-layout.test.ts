@@ -10,6 +10,8 @@ const fit=read('src/fit.css');
 const mobile=read('src/mobile.css');
 const base=read('src/style.css');
 const challenges=read('src/Challenges.tsx');
+const dashboard=read('src/TradingDashboard.tsx');
+const theme=read('src/terminal.css');
 
 test('all six routes keep desktop and phone navigation',()=>{
   const pages=['dashboard','trade','portfolio','leaderboard','history','challenges'] as const;
@@ -39,11 +41,14 @@ test('screen-fit stylesheet owns viewport sizing and disables scrolling',()=>{
 });
 
 test('every screen uses switches and paginated finite lists',()=>{
-  for (const label of ['Dashboard panels','Trade panels','Stock panels','Portfolio panels'])
+  for (const label of ['Trade panels','Stock panels','Portfolio panels'])
     assert.ok(app.includes(label),label);
+  assert.match(dashboard,/label="Dashboard sections"/);
+  assert.match(theme,/\.terminal-dashboard/);
   for (const id of ['holdings','leaders','activity','market','stocks','movers','chart','order','facts','positions','orders'])
     assert.match(fit,new RegExp('data-pane|'+id));
-  assert.ok((app.match(/<FitPager/g)??[]).length>=9);
+  assert.ok((app.match(/<FitPager/g)??[]).length>=5);
+  assert.ok((dashboard.match(/<FitPager/g)??[]).length>=4);
   assert.ok((challenges.match(/<FitPager/g)??[]).length>=3);
   assert.match(challenges,/Goals sections/);
   assert.doesNotMatch(challenges,/const \[review,setReview\]|prediction-panel|prediction-history/);
