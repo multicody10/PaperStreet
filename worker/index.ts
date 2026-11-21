@@ -60,7 +60,7 @@ app.get('/api/commands/status', async c => {
     FROM discord_command_registry WHERE name='portfolio'`)
     .first<{ version: number; checked_at: number; last_attempt_at: number; last_result: string }>();
   return noStore({
-    command: '/portfolio', registered: state?.version === 1 &&
+    command: '/portfolio', registered: state?.version === 2 &&
       (state.last_result === 'registered' || state.last_result === 'verified'),
     lastVerifiedAt: state?.checked_at ?? null,
     lastAttemptAt: state?.last_attempt_at ?? null,
