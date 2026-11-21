@@ -1,67 +1,20 @@
 import { useState } from 'react';
-import { Award, ArrowDownLeft, ArrowUpRight, CalendarClock, CheckCircle2, Clock3, Target, X } from 'lucide-react';
-import { STOCKS, type Quote, type SymbolCode } from '../shared/stocks';
-import type { Achievement, Prediction, PredictionDirection, PredictionSummary, QueuedOrder } from '../shared/gameplay';
+import { Award, CheckCircle2, Clock3, X } from 'lucide-react';
+import type { Quote, SymbolCode } from '../shared/stocks';
+import type { Achievement, QueuedOrder } from '../shared/gameplay';
 import { FitPager, SectionTabs } from './FitPager';
 import { money } from './PriceChart';
 
-const formatTime = (seconds:number) => new Date(seconds*1000).toLocaleString();
-const directions = [{id:'forecast',label:'Predict'}, {id:'history',label:'History'},
-  {id:'badges',label:'Badges'}, {id:'stocks',label:'Stocks'}] as const;
-type ChallengeTab = typeof directions[number]['id'];
+const formatTime=(seconds:number)=>new Date(seconds*1000).toLocaleString();
+const sections=[{id:'badges',label:'Achievements'},{id:'stocks',label:'Stocks'}] as const;
+type GoalsTab=typeof sections[number]['id'];
 
-export function Challenges({quotes,predictions,summary,achievements,pending,submit,openStock}:{
-  quotes:Quote[];predictions:Prediction[];summary:PredictionSummary;achievements:Achievement[];
-  pending:boolean;submit:(symbol:SymbolCode,direction:PredictionDirection)=>void;openStock:(symbol:SymbolCode)=>void;
+export function Challenges({quotes,achievements,openStock}:{
+  quotes:Quote[];achievements:Achievement[];openStock:(symbol:SymbolCode)=>void;
 }) {
-  const [tab,setTab]=useState<ChallengeTab>('forecast');
-  const [symbol,setSymbol]=useState<SymbolCode>('AAPL');
-  const [direction,setDirection]=useState<PredictionDirection>('UP');
-  const [review,setReview]=useState(false);
-  const quote=quotes.find(q=>q.symbol===symbol);
+  const [tab,setTab]=useState<GoalsTab>('badges');
   return <div className="challenge-layout fitted-panel" data-pane={tab}>
-    <SectionTabs items={directions} value={tab} onChange={setTab} label="Challenge sections"/>
-    <section className="panel prediction-panel">
-      <div className="panel-heading"><h2><Target size={18}/> Next session</h2><span className="count-pill">+10 PTS</span></div>
-      <div className="prediction-compose">
-        {!review ? <>
-          <label htmlFor="prediction-symbol" className="field-label">STOCK</label>
-          <select id="prediction-symbol" value={symbol} onChange={e=>setSymbol(e.target.value as SymbolCode)}>
-            {STOCKS.map(s=><option key={s.symbol} value={s.symbol}>{s.symbol} · {s.name}</option>)}
-          </select>
-          <div className="prediction-direction" role="group" aria-label="Direction">
-            <button type="button" aria-pressed={direction==='UP'} className={direction==='UP'?'active up':''} onClick={()=>setDirection('UP')}><ArrowUpRight size={19}/> Higher</button>
-            <button type="button" aria-pressed={direction==='DOWN'} className={direction==='DOWN'?'active down':''} onClick={()=>setDirection('DOWN')}><ArrowDownLeft size={19}/> Lower</button>
-          </div>
-          <button type="button" className="execute-button buy" disabled={!quote||quote.stale} onClick={()=>setReview(true)}>Review call</button>
-        </> : <>
-          <div className="prediction-price"><strong>{symbol} {direction==='UP'?'↑ Higher':'↓ Lower'}</strong><span>{quote?money(quote.priceCents):'Loading…'} reference</span></div>
-          <button type="button" className="execute-button buy" disabled={!quote||quote.stale||pending}
-            onClick={()=>submit(symbol,direction)}><Target size={17}/>{pending?'Submitting…':'Lock prediction'}</button>
-          <button type="button" className="subtle-link" onClick={()=>setReview(false)}>Back</button>
-          <p className="gameplay-hint">One call per stock per session. Verified closing quotes determine results.</p>
-        </>}
-      </div>
-    </section>
-    <section className="panel prediction-history">
-      <div className="panel-heading"><h2><CalendarClock size={18}/> Prediction history</h2></div>
-      <div className="prediction-totals">
-        <div><span>POINTS</span><strong>{summary.points}</strong></div>
-        <div><span>CORRECT</span><strong>{summary.correct}</strong></div>
-        <div><span>ACCURACY</span><strong>{summary.settled?Math.round(summary.correct/summary.settled*100)+'%':'—'}</strong></div>
-      </div>
-      <FitPager items={predictions} rowHeight={66} compactRowHeight={75} empty="No predictions yet."
-        render={items=><div className="prediction-list">{items.map(p=><div className="prediction-row" key={p.id}>
-          <div><strong>{p.symbol} <span className={p.direction==='UP'?'positive':'negative'}>{p.direction==='UP'?'↑ Higher':'↓ Lower'}</span></strong>
-            <small>{p.targetDate} · {money(p.basePriceCents)}</small></div>
-          <div className="prediction-outcome">
-            <strong className={p.outcome==='CORRECT'?'positive':p.outcome==='INCORRECT'?'negative':''}>
-              {p.outcome==='PENDING'?'Pending':p.outcome==='PUSH'?'Tie':p.outcome==='CORRECT'?'Correct':'Missed'}
-            </strong>
-            <small>{p.closePriceCents?money(p.closePriceCents)+' · ':''}{p.points>0?'+':''}{p.points} pts</small>
-          </div>
-        </div>)}</div>}/>
-    </section>
+    <SectionTabs items={sections} value={tab} onChange={setTab} label="Goals sections"/>
     <section className="panel achievement-panel">
       <div className="panel-heading"><h2><Award size={18}/> Achievements</h2>
         <span className="count-pill">{achievements.filter(a=>a.unlockedAt).length} / {achievements.length}</span></div>

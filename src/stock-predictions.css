@@ -1,0 +1,103 @@
+/* Per-stock forecasts live next to the trading chart, not on Goals. */
+.stock-prediction-panel{display:flex;flex-direction:column;min-width:0;min-height:0!important;overflow:hidden!important}
+.stock-prediction-panel .panel-heading{align-items:center}
+.stock-prediction-panel .panel-heading h2{min-width:0}
+.stock-prediction-panel .prediction-view-switch{min-height:28px;flex:none;gap:5px;padding:5px 8px}
+.stock-prediction-compose{
+  display:flex;flex:1;flex-direction:column;justify-content:center;
+  min-width:0;min-height:0;gap:7px;padding:7px 11px;
+  overflow:hidden;
+}
+.stock-prediction-quote{
+  display:flex;min-width:0;align-items:center;justify-content:space-between;
+  gap:8px;color:#9fb3b8;font-size:11px;
+}
+.stock-prediction-quote strong{font-size:clamp(14px,1.4vw,19px);color:#eefaf3;white-space:nowrap}
+.stock-prediction-panel .prediction-direction{flex:none;gap:6px}
+.stock-prediction-panel .prediction-direction button{min-height:34px;padding:5px 8px;font-size:12px}
+.stock-prediction-panel .execute-button{min-height:34px;flex:none;font-size:12px}
+.stock-prediction-note{font-size:11px;color:#f4b7bc;line-height:1.25}
+.stock-prediction-panel .fit-pager{flex:1;min-height:0}
+.stock-prediction-panel .prediction-list{height:100%;overflow:hidden!important}
+.stock-prediction-panel .prediction-row{min-width:0;min-height:0;gap:8px;padding:7px 9px}
+.stock-prediction-panel .prediction-row > span:first-child{min-width:0}
+.stock-prediction-panel .prediction-row strong{font-size:12px}
+.stock-prediction-panel .prediction-row small{font-size:10px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.stock-prediction-panel .prediction-outcome{min-width:0;text-align:right;flex:none}
+
+/* Desktop retains simultaneous chart, trade ticket and quote facts cards. */
+@media (min-width:761px) {
+  .stock-workspace{
+    grid-template-rows:minmax(0,1.4fr) minmax(0,.38fr) minmax(0,.82fr)!important;
+  }
+  .stock-workspace .chart-panel,
+  .stock-workspace[data-pane] .chart-panel{grid-area:1/1!important}
+  .stock-workspace .stock-quote-facts,
+  .stock-workspace[data-pane] .stock-quote-facts{grid-area:2/1!important}
+  .stock-workspace > .trade-panel-desktop,
+  .stock-workspace[data-pane] > .trade-panel-desktop{grid-area:1/2/4/3!important}
+  .stock-workspace > .stock-prediction-panel,
+  .stock-workspace[data-pane] > .stock-prediction-panel{
+    display:flex!important;grid-area:3/1;
+    min-width:0;min-height:0!important;height:100%;
+  }
+  .stock-workspace .stock-quote-facts .stock-fact{
+    padding:3px 7px!important;justify-content:center;
+  }
+  .stock-workspace .stock-quote-facts .stock-fact strong{font-size:11px!important;line-height:1.1}
+  .stock-workspace .stock-quote-facts .stock-fact span{font-size:9px}
+  .stock-workspace .stock-quote-facts .stock-fact small{font-size:9px;line-height:1.1}
+  .stock-prediction-panel .panel-heading{padding:5px 9px}
+  .stock-prediction-panel .prediction-view-switch{min-height:26px}
+
+  /* Goals now shows achievement progress and stock discovery only. */
+  .challenge-layout{
+    grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important;
+    grid-template-rows:minmax(0,1fr)!important;
+    align-content:stretch;
+  }
+  .challenge-layout > .achievement-panel,
+  .challenge-layout[data-pane] > .achievement-panel{
+    display:flex!important;grid-area:1/1!important;
+    min-width:0;min-height:0!important;
+  }
+  .challenge-layout > .challenge-explore,
+  .challenge-layout[data-pane] > .challenge-explore{
+    display:flex!important;grid-area:1/2!important;
+    min-width:0;min-height:0!important;
+  }
+  .challenge-layout .achievement-grid{grid-template-columns:1fr}
+}
+
+@media (min-width:761px) and (max-height:610px) {
+  .stock-workspace{grid-template-rows:minmax(0,1.3fr) minmax(0,.35fr) minmax(0,.82fr)!important}
+  .stock-prediction-panel .panel-heading{padding:3px 7px}
+  .stock-prediction-panel .prediction-view-switch{min-height:23px;padding:3px 6px}
+  .stock-prediction-compose{gap:4px;padding:3px 7px}
+  .stock-prediction-quote strong{font-size:14px}
+  .stock-prediction-panel .prediction-direction button{min-height:27px;padding:3px 5px}
+  .stock-prediction-panel .execute-button{min-height:28px}
+  .stock-workspace .stock-quote-facts .stock-fact{padding:2px 5px!important}
+}
+
+/* Phone: Predict is another stock tab. Goals remains achievement-only. */
+@media (max-width:760px) {
+  .stock-workspace > .stock-prediction-panel{display:none!important}
+  .stock-workspace[data-pane="predict"] > .stock-prediction-panel{
+    display:flex!important;flex:1;min-width:0;min-height:0!important;
+    height:100%;
+  }
+  .stock-prediction-panel .panel-heading{padding:8px 10px}
+  .stock-prediction-compose{justify-content:flex-start;gap:12px;padding:12px}
+  .stock-prediction-quote strong{font-size:20px}
+  .stock-prediction-panel .prediction-direction button{min-height:43px}
+  .stock-prediction-panel .execute-button{min-height:44px}
+  .challenge-layout > .prediction-panel,
+  .challenge-layout > .prediction-history{display:none!important}
+}
+
+@media (max-width:760px) and (max-height:560px) {
+  .stock-prediction-compose{gap:7px;padding:8px}
+  .stock-prediction-panel .prediction-direction button{min-height:34px}
+  .stock-prediction-panel .execute-button{min-height:35px}
+}

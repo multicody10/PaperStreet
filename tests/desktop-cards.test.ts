@@ -42,17 +42,25 @@ test('stock has chart, quote facts and full desktop ticket without mobile wizard
   assert.match(cards,/@media \(max-width:760px\)\s*\{[\s\S]*?\.stock-workspace > \.trade-panel-desktop\{display:none!important\}/);
 });
 
-test('portfolio and Challenges restore multiple simultaneous desktop cards',()=>{
+test('Goals keeps achievements and stock discovery while predictions move to stocks',()=>{
   assert.match(app,/portfolio-stack/);
   assert.match(cards,/\.details-stack\.portfolio-stack > \.orders-panel,[\s\S]*?display:flex!important/);
   assert.match(cards,/\.details-stack\.portfolio-stack > \.details-panel,[\s\S]*?display:flex!important/);
-  for(const section of ['prediction-panel','prediction-history','achievement-panel','challenge-explore'])
+  for(const section of ['achievement-panel','challenge-explore'])
     assert.ok(challenge.includes('className="panel '+section+'"'),section);
+  assert.doesNotMatch(challenge,/className="panel (?:prediction-panel|prediction-history)"/);
   assert.match(challenge,/className="challenge-layout fitted-panel" data-pane=\{tab\}/);
-  assert.doesNotMatch(challenge,/\{tab==='(?:forecast|history|badges|stocks)' &&/);
-  assert.match(cards,/\.challenge-layout > \.panel,[\s\S]*?display:flex!important/);
-  assert.match(cards,/\.challenge-layout\[data-pane\] > \.panel\{display:none!important\}/);
-  assert.match(cards,/\.challenge-layout\[data-pane="stocks"\] > \.challenge-explore/);
+  assert.match(challenge,/label="Goals sections"/);
+  const forecast=source('src/StockPredictions.tsx');
+  const stockCss=source('src/stock-predictions.css');
+  assert.match(app,/<StockPredictions key=\{selectedSymbol\}/);
+  assert.match(forecast,/aria-label=\{'Stock predictions for '\+symbol\}/);
+  assert.match(forecast,/predictionsForStock\(predictions,symbol\)/);
+  assert.match(stockCss,/@media \(min-width:761px\)/);
+  assert.match(stockCss,/\.stock-workspace > \.stock-prediction-panel,[\s\S]*?grid-area:3\/1/);
+  assert.match(stockCss,/\.challenge-layout > \.achievement-panel,[\s\S]*?grid-area:1\/1/);
+  assert.match(stockCss,/\.challenge-layout > \.challenge-explore,[\s\S]*?grid-area:1\/2/);
+  assert.match(stockCss,/\.stock-workspace\[data-pane="predict"\] > \.stock-prediction-panel/);
 });
 
 test('no-scroll viewport and mobile section controls remain intact',()=>{
@@ -63,7 +71,7 @@ test('no-scroll viewport and mobile section controls remain intact',()=>{
   assert.match(app,/label="Trade panels"/);
   assert.match(app,/label="Stock panels"/);
   assert.match(app,/label="Portfolio panels"/);
-  assert.match(challenge,/label="Challenge sections"/);
+  assert.match(challenge,/label="Goals sections"/);
   assert.match(cards,/\.content-wrap > \.screen-tabs,[\s\S]*?display:none!important/);
   assert.match(cards,/@media \(min-width:761px\) and \(max-height:610px\)/);
 });

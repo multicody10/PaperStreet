@@ -44,10 +44,12 @@ test('every screen uses switches and paginated finite lists',()=>{
   for (const id of ['holdings','leaders','activity','market','stocks','movers','chart','order','facts','positions','orders'])
     assert.match(fit,new RegExp('data-pane|'+id));
   assert.ok((app.match(/<FitPager/g)??[]).length>=9);
-  assert.ok((challenges.match(/<FitPager/g)??[]).length>=4);
-  assert.match(challenges,/Challenge sections/);
-  assert.match(challenges,/const \[review,setReview\]/);
+  assert.ok((challenges.match(/<FitPager/g)??[]).length>=3);
+  assert.match(challenges,/Goals sections/);
+  assert.doesNotMatch(challenges,/const \[review,setReview\]|prediction-panel|prediction-history/);
   assert.match(app,/const \[step,setStep\]=useState<0\|1\|2>\(0\)/);
   assert.match(app,/<SectionTabs label="Stock panels"/);
+  assert.match(app,/\{id:\x27predict\x27,label:\x27Predict\x27\}/);
+  assert.match(app,/import \{ StockPredictions \} from \x27\.\/StockPredictions\x27/);
   assert.match(app,/<div className="chart-identity"><h1>\{selectedSymbol\}<\/h1>/);
 });

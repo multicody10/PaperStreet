@@ -12,8 +12,9 @@ import { HISTORY_RANGES, STARTING_CASH_CENTS } from '../shared/stocks';
 import { appHash, parseAppHash, type Page, type View } from './navigation';
 import { DayRange, money, PriceChart } from './PriceChart';
 import { Challenges, OrderList } from './Challenges';
+import { StockPredictions } from './StockPredictions';
 import { FitPager, SectionTabs } from './FitPager';
-import type { Achievement, OrderKind, Prediction, PredictionDirection, PredictionSummary, QueuedOrder } from '../shared/gameplay';
+import type { Achievement, OrderKind, Prediction, PredictionDirection, QueuedOrder } from '../shared/gameplay';
 import './style.css';
 import './mobile.css';
 import './gameplay.css';
@@ -21,6 +22,7 @@ import './desktop.css';
 import './layout.css';
 import './fit.css';
 import './desktop-cards.css';
+import './stock-predictions.css';
 
 type Config = { clientId: string | null; provider: 'finnhub'; dataConfigured: boolean; startingCashCents: number };
 type Account = { id: string; displayName: string; avatarUrl: string };
@@ -34,7 +36,7 @@ const links: { id: Page; label: string; icon: typeof LayoutDashboard; mobileLabe
   { id: 'portfolio', label: 'Portfolio', icon: Wallet },
   { id: 'leaderboard', label: 'Leaderboard', mobileLabel: 'Ranks', icon: Trophy },
   { id: 'history', label: 'History', icon: Clock3 },
-  { id: 'challenges', label: 'Challenges', mobileLabel: 'Goals', icon: Award },
+  { id: 'challenges', label: 'Goals', mobileLabel: 'Goals', icon: Award },
 ];
 
 async function request<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
@@ -70,7 +72,6 @@ function App() {
   const [triggerPrice, setTriggerPrice] = useState('');
   const [orders, setOrders] = useState<QueuedOrder[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [predictionSummary, setPredictionSummary] = useState<PredictionSummary>({points:0,correct:0,settled:0});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [forecastPending, setForecastPending] = useState(false);
   const [cancelingOrder, setCancelingOrder] = useState<number | null>(null);
@@ -82,7 +83,7 @@ function App() {
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
   const [dashboardPane, setDashboardPane] = useState<'holdings'|'leaders'|'activity'|'market'>('holdings');
   const [tradePane, setTradePane] = useState<'stocks'|'movers'>('stocks');
-  const [stockPane, setStockPane] = useState<'chart'|'order'|'facts'>('chart');
+  const [stockPane, setStockPane] = useState<'chart'|'order'|'facts'|'predict'>('chart');
   const [portfolioPane, setPortfolioPane] = useState<'positions'|'orders'>('positions');
   const historyKey = `${selectedSymbol}:${historyRange}`;
   const currentHistory = history?.key === historyKey ? history : undefined;
@@ -130,10 +131,10 @@ function App() {
       jobs.push(request<{ trades: Trade[] }>('/api/history', session).then(({ trades }) => setTrades(trades)));
     if (view === 'dashboard' || view === 'stock' || view === 'portfolio')
       jobs.push(request<{ orders: QueuedOrder[] }>('/api/orders', session).then(({ orders }) => setOrders(orders)));
-    if (view === 'dashboard' || view === 'challenges') {
-      jobs.push(request<{ predictions: Prediction[]; summary: PredictionSummary }>('/api/predictions', session).then(({ predictions,summary }) => { setPredictions(predictions); setPredictionSummary(summary); }));
+    if (view === 'stock')
+      jobs.push(request<{ predictions: Prediction[] }>('/api/predictions', session).then(({ predictions }) => setPredictions(predictions)));
+    if (view === 'challenges')
       jobs.push(request<{ achievements: Achievement[] }>('/api/achievements', session).then(({ achievements }) => setAchievements(achievements)));
-    }
     const results = await Promise.allSettled(jobs);
     const failure = results.find(result => result.status === 'rejected');
     if (failure?.status === 'rejected')
@@ -255,13 +256,13 @@ function App() {
   }
 
   async function submitForecast(symbol: SymbolCode, direction: PredictionDirection) {
-    if (!token || forecastPending) return;
+    if (!token || tab !== 'stock' || symbol !== selectedSymbol || forecastPending) return;
     setForecastPending(true);
     setFeedback(null);
     try {
       await request('/api/predictions',token,{method:'POST',body:JSON.stringify({symbol,direction})});
       setFeedback({kind:'ok',message:'Prediction locked for the next trading session.'});
-      await refresh(token,'challenges');
+      await refresh(token,'stock');
     } catch(error) { setFeedback({kind:'error',message:errorMessage(error)}); }
     finally { setForecastPending(false); }
   }
@@ -281,7 +282,7 @@ function App() {
   const title = tab === 'dashboard' ? 'Dashboard' :
     tab === 'trade' ? 'Trade' :
     tab === 'portfolio' ? 'Portfolio' :
-    tab === 'challenges' ? 'Challenges' :
+    tab === 'challenges' ? 'Goals' :
     tab === 'leaderboard' ? 'Leaderboard' :
     tab === 'history' ? 'History' : selected?.name ?? selectedSymbol;
 
@@ -326,7 +327,7 @@ function App() {
               {tab === 'stock' && <div className="stock-page-controls">
                 <button type="button" className="stock-back" onClick={() => goToPage('trade')}><ArrowLeft size={16}/> All stocks</button>
                 <SectionTabs label="Stock panels" value={stockPane} onChange={setStockPane}
-                  items={[{id:'chart',label:'Chart'},{id:'order',label:'Order'},{id:'facts',label:'Details'}]}/>
+                  items={[{id:'chart',label:'Chart'},{id:'order',label:'Order'},{id:'facts',label:'Details'},{id:'predict',label:'Predict'}]}/>
               </div>}
               {tab === 'portfolio' && <SectionTabs label="Portfolio panels" value={portfolioPane} onChange={setPortfolioPane}
                 items={[{id:'positions',label:'Positions'},{id:'orders',label:'Queued orders'}]}/>}
@@ -418,7 +419,9 @@ function App() {
                 </div>
                 <TradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
                 <DesktopTradeTicket selected={selected} side={side} setSide={setSide} shares={shares} setShares={setShares} total={total} positionShares={position?.shares ?? 0} canTrade={canSubmitOrder} pending={pending} execute={execute} portfolio={portfolio} orderKind={effectiveOrderKind} setOrderKind={setOrderKind} triggerPrice={triggerPrice} setTriggerPrice={setTriggerPrice} viewOrders={() => goToPage('portfolio')}/>
-              </div> : tab === 'challenges' ? <Challenges quotes={quotes} predictions={predictions} summary={predictionSummary} achievements={achievements} pending={forecastPending} submit={(symbol,direction) => void submitForecast(symbol,direction)} openStock={openStock}/> : <div className={tab === 'portfolio' ? 'details-stack portfolio-stack' : 'details-stack'} data-pane={tab === 'portfolio' ? portfolioPane : 'positions'}>
+                <StockPredictions key={selectedSymbol} symbol={selectedSymbol} quote={selected} predictions={predictions}
+                  pending={forecastPending} submit={(symbol,direction)=>void submitForecast(symbol,direction)}/>
+              </div> : tab === 'challenges' ? <Challenges quotes={quotes} achievements={achievements} openStock={openStock}/> : <div className={tab === 'portfolio' ? 'details-stack portfolio-stack' : 'details-stack'} data-pane={tab === 'portfolio' ? portfolioPane : 'positions'}>
                 {tab === 'portfolio' && <OrderList orders={orders} onCancel={id => void cancelQueuedOrder(id)} canceling={cancelingOrder}/>}
                 <section className="panel details-panel">
                   <div className="panel-heading details-heading">
