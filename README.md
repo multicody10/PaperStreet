@@ -7,7 +7,8 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 ## Features
 
 - Native Discord Activity authentication using the Embedded App SDK and Discord OAuth2.
-- **`/portfolio` slash command:** a polished Discord embed containing the invoking trader's equity, cash, invested value, all-time return and holdings, valued using genuine cached Finnhub prices. Supports user installs in servers, direct messages and group DMs, as well as guild installs. It never accepts another user's ID and does not change Discord's Activity Launch command.
+- **`/paperstreet` slash command:** opens PaperStreet directly from servers, DMs and group DMs via Discord's `LAUNCH_ACTIVITY` interaction response, without posting a game invitation. The default **Play / Launch** entry point uses the same silent handler. Players can still invite friends manually.
+- **`/portfolio` slash command:** a polished Discord embed containing the invoking trader's equity, cash, invested value, all-time return and holdings, valued using genuine cached Finnhub prices. Supports user installs in servers, direct messages and group DMs, as well as guild installs. It never accepts another user's ID. A separate `/paperstreet` command launches the game, while the Activity's default Play entry point is configured to avoid automatic invitations.
 - Immediate market buys and sells during regular US trading hours plus persistent queued market, limit and stop orders, including weekends and holidays, for the 12 supported stocks/ETFs.
 - **Next-session predictions:** choose higher or lower than a verified reference quote, earn ten points for correct direction, and track prediction accuracy. The existing quote history resolves predictions only from verified session-closing prints, on the next open-market schedule after the predicted session.
 - **Goals and achievements:** a screenshot-inspired progress dashboard with real achievement counts, completed and active objectives, a 10% portfolio-return milestone, four featured achievement cards, completion ring, category filters, detailed progress table and recent unlocks. The activity does not invent XP, levels or streaks.
@@ -37,7 +38,7 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 2. Under **OAuth2**, add `https://127.0.0.1` as a redirect URI. The Embedded App SDK manages the Activity's authorize redirect automatically.
 3. Under **Activities → Settings**, enable Activities.
 4. Under **Activities → URL Mappings**, map `/` to your deployed Worker hostname, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, without `https://`). Requests to `/api/*` use the same mapped origin.
-5. Configure the application's installation settings so players can launch PaperStreet using Discord's default Activity **Play / Launch** entry point. The `/portfolio` slash command does not modify that handler.
+5. Configure the application's installation settings so players can launch PaperStreet using the **Play / Launch** entry point. Each successful deployment switches the existing Discord Entry Point to `APP_HANDLER` and the signed interactions endpoint replies `LAUNCH_ACTIVITY`, launching the game without posting an invitation. The separate `/paperstreet` slash command launches the same way.
 6. Under **General Information → Interactions Endpoint URL**, set `https://paperstreet.gobydev.workers.dev/api/discord/interactions`. The endpoint verifies Discord's Ed25519 signature and responds to Discord's signed PING. If this URL was already configured, you do not need to change it.
 7. Ensure `DISCORD_PUBLIC_KEY` is configured as a Worker secret from your application's **General Information** public key. The **Deploy PaperStreet** GitHub Actions workflow registers and verifies `/portfolio` immediately after deploying the Worker. It securely authenticates to the Worker using GitHub's short-lived OIDC token, and the Worker uses the existing `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` secrets. No local credential file, duplicate GitHub Discord secrets, Gateway bot, or paid plan is required.
 8. Open `https://paperstreet.gobydev.workers.dev/api/commands/status` to inspect the registration status and any nonsecret error code. A successful deployment includes Discord command registration in its checks. Once `registered: true`, use `/portfolio` in Discord. Global commands can take some time to appear in clients.
@@ -58,7 +59,7 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
    - `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account ID.
 4. In [PaperStreet GitHub Actions variables](https://github.com/multicody10/PaperStreet/settings/variables/actions), create one repository **variable**:
    - `PAPERSTREET_D1_DATABASE_ID`: the D1 database UUID from step 1. This identifier is not a credential.
-5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment. The final workflow step also registers and verifies Discord slash commands, reporting a failure if registration fails. The deployed Worker can remain live even when this last step reports an error.
+5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment. The final workflow step registers and verifies `/portfolio`, `/paperstreet`, and the silent Play handler, reporting failure if any registration fails. The deployed Worker can remain live even when this last step reports an error.
 6. **Before activating the real market** obtain a quote provider key and written approval to display/redistribute its market data to your Discord players (details in section 3). In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
    - `DISCORD_CLIENT_ID`: your Discord Application ID.
    - `DISCORD_PUBLIC_KEY`: Discord's application public key, needed to verify signed slash command interactions.
@@ -148,7 +149,7 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 | --- | --- | --- |
 | `GET /api/health` | Public | Health check |
 | `POST /api/discord/interactions` | Discord Ed25519 signature | Signed `/portfolio` invocation and PING; deferred embed response |
-| `POST /api/internal/register-commands` | Verified GitHub Actions OIDC deployment token | Register and verify `/portfolio` as the final deployment step; never changes Launch |
+| `POST /api/internal/register-commands` | Verified GitHub Actions OIDC deployment token | Register and verify `/portfolio`, `/paperstreet` and the silent Play handler |
 | `GET /api/commands/status` | Public | Nonsecret command registration status |
 | `GET /api/config` | Public | Discord application ID, real provider and readiness |
 | `POST /api/auth` | OAuth code | Exchange with Discord; issue signed game session |

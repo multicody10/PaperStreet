@@ -134,6 +134,16 @@ export async function portfolioInteraction(
   const interaction = await verifyDiscordRequest(request, env.DISCORD_PUBLIC_KEY ?? '');
   if (!interaction) return new Response('Invalid Discord signature', { status: 401 });
   if (interaction.type === 1) return Response.json({ type: 1 });
+
+  // Both the APP_HANDLER primary entry point and /paperstreet launch the
+  // Activity without sending a message or requiring a channel invitation.
+  // Requests are already authenticated by Discord's Ed25519 signature.
+  if (interaction.type === 2 && interaction.application_id === env.DISCORD_CLIENT_ID &&
+      (interaction.data?.type === 4 ||
+       (interaction.data?.type === 1 && interaction.data.name === 'paperstreet'))) {
+    return Response.json({ type: 12 });
+  }
+
   const userId = interaction.member?.user?.id ?? interaction.user?.id;
   if (typeof interaction.application_id !== 'string' || interaction.application_id !== env.DISCORD_CLIENT_ID ||
     interaction.type !== 2 || interaction.data?.type !== 1 ||
