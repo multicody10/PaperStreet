@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { portfolioInteraction } from './commands';
-import { ensurePortfolioCommand } from './registration';
+import { deployPortfolioCommand } from './registration';
+import { verifyProductionDeployIdentity } from './deploy-identity';
 import { loadPortfolio } from './portfolio';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
@@ -21,6 +22,24 @@ const noStore = (body: object, status: 200 | 400 | 401 | 409 | 422 | 429 | 503 =
 app.post('/api/discord/interactions',
   bodyLimit({ maxSize: 32 * 1024, onError: c => c.text('Payload too large', 413) }),
   c => portfolioInteraction(c.req.raw, c.env, c.executionCtx));
+
+// After Wrangler deploy, only the signed GitHub Actions production workflow
+// may register slash commands. This endpoint cannot update the Activity Launch.
+app.post('/api/internal/register-commands', async c => {
+  const allowed = await verifyProductionDeployIdentity(
+    c.req.header('Authorization'), c.req.url,
+  );
+  if (!allowed) return noStore({ error: 'unauthorized_deployment' }, 401);
+  try {
+    const result = await deployPortfolioCommand(c.env);
+    return noStore({ command: '/portfolio', result });
+  } catch (error) {
+    const category = error instanceof Error && /^(?:missing_discord_configuration|(?:oauth|list|create)_(?:network_error|invalid_response|http_\d{3}))$/.test(error.message)
+      ? error.message : 'registration_failed';
+    console.error('PaperStreet command deployment failed:', category);
+    return noStore({ error: category }, 503);
+  }
+});
 
 app.use('/api/*', async (c, next) => {
   if (!['/api/config', '/api/auth', '/api/health', '/api/commands/status'].includes(c.req.path)) {
@@ -182,8 +201,6 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
-    ctx.waitUntil(ensurePortfolioCommand(env, Math.floor(controller.scheduledTime / 1000))
-      .catch(() => console.error('PaperStreet /portfolio registration task failed')));
     if (!env.FINNHUB_API_KEY || !isUsMarketOpen(Math.floor(controller.scheduledTime / 1000))) return;
     // Cron collects real quotes on weekdays without a connected user; no fake backfill.
     ctx.waitUntil(allQuotes(env).then(() => {}).catch(error => {

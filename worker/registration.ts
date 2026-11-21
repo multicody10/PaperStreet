@@ -65,23 +65,20 @@ function safeError(error: unknown): string {
   return 'unexpected_error';
 }
 
-export async function ensurePortfolioCommand(
+// Called only by an authenticated GitHub deployment. No scheduler, cooldown or
+// user-facing route can mutate registered commands.
+export async function deployPortfolioCommand(
   env: RegistrationEnv, now = Math.floor(Date.now() / 1000),
-): Promise<void> {
-  const row = await env.DB.prepare(`SELECT version,checked_at,last_attempt_at,last_result
-    FROM discord_command_registry WHERE name=?`).bind(NAME).first<CommandRow>();
-  if (row && now - row.last_attempt_at >= 0 && now - row.last_attempt_at < 900) return;
-  if (row?.version === VERSION && now - row.checked_at >= 0 &&
-    now - row.checked_at < 86400) return;
-
-  let outcome: string;
+): Promise<'registered' | 'verified'> {
   if (!env.DISCORD_CLIENT_ID || !/^\d{15,22}$/.test(env.DISCORD_CLIENT_ID) ||
     !env.DISCORD_CLIENT_SECRET || !/^[0-9a-f]{64}$/i.test(env.DISCORD_PUBLIC_KEY ?? '')) {
-    outcome = 'missing_discord_configuration';
-  } else {
-    try { outcome = await register(env); }
-    catch (error) { outcome = safeError(error); }
+    throw new Error('missing_discord_configuration');
   }
+  const previous = await env.DB.prepare(`SELECT version,checked_at,last_attempt_at,last_result
+    FROM discord_command_registry WHERE name=?`).bind(NAME).first<CommandRow>();
+  let outcome: string;
+  try { outcome = await register(env); }
+  catch (error) { outcome = safeError(error); }
   const success = outcome === 'registered' || outcome === 'verified';
   await env.DB.prepare(`INSERT INTO discord_command_registry
     (name,version,checked_at,last_attempt_at,last_result)
@@ -89,8 +86,9 @@ export async function ensurePortfolioCommand(
     ON CONFLICT(name) DO UPDATE SET
       version=excluded.version,checked_at=excluded.checked_at,
       last_attempt_at=excluded.last_attempt_at,last_result=excluded.last_result`)
-    .bind(NAME, success ? VERSION : (row?.version ?? 0),
-      success ? now : (row?.checked_at ?? 0), now, outcome).run();
-  if (success) console.info('PaperStreet /portfolio command registration', outcome);
-  else console.warn('PaperStreet /portfolio command registration failed', outcome);
+    .bind(NAME, success ? VERSION : (previous?.version ?? 0),
+      success ? now : (previous?.checked_at ?? 0), now, outcome).run();
+  if (!success) throw new Error(outcome);
+  console.info('PaperStreet /portfolio command verified during deployment:', outcome);
+  return outcome as 'registered' | 'verified';
 }

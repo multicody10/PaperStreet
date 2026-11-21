@@ -28,8 +28,8 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 4. Under **Activities → URL Mappings**, map `/` to your deployed Worker hostname, e.g. `paperstreet.YOUR_SUBDOMAIN.workers.dev` (hostname only, without `https://`). Requests to `/api/*` use the same mapped origin.
 5. Configure the application's installation settings so players can launch PaperStreet using Discord's default Activity **Play / Launch** entry point. The `/portfolio` slash command does not modify that handler.
 6. Under **General Information → Interactions Endpoint URL**, set `https://paperstreet.gobydev.workers.dev/api/discord/interactions`. The endpoint verifies Discord's Ed25519 signature and responds to Discord's signed PING. If this URL was already configured, you do not need to change it.
-7. Ensure `DISCORD_PUBLIC_KEY` is configured as a Worker secret from your application's **General Information** public key. The five-minute Worker schedule registers `/portfolio` using the existing `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` Worker secrets. No local credential file, gateway bot, or paid plan is required.
-8. Open `https://paperstreet.gobydev.workers.dev/api/commands/status` to inspect the registration status and any nonsecret error code. Once `registered: true`, use `/portfolio` in Discord. Global commands can take some time to appear in clients.
+7. Ensure `DISCORD_PUBLIC_KEY` is configured as a Worker secret from your application's **General Information** public key. The **Deploy PaperStreet** GitHub Actions workflow registers and verifies `/portfolio` immediately after deploying the Worker. It securely authenticates to the Worker using GitHub's short-lived OIDC token, and the Worker uses the existing `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` secrets. No local credential file, duplicate GitHub Discord secrets, Gateway bot, or paid plan is required.
+8. Open `https://paperstreet.gobydev.workers.dev/api/commands/status` to inspect the registration status and any nonsecret error code. A successful deployment includes Discord command registration in its checks. Once `registered: true`, use `/portfolio` in Discord. Global commands can take some time to appear in clients.
 
 
 ## 2. Automatic Cloudflare deployment with GitHub Actions
@@ -45,7 +45,7 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
    - `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account ID.
 4. In [PaperStreet GitHub Actions variables](https://github.com/multicody10/PaperStreet/settings/variables/actions), create one repository **variable**:
    - `PAPERSTREET_D1_DATABASE_ID`: the D1 database UUID from step 1. This identifier is not a credential.
-5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment.
+5. Merge this workflow into `main` (or choose **Run workflow**). The first deployment creates the `paperstreet` Worker, applies `migrations/0001_init.sql` to the remote D1 database, and prints the new `*.workers.dev` URL in the Actions logs. Later runs apply **only pending** migrations. A failed test or migration prevents deployment. The final workflow step also registers and verifies Discord slash commands, reporting a failure if registration fails. The deployed Worker can remain live even when this last step reports an error.
 6. **Before activating the real market** obtain a quote provider key and written approval to display/redistribute its market data to your Discord players (details in section 3). In **Cloudflare → Workers & Pages → paperstreet → Settings → Variables and Secrets**, add the following **Worker secrets**, then save/deploy the settings:
    - `DISCORD_CLIENT_ID`: your Discord Application ID.
    - `DISCORD_PUBLIC_KEY`: Discord's application public key, needed to verify signed slash command interactions.
@@ -54,7 +54,7 @@ Once set up, **every push or merged PR to `main` automatically tests, migrates D
    - `FINNHUB_API_KEY`: an authorized Finnhub API key, stored as **Secret**. Without this key PaperStreet displays no prices and disables trading.
 7. Configure **Discord Developer Portal → Activities → URL Mappings** with `/` mapped to your deployed Worker hostname as described in section 1. Test launch from Discord.
 
-**Security:** The GitHub token deploys the project and updates the database, but does **not** need your Discord credentials. Set Discord secrets on the **Cloudflare Worker**, not in GitHub or `wrangler.jsonc`. `PAPERSTREET_D1_DATABASE_ID` is substituted into the runner's temporary Wrangler configuration before build; the tracked placeholder is never committed as a real database ID. Deployment secrets are exposed only to the migration and deploy commands, not to dependency installation or tests. Do not separately connect a Cloudflare Workers Builds Git integration to the same Worker; otherwise two deployment systems could race.
+**Security:** The deploy job requests a short-lived GitHub Actions OIDC identity token (`id-token: write`) and the Worker verifies its signature, repository ID, branch, and deploy workflow before allowing command registration. Discord secrets remain in Cloudflare; GitHub Actions never reads them. The GitHub token deploys the project and updates the database, but does **not** need your Discord credentials. Set Discord secrets on the **Cloudflare Worker**, not in GitHub or `wrangler.jsonc`. `PAPERSTREET_D1_DATABASE_ID` is substituted into the runner's temporary Wrangler configuration before build; the tracked placeholder is never committed as a real database ID. Deployment secrets are exposed only to the migration and deploy commands, not to dependency installation or tests. Do not separately connect a Cloudflare Workers Builds Git integration to the same Worker; otherwise two deployment systems could race.
 
 ### Optional manual deployment and development
 
@@ -114,7 +114,7 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 ## Resource design and constraints
 
 - Single Worker + static SPA, no separate Pages project or always-running bot process.
-- Indexed D1 tables and persistent history, batched market snapshot reads, coalesced quote fetches, and a single five-minute Free-plan Cron Trigger for both quote collection during market hours and idempotent `/portfolio` command registration. No paid background queues, paid cache products or 24-hour compute process.
+- Indexed D1 tables and persistent history, batched market snapshot reads, coalesced quote fetches, and a single five-minute Free-plan Cron Trigger **only for quote collection during market hours**. Slash commands are registered once per production deployment using GitHub Actions OIDC. No paid background queues, paid cache products or 24-hour compute process.
 - `GET /api/market` is scoped to a signed account; `POST /api/trade` obtains the execution quote itself rather than accepting a client supplied price. The client supplied expected price is only a slippage guard.
 - Only the 12 preselected symbols are tradeable. Full market search and instant quote streaming would exceed the intended zero cost design.
 - Free tiers have enforceable limits. If player volume grows, additional HTTP request rate limiting, data rights and provider access may be necessary.
@@ -125,6 +125,7 @@ Discord avatars are displayed in the account header, compact leaderboard, and fu
 | --- | --- | --- |
 | `GET /api/health` | Public | Health check |
 | `POST /api/discord/interactions` | Discord Ed25519 signature | Signed `/portfolio` invocation and PING; deferred embed response |
+| `POST /api/internal/register-commands` | Verified GitHub Actions OIDC deployment token | Register and verify `/portfolio` as the final deployment step; never changes Launch |
 | `GET /api/commands/status` | Public | Nonsecret command registration status |
 | `GET /api/config` | Public | Discord application ID, real provider and readiness |
 | `POST /api/auth` | OAuth code | Exchange with Discord; issue signed game session |
