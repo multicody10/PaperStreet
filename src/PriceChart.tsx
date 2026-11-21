@@ -15,7 +15,8 @@ const historyMessages = {
   intraday_only: '1D uses observed intraday prices only',
   pending: 'Historical import pending',
   imported: '',
-  rate_limited: 'History provider rate limited',
+  burst_limited: 'Waiting for history request slot',
+  rate_limited: 'Alpha Vantage daily request limit reached',
   premium_required: 'History endpoint requires a paid provider plan',
   invalid_key: 'History provider rejected API key',
   provider_error: 'History provider rejected the request',
@@ -48,7 +49,8 @@ function historyBackfillMessage(history?: ChartHistory): string | null {
   if(!message) return null;
   const retry=nextAttemptAt && nextAttemptAt>Date.now()/1000 &&
     !['not_configured','intraday_only'].includes(code)
-    ? ' · Retry '+new Date(nextAttemptAt*1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})
+    ? (['rate_limited','quota_exhausted'].includes(code)?' · Next check ':' · Retry ')
+      +new Date(nextAttemptAt*1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})
     : '';
   return message+retry;
 }
