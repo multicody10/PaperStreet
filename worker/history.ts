@@ -52,7 +52,7 @@ export function parseHistoricalSeries(raw:unknown,resolution:Resolution,now:numb
 
 
 export type HistoryBackfillCode =
-  'not_configured'|'intraday_only'|'pending'|'imported'|'rate_limited'|'premium_required'|
+  'not_configured'|'intraday_only'|'pending'|'imported'|'burst_limited'|'rate_limited'|'premium_required'|
   'invalid_key'|'provider_error'|'invalid_response'|'quota_exhausted'|'http_error'|
   'network_error'|'storage_error';
 export type HistoryBackfillState = {
@@ -70,7 +70,11 @@ export function classifyHistoryResponse(payload:unknown):HistoryBackfillCode {
     .join(' ').toLowerCase();
   // Rate-limit responses often link to the premium pricing page; the
   // existence of that link does not mean the free endpoint is premium-only.
-  if(/rate limit|requests per day|call frequency|quota|too many requests/.test(info))return 'rate_limited';
+  // Alpha Vantage's ~1 request/second warning also mentions its 25/day free
+  // limit. Match the short-term warning first or we defer needlessly until UTC midnight.
+  if(/spreading out|sparingly|per.second|per.minute|requests?\/second|requests?\/minute|call frequency/.test(info))
+    return 'burst_limited';
+  if(/rate limit|requests per day|daily limit|quota|too many requests/.test(info))return 'rate_limited';
   if(/premium endpoint|premium plan|premium subscription|upgrade to premium|paid plan/.test(info))
     return 'premium_required';
   if(/invalid (?:api )?key|api key is invalid|apikey is invalid|invalid authentication|authentication failed/.test(info))
@@ -80,8 +84,9 @@ export function classifyHistoryResponse(payload:unknown):HistoryBackfillCode {
 
 export function nextHistoryAttempt(now:number,code:HistoryBackfillCode,resolution:Resolution):number {
   if(code==='imported')return now+(resolution==='daily'?DAY:7*DAY);
+  if(code==='burst_limited')return now+15; // Brief pause, not a daily quota failure.
   if(code==='rate_limited'||code==='quota_exhausted')
-    return Math.floor(now/DAY)*DAY+DAY+60; // Respect free provider's daily usage reset.
+    return Math.floor(now/DAY)*DAY+DAY+60; // Conservative next check; actual provider reset is not guaranteed.
   if(code==='premium_required')return now+12*3600;
   if(code==='invalid_key')return now+3600;
   return now+10*60; // Recover from transient network, timeout or malformed responses.
@@ -96,7 +101,7 @@ export async function historyBackfillStatus(
     FROM historical_backfill_state WHERE symbol=? AND resolution=?`)
     .bind(symbol,resolution).first<BackfillRow>();
   if(!row)return {code:'pending'};
-  const validCodes:HistoryBackfillCode[]=['pending','imported','rate_limited','premium_required',
+  const validCodes:HistoryBackfillCode[]=['pending','imported','burst_limited','rate_limited','premium_required',
     'invalid_key','provider_error','invalid_response','quota_exhausted','http_error',
     'network_error','storage_error'];
   const code=validCodes.includes(row.last_result as HistoryBackfillCode)?
@@ -105,8 +110,20 @@ export async function historyBackfillStatus(
     ...(row.last_success_at?{lastSuccessAt:row.last_success_at}:{})};
 }
 
+// Enforce one API call per 3 seconds for all stocks and Cloudflare isolates.
+// This *atomic* D1 row is shared by every viewer; a local delay or isolate-local
+// mutex would still allow bursts of provider calls under concurrent traffic.
+export async function reserveHistoryProviderSlot(env:HistoryEnv,now:number):Promise<boolean> {
+  const row=await env.DB.prepare(`INSERT INTO historical_provider_pacing(id,next_attempt_at)
+    VALUES(1,?) ON CONFLICT(id) DO UPDATE SET
+      next_attempt_at=excluded.next_attempt_at
+    WHERE historical_provider_pacing.next_attempt_at<=? RETURNING id`)
+    .bind(now+3,now).first<{id:number}>();
+  return row?.id===1;
+}
+
 // D1 leases protect free provider quota across concurrent chart viewers and isolates.
-// Failures are labeled and retried in minutes rather than silently hiding for 24 hours.
+// Failures are classified so a brief burst limit is not mistaken for a full day.
 export async function backfillHistoricalBars(
   symbol:SymbolCode,range:HistoryRange,env:HistoryEnv,
   now=Math.floor(Date.now()/1000),
@@ -123,6 +140,11 @@ export async function backfillHistoricalBars(
 
   let status:HistoryBackfillCode='network_error',saved=0,requesting=false;
   try{
+    // A pacing rejection does not count against PaperStreet's own daily budget.
+    if(!await reserveHistoryProviderSlot(env,now)){
+      status='burst_limited';
+      return false;
+    }
     const day=new Date(now*1000).toISOString().slice(0,10);
     await env.DB.prepare('INSERT OR IGNORE INTO historical_backfill_budget(day,requests) VALUES(?,0)').bind(day).run();
     const allowed=await env.DB.prepare(`UPDATE historical_backfill_budget

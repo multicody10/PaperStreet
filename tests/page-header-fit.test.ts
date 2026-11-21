@@ -10,8 +10,9 @@ const goals=read('src/Challenges.tsx');
 const css=read('src/viewport-header-repair.css');
 const dashboard=read('src/TradingDashboard.tsx');
 
-test('viewport repair is last and does not replace the approved dark theme',()=>{
+test('viewport repair is preserved and the black theme is imported last',()=>{
   assert.match(main,/import '\.\/unified-dark-theme\.css';\s*import '\.\/viewport-header-repair\.css';/);
+  assert.match(main,/import '\.\/dashboard-goals-fix\.css';\s*import '\.\/paperstreet-black\.css';/);
   assert.match(css,/\.app-shell\.activity-theme \.global-header/);
   assert.match(css,/\.app-shell\.activity-theme \.header-market/);
   assert.match(css,/\.app-shell\.activity-theme \.header-search/);
@@ -57,21 +58,22 @@ test('Goals title, progress, filters and paginated content fit the fixed viewpor
 test('individual stocks have no four-option navigation strip and retain all functions',()=>{
   assert.doesNotMatch(stock,/<SectionTabs|label="Stock panels"|label:'Overview'|label:'Predict'/);
   assert.match(stock,/className="stock-terminal-header-actions"/);
-  assert.match(stock,/className="stock-terminal-hero-action"/);
+  assert.doesNotMatch(stock,/className="stock-terminal-hero-action"/);
   assert.match(stock,/className="stock-terminal-menu-toggle" aria-expanded=\{menuOpen\}/);
   assert.match(stock,/p\.setPane\('chart'\)/);
   assert.match(stock,/p\.setPane\('order'\)/);
-  assert.match(stock,/p\.setPane\('facts'\)/);
+  assert.doesNotMatch(stock,/p\.setPane\('facts'\)/);
   assert.match(stock,/p\.setPane\('predict'\)/);
-  for(const cls of ['stock-terminal-chart','stock-terminal-ticket','stock-terminal-metrics',
-    'stock-terminal-about','stock-terminal-related','stock-terminal-activity'])
+  for(const cls of ['stock-terminal-chart','stock-terminal-ticket',
+    'stock-terminal-related','stock-terminal-activity'])
     assert.ok(stock.includes(cls),cls);
   assert.match(stock,/<StockPredictions key=\{p\.symbol\}/);
   assert.match(stock,/<PriceChart key=\{p\.symbol\+':'\+p\.range\}/);
   assert.match(stock,/<StockOrderTicket symbol=\{p\.symbol\}/);
   assert.match(css,/\.stock-terminal>\.screen-tabs\{display:none!important\}/);
   assert.match(css,/\.stock-terminal>\.stock-terminal-stage/);
-  assert.match(css,/\.stock-terminal>\.stock-terminal-bottom/);
+  assert.doesNotMatch(stock,/stock-terminal-bottom/);
+  assert.match(read('src/stock-page-cleanup.css'),/stock-terminal-stage/);
   assert.match(css,/\.stock-terminal>\.stock-terminal-rail/);
   assert.match(css,/@media\(min-width:761px\) and \(max-width:1050px\)/);
   assert.match(css,/\.stock-terminal\[data-pane="predict"\] \.stock-prediction-panel/);

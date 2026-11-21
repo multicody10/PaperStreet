@@ -40,11 +40,11 @@ test('the chart dominates the middle row and no buy or sell ticket appears on th
 
 test('all screenshot data panels remain real and accessible including phone tabs',()=>{
   for(const cls of ['terminal-equity','terminal-goal','terminal-activity-stat','terminal-watch',
-    'terminal-chart-panel','terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-activity',
+    'terminal-chart-panel','terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-portfolio',
     'terminal-bottom-allocation','terminal-donut'])
     assert.ok(dashboard.includes(cls),cls);
   assert.equal((dashboard.match(/<FitPager/g)||[]).length,4);
-  for(const section of ["'market'","'chart'","'positions'","'activity'","'goals'","'insights'"])
+  for(const section of ["'market'","'chart'","'positions'","'goals'","'insights'"])
     assert.ok(dashboard.includes(section),'missing mobile section '+section);
   assert.match(css,/terminal-lower\[data-section="goals"\]/);
   assert.match(css,/terminal-lower\[data-section="insights"\]/);
@@ -54,13 +54,15 @@ test('all screenshot data panels remain real and accessible including phone tabs
   assert.doesNotMatch(css,/overflow:(?:scroll|auto)/);
 });
 
-test('navy and cyan redesign is isolated to dashboard, not applied to all other pages',()=>{
-  assert.match(css,/:has\(\.reference-dashboard\)/);
-  assert.match(css,/--dashboard-bg:#080e18/);
-  assert.match(css,/--dashboard-card:#111927/);
-  assert.match(css,/--dashboard-cyan:#1abef4/);
-  assert.match(css,/--dashboard-gain:#31d98e/);
-  assert.match(css,/border:1px solid var\(--dashboard-line\)!important/);
-  assert.match(css,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)!important/);
-  assert.match(css,/max-height:689px/);
+test('flat black theme is active across routes after the previous dashboard reference styles',()=>{
+  const theme=read('src/paperstreet-black.css');
+  assert.match(main,/import '\.\/paperstreet-black\.css'/);
+  assert.match(theme,/#0E0E0E/);
+  assert.match(theme,/--gain:#32da86/);
+  assert.match(theme,/--red:#f06f7a/);
+  assert.match(theme,/\.goals-terminal/);
+  assert.match(theme,/\.trade-terminal/);
+  assert.match(theme,/\.stock-terminal/);
+  assert.match(theme,/\.market-hours-popover/);
+  assert.match(read('src/dashboard-goals-fix.css'),/grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.25fr\) minmax\(0,1fr\)/);
 });

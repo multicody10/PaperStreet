@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, BriefcaseBusiness, ChevronRight, Clock3, Crosshair, Layers, MoreHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react';
-import { HISTORY_RANGES, type ChartHistory, type HistoryRange, type Portfolio, type Position, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, ChevronRight, Clock3, Crosshair, Layers, MoreHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { HISTORY_RANGES, type ChartHistory, type HistoryRange, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
 import type { OrderKind, Prediction, PredictionDirection } from '../shared/gameplay';
 import { FitPager } from './FitPager';
 import { money, PriceChart } from './PriceChart';
@@ -8,7 +8,7 @@ import { StockPredictions } from './StockPredictions';
 import { STOCK_PROFILES } from './stockProfiles';
 import { StockMark } from './StockMark';
 
-export type StockPane = 'chart'|'order'|'facts'|'predict';
+export type StockPane = 'chart'|'order'|'predict';
 export type StockTerminalProps = {
   symbol:SymbolCode;quote?:Quote;quotes:Quote[];portfolio:Portfolio|null;trades:Trade[];
   history?:ChartHistory;historyError?:string;range:HistoryRange;setRange:(v:HistoryRange)=>void;
@@ -102,24 +102,6 @@ function StockActivity({symbol,trades}:{symbol:SymbolCode;trades:Trade[]}){
   </section>;
 }
 
-function StockMetrics({quote,position,portfolio}:{quote?:Quote;position?:Position;portfolio:Portfolio|null}){
-  const rows=[
-    ['Prev. close',available(quote?.previousCloseCents)],
-    ['Session open',available(quote?.sessionBar?.openCents)],
-    ['Day high',available(quote?.sessionBar?.highCents)],
-    ['Day low',available(quote?.sessionBar?.lowCents)],
-    ['Shares held',String(position?.shares??0)],
-    ['Position value',available(position?.marketValueCents)],
-    ['Unrealized P/L',position?signedMoney(position.profitCents):'—'],
-    ['Paper cash',portfolio?money(portfolio.cashCents):'—'],
-  ];
-  return <section className="panel stock-terminal-metrics" aria-label="Stock quote and position metrics">
-    <div className="stock-terminal-heading"><h2><BarChart3 size={17}/> Key metrics</h2></div>
-    <div className="stock-terminal-metrics-grid">{rows.map(([label,value])=><div className="stock-terminal-metric" key={label}>
-      <span>{label}</span><strong className={label==='Unrealized P/L'&&position?(position.profitCents>=0?'positive':'negative'):''}>{value}</strong>
-    </div>)}</div>
-  </section>;
-}
 export function StockTerminal(p:StockTerminalProps){
   const [menuOpen,setMenuOpen]=useState(false);
   const profile=STOCK_PROFILES[p.symbol];
@@ -143,16 +125,13 @@ export function StockTerminal(p:StockTerminalProps){
         <div className="stock-terminal-header-actions">
           {p.pane!=='chart' && <button type="button" className="stock-terminal-back-chart"
             onClick={()=>{p.setPane('chart');setMenuOpen(false)}}><ArrowLeft size={15}/> Chart</button>}
-          <button type="button" className="stock-terminal-hero-action" onClick={()=>{p.setPane('order');setMenuOpen(false)}}>
-            <ArrowRight size={17}/> Trade {p.symbol}
-          </button>
           <div className="stock-terminal-menu">
             <button type="button" className="stock-terminal-menu-toggle" aria-expanded={menuOpen}
               aria-controls="stock-terminal-menu-options" aria-label="Other stock sections"
               onClick={()=>setMenuOpen(v=>!v)}><MoreHorizontal size={19}/><span>More</span></button>
             {menuOpen && <div className="stock-terminal-menu-options" id="stock-terminal-menu-options" role="group" aria-label="Stock information and forecasts">
-              <button type="button" onClick={()=>{p.setPane('facts');setMenuOpen(false)}}>
-                <BriefcaseBusiness size={15}/> Company details
+              <button type="button" onClick={()=>{p.setPane('order');setMenuOpen(false)}}>
+                <ArrowDownLeft size={15}/> Buy or sell shares
               </button>
               <button type="button" onClick={()=>{p.setPane('predict');setMenuOpen(false)}}>
                 <TrendingUp size={15}/> Price forecasts
@@ -198,13 +177,6 @@ export function StockTerminal(p:StockTerminalProps){
         side={p.side} setSide={p.setSide} shares={p.shares} setShares={p.setShares}
         orderKind={p.orderKind} setOrderKind={p.setOrderKind} triggerPrice={p.triggerPrice} setTriggerPrice={p.setTriggerPrice}
         total={p.total} canSubmit={p.canSubmit} pending={p.pending} execute={p.execute} openPortfolio={p.openPortfolio}/>
-    </div>
-    <div className="stock-terminal-bottom">
-      <section className="panel stock-terminal-about">
-        <div className="stock-terminal-heading"><h2><BriefcaseBusiness size={17}/> About {p.symbol}</h2></div>
-        <p>{profile.summary}</p><div className="stock-terminal-tags"><span>{profile.sector}</span><span>{p.symbol}</span></div>
-      </section>
-      <StockMetrics quote={p.quote} position={position} portfolio={p.portfolio}/>
     </div>
     <aside className="stock-terminal-rail">
       <RelatedStocks symbol={p.symbol} quotes={p.quotes} openStock={p.openStock}/>

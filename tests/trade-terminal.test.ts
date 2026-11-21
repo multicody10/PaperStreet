@@ -58,7 +58,9 @@ test('dashboard no longer mounts recent-trades summary or a trading ticket',()=>
   const dashboard=read('src/TradingDashboard.tsx');
   const css=read('src/trade-terminal.css');
   assert.doesNotMatch(dashboard,/DashTicket|className="terminal-order"|terminal-count|Recent trades/);
-  assert.match(dashboard,/terminal-bottom-activity/);
+  assert.match(dashboard,/terminal-bottom-portfolio/);
+  assert.match(dashboard,/title="Positions & trades"/);
+  assert.doesNotMatch(dashboard,/className="terminal-bottom-activity"/);
   assert.match(css,/\.terminal-summary\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)!important\}/);
   assert.match(css,/\.terminal-middle\{grid-template-columns:minmax\(195px,\.81fr\) minmax\(0,2\.6fr\)!important\}/);
   assert.match(dashboard,/setSection\('chart'\)/);

@@ -14,7 +14,7 @@ const tradeCss=read('src/trade-terminal.css');
 const stock=read('src/StockTerminal.tsx');
 const dark=read('src/goals-portfolio.css');
 
-test('the supplied reference drives a unified dark navy and cyan UI across all routes',()=>{
+test('existing terminal structure remains valid under the new black theme',()=>{
   assert.match(app,/import '\.\/terminal\.css';/);
   assert.match(terminal, /--bg:#080c15/);
   assert.match(terminal, /--surface:#111724/);
@@ -32,10 +32,10 @@ test('the supplied reference drives a unified dark navy and cyan UI across all r
   assert.match(dark,/border:1px solid #374458!important/);
 });
 
-test('terminal dashboard shows all screenshot-inspired sections with real-backed figures',()=>{
+test('terminal dashboard keeps real-backed overview, chart and three lower sections',()=>{
   for(const token of ['terminal-summary','terminal-middle','terminal-lower','terminal-equity',
     'terminal-goal','terminal-watch','terminal-chart-panel',
-    'terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-activity',
+    'terminal-bottom-goals','terminal-bottom-positions','terminal-bottom-portfolio',
     'terminal-bottom-allocation','terminal-donut'])
     assert.ok(dashboard.includes(token),token);
   assert.match(dashboard,/STARTING_CASH_CENTS/);
@@ -83,7 +83,9 @@ test('mobile dashboard remains viewport locked with operational section selectio
   assert.match(terminal,/\.terminal-dashboard:has\(>\.screen-tabs\)/);
   assert.match(tradeCss,/\.terminal-middle\[data-section="chart"\]>\.terminal-chart-panel/);
   assert.match(terminal,/\.terminal-lower\[data-section="positions"\]>\.terminal-bottom-positions/);
-  assert.match(terminal,/\.terminal-lower\[data-section="activity"\]>\.terminal-bottom-activity/);
+  assert.match(dashboard,/className="terminal-portfolio-switch"/);
+  assert.match(dashboard,/setActivityMode\('trades'\)/);
+  assert.doesNotMatch(dashboard,/className="terminal-bottom-activity"/);
   assert.match(app,/aria-label="Mobile navigation"/);
 });
 
@@ -94,4 +96,34 @@ test('existing stock forecasts, Goals, and dedicated trading pages are retained'
   assert.match(app,/<TradeTerminal/);
   assert.match(app,/<StockTerminal/);
   assert.match(app,/className=\{tab === 'portfolio' \? 'details-stack portfolio-stack' : 'details-stack'\}/);
+});
+
+test('watchlist only includes symbols in shares currently held, with a clear empty state',()=>{
+  assert.match(dashboard,/openPositions\.filter\(position=>position\.shares>0\)/);
+  assert.match(dashboard,/p\.quotes\.find\(q=>q\.symbol===position\.symbol\)\?\?position\.quote/);
+  assert.match(dashboard,/No shares held yet\. Buy a stock to watch it here\./);
+  assert.doesNotMatch(dashboard,/STOCKS\.map\(stock=>p\.quotes/);
+});
+test('dashboard combines the positions and recent paper trades into a single card',()=>{
+  assert.match(dashboard,/title="Positions & trades"/);
+  assert.match(dashboard,/aria-label="Positions and trades"/);
+  assert.match(dashboard,/key="positions"/);
+  assert.match(dashboard,/key="trades"/);
+  assert.match(dashboard,/title="Goals & achievements"/);
+  assert.match(dashboard,/title="Allocation & insights"/);
+  assert.doesNotMatch(dashboard,/title="Recent paper trades"/);
+});
+test('new black theme and dashboard fixes are loaded after legacy blue styles',()=>{
+  const main=read('src/main.tsx');
+  assert.match(main,/import '\.\/paperstreet-black\.css'/);
+  assert.match(main,/import '\.\/dashboard-goals-fix\.css'/);
+  assert.match(main,/import '\.\/stock-page-cleanup\.css'/);
+  const black=read('src/paperstreet-black.css');
+  assert.match(black,/#0[Ee]0[Ee]0[Ee]/);
+  assert.match(black,/--gain:/);
+  assert.match(black,/--red:/);
+  const layout=read('src/dashboard-goals-fix.css');
+  assert.match(layout,/terminal-bottom-portfolio/);
+  assert.match(layout,/terminal-goal.*terminal-muted/s);
+  assert.match(layout,/goals-featured-grid/);
 });

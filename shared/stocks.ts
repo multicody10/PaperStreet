@@ -19,7 +19,7 @@ export type HistoryRange = typeof HISTORY_RANGES[number];
 export type PriceBar = { openCents: number; highCents: number; lowCents: number; closeCents: number };
 export type Candle = PriceBar & { firstAt: number; lastAt: number; samples: number };
 export type HistoryBackfill = { code: 'not_configured' | 'intraday_only' | 'pending' |
-  'imported' | 'rate_limited' | 'premium_required' | 'invalid_key' | 'provider_error' |
+  'imported' | 'burst_limited' | 'rate_limited' | 'premium_required' | 'invalid_key' | 'provider_error' |
   'invalid_response' | 'quota_exhausted' | 'http_error' | 'network_error' | 'storage_error';
   nextAttemptAt?: number; lastSuccessAt?: number };
 export type ChartHistory = { candles: Candle[]; bucketSeconds: number;

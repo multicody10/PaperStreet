@@ -67,20 +67,25 @@ test('stock ticket supports buy/sell, market/limit/stop and existing queued exec
 });
 test('stock desktop and mobile panels remain viewport locked and forecasts accessible',()=>{
   for(const item of ['stock-terminal-hero','stock-terminal-quote-summary','stock-terminal-chart','stock-terminal-ticket',
-    'stock-terminal-bottom','stock-terminal-about','stock-terminal-metrics','stock-terminal-related','stock-terminal-activity'])
+    'stock-terminal-related','stock-terminal-activity'])
     assert.ok(stock.includes(item),item);
   assert.doesNotMatch(stock,/<SectionTabs|label="Stock panels"/);
   assert.match(stock,/className="stock-terminal-header-actions"/);
   assert.match(stock,/className="stock-terminal-menu"/);
   assert.match(stock,/p\.setPane\('order'\)/);
-  assert.match(stock,/p\.setPane\('facts'\)/);
+  assert.doesNotMatch(stock,/p\.setPane\('facts'\)/);
+  assert.doesNotMatch(stock,/Key metrics|stock-terminal-about|stock-terminal-metrics|stock-terminal-bottom|stock-terminal-hero-action/);
+  assert.doesNotMatch(stock,/About \{p\.symbol\}/);
+  assert.match(stock,/Buy or sell shares/);
   assert.match(stock,/p\.setPane\('predict'\)/);
   assert.match(stock,/p\.setPane\('chart'\)/);
   assert.match(styles,/\.stock-terminal\s*\{[\s\S]*?overflow:hidden/);
   assert.match(styles,/@media\(max-width:760px\)/);
   assert.match(styles,/\.stock-terminal\[data-pane="chart"\] \.stock-terminal-chart/);
   assert.match(styles,/\.stock-terminal\[data-pane="order"\] \.stock-terminal-ticket/);
-  assert.match(styles,/\.stock-terminal\[data-pane="facts"\]>\.stock-terminal-bottom/);
+  assert.match(read('src/stock-page-cleanup.css'),/grid-template-rows:/);
+  assert.match(read('src/stock-page-cleanup.css'),/\.stock-terminal>\.stock-terminal-stage\{grid-area:3\/1/);
+  assert.match(read('src/main.tsx'),/import '\.\/stock-page-cleanup\.css'/);
   assert.match(styles,/\.stock-terminal\[data-pane="predict"\] \.stock-prediction-panel/);
   assert.match(styles,/@media\(min-width:761px\) and \(max-height:735px\)/);
   assert.match(styles,/@media\(max-width:760px\) and \(max-height:570px\)/);
