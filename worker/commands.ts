@@ -1,4 +1,3 @@
-import { discordAvatarUrl } from './avatar';
 import { loadPortfolio } from './portfolio';
 import { STARTING_CASH_CENTS, type Portfolio } from '../shared/stocks';
 import type { MarketEnv } from './market';
@@ -77,8 +76,8 @@ export function portfolioEmbed(portfolio: Portfolio, avatarUrl?: string): Discor
   };
 }
 
-function toBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
+function toBytes(hex: string): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(new ArrayBuffer(hex.length / 2));
   for (let i = 0; i < bytes.length; i++) bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   return bytes;
 }
@@ -91,7 +90,7 @@ export async function verifyDiscordRequest(request: Request, publicKey: string):
   if (Number(request.headers.get('Content-Length') || 0) > 32_768) return null;
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.byteLength > 32_768) return null;
-  const signed = new Uint8Array(timestamp.length + body.byteLength);
+  const signed = new Uint8Array(new ArrayBuffer(timestamp.length + body.byteLength));
   signed.set(encoder.encode(timestamp));
   signed.set(body, timestamp.length);
   try {
@@ -136,7 +135,7 @@ export async function portfolioInteraction(
   if (!interaction) return new Response('Invalid Discord signature', { status: 401 });
   if (interaction.type === 1) return Response.json({ type: 1 });
   const userId = interaction.member?.user?.id ?? interaction.user?.id;
-  if (interaction.application_id !== env.DISCORD_CLIENT_ID ||
+  if (typeof interaction.application_id !== 'string' || interaction.application_id !== env.DISCORD_CLIENT_ID ||
     interaction.type !== 2 || interaction.data?.type !== 1 ||
     interaction.data?.name !== 'portfolio' ||
     typeof userId !== 'string' || !/^\d{15,22}$/.test(userId) ||
