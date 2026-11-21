@@ -33,6 +33,7 @@ import './flat-terminal.css';
 import './overview.css';
 import './activity-shell.css';
 import './activity-unified.css';
+import './viewport-fit.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 
