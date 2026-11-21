@@ -17,7 +17,7 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 - The **Dashboard** is a read-only trading overview with a real quote watchlist, interactive stock chart, portfolio equity summary, 10% growth milestone, achievements, open positions, recent paper trades and allocation. Its former right-side order ticket and redundant top-right recent-trades summary were removed. Orders are placed on individual stock pages.
 - **Trade is now market discovery only:** a verified market ticker strip, selected-symbol OHLC overview with observed candles, and a full-width searchable and sortable stock/ETF quote table. The Market Movers, Market Breadth and Place Paper Order panels are removed. Clicking a stock row or ticker card navigates to its dedicated `#/trade/SYMBOL` page, where trading, quotes and predictions live.
 - Interactive candlesticks across **1D, 1W, 1M, 3M, 1Y, All**. Hover, touch, or focus the chart and use the arrow keys to inspect open, high, low, and close. The Trade list shows where each last price sits within its reported session range.
-- **Darker, bordered design across PaperStreet:** near-black backgrounds, deep charcoal/navy card surfaces, consistent visible cool-grey borders, subtle depth, large readable header ticker changes with green rising/red falling arrows, cyan actions, and true market gain/loss colors. Desktop Dashboard has two summary cards, watchlist/chart and a lower portfolio overview; Trade is a full-width market overview and stock listing, while each stock has its own reference-inspired detailed trading workspace. Goals has its complete achievement dashboard; Portfolio combines positions, queued orders and executed history. Mobile uses compact tabs and measured Prev/Next pagination instead of scrollbars.
+- **Flat black, white and green visual system:** near-black shell, charcoal cards, clear grey-green borders, white typography, flat green active states and order buttons, and semantic red only for losses and sell actions. The reference desktop viewport is **1544 × 768** with no page scrollbars. Dashboard, Trade, per-stock trading, Goals, Portfolio and Leaderboard each have dedicated grid proportions at that size; narrower desktop and mobile sizes use responsive reflow, section tabs, and measured Prev/Next pagination.
 - Cloudflare Free optimization: shared D1 quote storage, batched reads for all 12 assets, bounded in-isolate TTL caches with invalidation, coalesced requests, and page-specific frontend polling (2 minutes on Trade, 5 minutes elsewhere while visible). User-specific balances, session tokens and trade history are never shared between accounts.
 - **Real market quotes only:** Finnhub last-trade prices and previous closes. The top market strip displays only actual supported cached quotes (SPY ETF and supported equities), not invented index levels. Allocation uses each user's actual holdings and cash; recent fills are labeled as recent history, not as an unsupported trading streak. No fictional quotes or invented historical chart data.
 
@@ -81,6 +81,16 @@ npm run dev
 ```
 
 The local UI must be opened from a Discord Activity, not directly in a browser, because the Embedded App SDK requires Discord's iframe context. For local testing, make Vite accessible using `cloudflared tunnel --url http://localhost:5173` and temporarily map `/` to the tunnel hostname in the Discord Developer Portal. The OAuth2 Client Secret remains on the Worker; never expose it through a `VITE_` variable.
+
+## UI layout targets
+
+- **Desktop reference:** 1544 × 768 CSS pixels, including the PaperStreet top header and left navigation. `src/flat-terminal.css` is loaded after legacy styles to make the palette and desktop geometry authoritative.
+- **Dashboard:** two equity/milestone cards, a large market watchlist + candle chart, and four bottom summary panels.
+- **Trade:** five snapshot tickers, full-width observed chart, and a sortable/searchable list of supported stocks. No market-wide order entry, movers or breadth panels.
+- **Individual stocks (`#/trade/SYMBOL`):** company and quote header, candle chart, paper order ticket, company description, key metrics, related stocks, personal fills and prediction card. Reduced-height windows tighten controls.
+- **Goals:** five counters, a real-equity milestone, featured achievements, completion overview, paginated achievement list and unlock badges.
+- **Portfolio:** four account metrics above positions, queued orders and executed history. **Leaderboard:** ranked-trader summary metrics above a paginated ranking list. Both are backed by existing account data.
+- **Responsive:** content never relies on page scrollbars; measured `FitPager` slices large lists to the visible space, and phone-sized windows switch to panel tabs. The 1544 × 768 target is a design reference, not a fixed-size requirement. Actual viewport inspection within Discord is still recommended.
 
 ## 3. Real stock market data (required, no simulated fallback)
 
