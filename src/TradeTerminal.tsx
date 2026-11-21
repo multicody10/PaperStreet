@@ -48,6 +48,7 @@ export function TradeTerminal(p:TradeTerminalProps) {
           </button>;
         })}
       </div>
+      <div className="trade-terminal-workspace" aria-label="Market chart and stock list">
       <section className="panel trade-market-overview">
         <div className="trade-market-overview-head">
           <h2>Market overview <small>{p.selectedSymbol}{selected?.stale?' · Delayed':''}</small></h2>
@@ -101,7 +102,7 @@ export function TradeTerminal(p:TradeTerminalProps) {
           render={items=><div className="trade-market-table-body">{items.map(q=>
             <button type="button" className={'trade-market-table-row '+(selected?.symbol===q.symbol?'selected':'')}
               key={q.symbol} onClick={()=>choose(q.symbol)} title={'Open '+q.symbol+' trading page'}>
-              <strong className="trade-market-table-symbol"><i>{q.symbol.slice(0,2)}</i>{q.symbol}</strong>
+              <strong className="trade-market-table-symbol"><i>{q.symbol.slice(0,2)}</i><span className="trade-market-table-symbol-details"><b>{q.symbol}</b><small>{q.name}</small></span></strong>
               <span className="trade-market-table-company">{q.name}{q.stale?' · Delayed':''}</span>
               <span>{money(q.priceCents)}</span>
               <span className={q.changePct>=0?'positive':'negative'}>{signedMoney(q.priceCents-q.previousCloseCents)}</span>
@@ -110,6 +111,7 @@ export function TradeTerminal(p:TradeTerminalProps) {
               <span className="trade-market-table-range"><DayRange quote={q}/></span>
             </button>)}</div>}/>
       </section>
+      </div>
     </div>
     <SectionTabs items={[{id:'overview',label:'Overview'},{id:'stocks',label:'All stocks'}]}
       value={section} onChange={setSection} label="Trade sections"/>

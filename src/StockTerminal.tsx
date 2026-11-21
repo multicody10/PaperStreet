@@ -130,8 +130,13 @@ export function StockTerminal(p:StockTerminalProps){
     <header className="stock-terminal-hero">
       <div className="stock-terminal-hero-title">
         <span className="stock-terminal-logo">{p.symbol.slice(0,2)}</span>
-        <div className="stock-terminal-name"><h1>{p.quote?.name??p.symbol}</h1><span>{p.symbol}</span>
-          <p>{profile.sector}</p></div>
+        <div className="stock-terminal-name">
+          <div className="stock-terminal-name-row">
+            <h1 title={profile.companyName}>{profile.companyName}</h1>
+            <span className="stock-terminal-symbol" aria-label={'Ticker '+p.symbol}>{p.symbol}</span>
+          </div>
+          <p title={profile.sector}>{profile.sector}</p>
+        </div>
         <button type="button" className="stock-terminal-hero-action" onClick={()=>p.setPane('order')}>
           <ArrowRight size={17}/> Trade {p.symbol}
         </button>

@@ -12,19 +12,44 @@ const goals=read('src/Challenges.tsx');
 const portfolio=read('src/PortfolioHistory.tsx');
 const fit=read('src/fit.css');
 
-test('the last stylesheet restores a flat black white and green theme',()=>{
+test('the last stylesheet uses neutral black and white with selective market accents',()=>{
   assert.match(main,/import '\.\/stock-terminal\.css';\s*import '\.\/flat-terminal\.css';/);
-  for(const color of ['--bg:#070907','--surface:#101310','--surface-up:#171b17',
-    '--mint:#23d878','--cyan:#23d878','--gain:#29da7e','--ink:#f4f7f4'])
+  for(const color of ['--bg:#070707','--surface:#121212','--surface-up:#1b1b1b',
+    '--card-edge:#383838','--cyan:#d2d2d2','--gain:#27d078'])
     assert.ok(css.includes(color),color);
-  assert.match(css,/background:#080a08!important;background-image:none!important/);
-  assert.match(css,/background:#111411!important;background-image:none!important/);
-  assert.match(css,/border:1px solid #354137!important/);
-  assert.match(css,/\.global-header,\s*\.app-shell \.sidebar,\.mobile-nav/);
+  assert.match(css,/background:#070707!important/);
+  assert.match(css,/background:#121212!important/);
+  assert.match(css,/border-color:#373737!important/);
   assert.match(css,/\.app-shell \.sidebar \.nav-button\.active/);
+  assert.match(css,/box-shadow:inset 3px 0 #28c777!important/);
   assert.match(css,/\.app-shell \.execute-button\.sell/);
+  assert.match(css,/\.goals-progress-track i/);
   assert.doesNotMatch(css,/#17bfff|#21c4f6|#0e678e/);
   assert.match(goals,/conic-gradient\(#28d77b/);
+});
+
+test('Trade prioritizes the chart and places the stock list in a right rail',()=>{
+  assert.match(market,/className="trade-terminal-workspace"/);
+  const overview=market.indexOf('className="panel trade-market-overview"');
+  const stocks=market.indexOf('className="panel trade-market-list"');
+  assert.ok(overview>=0&&stocks>overview);
+  assert.match(css,/\.trade-terminal-workspace\{\s*display:grid;grid-template-columns:minmax\(0,2\.5fr\) minmax\(330px,1fr\)/);
+  assert.match(css,/grid-template-columns:minmax\(0,2\.72fr\) minmax\(350px,1fr\)/);
+  assert.match(css,/\.trade-terminal-main\{\s*grid-template-rows:34px 62px minmax\(0,1fr\)!important/);
+  assert.match(css,/\.trade-market-overview-body\{\s*display:flex!important;flex-direction:column/);
+  assert.match(css,/\.trade-market-table-symbol-details small/);
+  assert.match(market,/trade-market-table-symbol-details/);
+  assert.match(css,/@media\(max-width:760px\)\{[\s\S]*?\.trade-terminal-workspace\{display:contents!important\}/);
+  assert.match(css,/@media\(min-width:761px\) and \(max-width:1100px\)/);
+});
+
+test('full stock name stays readable and the trade CTA cannot steal its width',()=>{
+  assert.match(stock,/<h1 title=\{profile\.companyName\}>\{profile\.companyName\}<\/h1>/);
+  assert.match(stock,/className="stock-terminal-name-row"/);
+  assert.match(stock,/className="stock-terminal-symbol"/);
+  assert.match(css,/\.stock-terminal-hero-title\{\s*display:grid!important;grid-template-columns:auto minmax\(0,1fr\) auto/);
+  assert.match(css,/\.stock-terminal-name-row h1\{[\s\S]*?text-overflow:ellipsis/);
+  assert.match(css,/@media\(max-width:760px\)\{[\s\S]*?\.stock-terminal-name-row h1/);
 });
 
 test('every supported page has a viewport-specific 1544x768 desktop composition',()=>{

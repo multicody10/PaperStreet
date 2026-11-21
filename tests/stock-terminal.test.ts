@@ -17,6 +17,7 @@ test('every supported stock and ETF has a valid dedicated trading route and prof
   for(const {symbol} of STOCKS){
     assert.ok(isSymbol(symbol));
     assert.deepEqual(parseAppHash(appHash('stock',symbol)),{view:'stock',symbol});
+    assert.ok(STOCK_PROFILES[symbol].companyName.trim().length>5);
     assert.ok(STOCK_PROFILES[symbol].sector.trim().length>4);
     assert.ok(STOCK_PROFILES[symbol].summary.trim().length>25);
     assert.ok(STOCK_PROFILES[symbol].peers.length>0);
@@ -47,6 +48,9 @@ test('stock page uses real quote, chart, position and own ticker data',()=>{
   assert.match(stock,/<StockPredictions key=\{p\.symbol\}/);
   assert.match(stock,/trades\.filter\(t=>t\.symbol===symbol\)/);
   assert.match(stock,/STOCK_PROFILES\[p\.symbol\]/);
+  assert.match(stock,/title=\{profile\.companyName\}/);
+  assert.match(stock,/className="stock-terminal-name-row"/);
+  assert.match(stock,/className="stock-terminal-symbol"/);
   assert.match(stock,/onClick=\{\(\)=>openStock\(q\.symbol\)\}/);
 });
 test('stock ticket supports buy/sell, market/limit/stop and existing queued execution',()=>{
