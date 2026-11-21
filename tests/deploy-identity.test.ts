@@ -96,6 +96,7 @@ test('authorized deployment registers /portfolio and never changes Activity Laun
       return Response.json({
         id: '999999999999999999', application_id: '123456789012345678',
         name: 'portfolio', type: 1, description: 'View your PaperStreet portfolio, holdings and profit or loss',
+        integration_types: [0, 1], contexts: [0, 1, 2],
       });
     throw new Error('Unexpected URL: ' + url);
   });
