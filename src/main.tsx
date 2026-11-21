@@ -35,6 +35,7 @@ import './activity-shell.css';
 import './activity-unified.css';
 import './viewport-fit.css';
 import './dashboard-reference.css';
+import './unified-dark-theme.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 
@@ -45,7 +46,7 @@ const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong';
 const short = (value: string, max = 22) => value.length > max ? `${value.slice(0, max)}…` : value;
 const links: { id: Page; label: string; icon: typeof LayoutDashboard; mobileLabel?: string }[] = [
-  { id: 'dashboard', label: 'Overview', mobileLabel: 'Home', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Home', icon: LayoutDashboard },
   { id: 'trade', label: 'Markets', icon: ArrowLeftRight },
   { id: 'portfolio', label: 'Portfolio', icon: Wallet },
   { id: 'leaderboard', label: 'Leaderboard', mobileLabel: 'Ranks', icon: Trophy },
