@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { test, type TestContext } from 'node:test';
-import { verifyProductionDeployIdentity } from '../worker/deploy-identity';
+import { verifyProductionDeployIdentity, inspectProductionDeployIdentity } from '../worker/deploy-identity';
 import worker from '../worker/index';
 
 const endpoint = 'https://paperstreet.gobydev.workers.dev/api/internal/register-commands';
@@ -58,6 +58,13 @@ test('unsigned, wrong repo, wrong workflow, and wrong branch cannot register com
   assert.equal(await verifyProductionDeployIdentity('Bearer not-a-jwt', endpoint, now), false);
 });
 
+test('deployment JWT diagnostics classify wrong audience without exposing claims', async () => {
+  const result = await inspectProductionDeployIdentity('Bearer ' + jwt({
+    ...claims, aud: 'https://wrong.example/',
+  }), endpoint, now);
+  assert.deepEqual(result, { valid: false, reason: 'audience' });
+});
+
 test('a modified JWT payload with valid syntax is rejected by RSA signature verification', async t => {
   mockJwks(t);
   const token = jwt();
@@ -69,7 +76,7 @@ test('a modified JWT payload with valid syntax is rejected by RSA signature veri
 test('an unauthenticated HTTP request cannot execute command registration', async () => {
   const res = await worker.fetch(new Request(endpoint, { method: 'POST' }), {} as never);
   assert.equal(res.status, 401);
-  assert.equal((await res.json() as { error: string }).error, 'unauthorized_deployment');
+  assert.equal((await res.json() as { error: string }).error, 'oidc_format');
 });
 
 test('authorized deployment registers /portfolio and never changes Activity Launch', async t => {

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { portfolioInteraction } from './commands';
 import { deployPortfolioCommand } from './registration';
-import { verifyProductionDeployIdentity } from './deploy-identity';
+import { inspectProductionDeployIdentity } from './deploy-identity';
 import { loadPortfolio } from './portfolio';
 import { allQuotes, quoteFor, quoteHistory, isQuoteExecutable, isHistoryRange, isUsMarketOpen, type MarketEnv } from './market';
 import { memoized, invalidateMemo } from './memo';
@@ -26,10 +26,10 @@ app.post('/api/discord/interactions',
 // After Wrangler deploy, only the signed GitHub Actions production workflow
 // may register slash commands. This endpoint cannot update the Activity Launch.
 app.post('/api/internal/register-commands', async c => {
-  const allowed = await verifyProductionDeployIdentity(
+  const identity = await inspectProductionDeployIdentity(
     c.req.header('Authorization'), c.req.url,
   );
-  if (!allowed) return noStore({ error: 'unauthorized_deployment' }, 401);
+  if (!identity.valid) return noStore({ error: 'oidc_' + identity.reason }, 401);
   try {
     const result = await deployPortfolioCommand(c.env);
     return noStore({ command: '/portfolio', result });
