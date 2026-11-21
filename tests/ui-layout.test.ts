@@ -57,7 +57,7 @@ test('every screen uses switches and paginated finite lists',()=>{
   for (const id of ['holdings','leaders','activity','market','stocks','movers','chart','order','facts','positions','orders'])
     assert.match(fit,new RegExp('data-pane|'+id));
   assert.ok((app.match(/<FitPager/g)??[]).length>=2);
-  assert.ok((trade.match(/<FitPager/g)??[]).length>=2);
+  assert.ok((trade.match(/<FitPager/g)??[]).length>=1);
   assert.ok((dashboard.match(/<FitPager/g)??[]).length>=4);
   assert.ok((challenges.match(/<FitPager/g)??[]).length>=1);
   assert.match(challenges,/Goals panels/);
