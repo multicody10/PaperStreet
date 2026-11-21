@@ -1,0 +1,23 @@
+/* Stock chart/ticket reclaim the space formerly used by About and Key Metrics. */
+@media(min-width:761px){
+  .app-shell.activity-theme .stock-terminal{
+    grid-template-rows:clamp(21px,3vh,27px) minmax(80px,1.05fr) minmax(0,3.95fr)!important;
+  }
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-stage{grid-area:3/1;min-height:0}
+  .app-shell.activity-theme .stock-terminal>.stock-terminal-rail{grid-area:2/2/4/3!important;min-height:0}
+}
+@media(min-width:761px) and (max-width:1050px){
+  .app-shell.activity-theme .stock-terminal[data-pane="predict"]>.stock-terminal-rail{
+    grid-area:3/1!important;
+  }
+}
+@media(min-width:761px) and (max-height:689px){
+  .app-shell.activity-theme .stock-terminal{
+    grid-template-rows:20px minmax(65px,75px) minmax(0,1fr)!important;
+  }
+}
+@media(min-width:761px) and (max-height:555px){
+  .app-shell.activity-theme .stock-terminal{
+    grid-template-rows:19px minmax(50px,58px) minmax(0,1fr)!important;
+  }
+}

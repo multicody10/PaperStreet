@@ -1,0 +1,154 @@
+/* PaperStreet: flat black (#0E0E0E) throughout, green for gains/active
+   interactions and red for losses/sells. Loaded last on every route. */
+:root{color-scheme:dark}
+html,body,#root{background:#0E0E0E!important;color:#eeeeee!important}
+.app-shell.activity-theme,
+.app-shell.activity-theme:has(.reference-dashboard){
+  --bg:#0E0E0E;--surface:#141414;--surface-up:#1a1a1a;
+  --surface-soft:#101010;--line:#303030;--line-bright:#484848;
+  --flat-line:#313131;--card-edge:#373737;--control:#171717;
+  --ink:#eeeeee;--subtle:#cbcbcb;--muted:#a8a8a8;
+  --cyan:#33d383;--mint:#33d383;--gain:#32da86;--red:#f06f7a;
+  --dashboard-bg:#0E0E0E;--dashboard-card:#141414;--dashboard-line:#383838;
+  --dashboard-cyan:#33d383;--dashboard-gain:#32da86;--dashboard-loss:#f06f7a;
+  --dashboard-muted:#b1b1b1;--paper-bg:#0E0E0E;--paper-card:#141414;
+  --paper-card-deep:#101010;--paper-header:#121212;--paper-border:#373737;
+  --paper-border-hover:#565656;--paper-control:#161616;
+  --paper-accent:#33d383;--paper-active:#1f2d25;
+  background:#0E0E0E!important;background-image:none!important;color:#eeeeee;
+  color-scheme:dark;
+}
+.app-shell.activity-theme :is(.main-content,.content-wrap,.shell-body,.page-body,.terminal-dashboard,
+ .goals-terminal,.trade-terminal,.stock-terminal,.overview-screen,.details-stack,.leaderboard-screen,
+ .challenge-layout,.stock-workspace,.trade-workspace){
+  background-color:#0E0E0E!important;background-image:none!important;
+}
+.app-shell.activity-theme :is(.global-header,.sidebar,.mobile-nav),
+.app-shell.activity-theme:has(.reference-dashboard) :is(.global-header,.sidebar,.mobile-nav){
+  background:#0e0e0e!important;background-image:none!important;
+  border-color:#353535!important;box-shadow:none!important;
+}
+.app-shell.activity-theme :is(.panel,.terminal-card,.terminal-chart-panel,.terminal-summary-card,
+ .stat-card,.welcome-panel,.trade-market-overview,.trade-market-list,.trade-terminal-snapshot,
+ .goals-stat,.goals-feature,.goals-primary,.goals-unlock-badge,.goals-completion,.goals-all,
+ .goals-unlocks,.stock-terminal-ticket,.stock-terminal-chart,.stock-terminal-hero,
+ .stock-terminal-related,.stock-terminal-activity,.stock-prediction-panel,
+ .portfolio-history-panel,.details-panel,.page-insight,.portfolio-card,.leader-card,
+ .achievement,.challenge-stocks button,.prediction-totals>div),
+.app-shell.activity-theme .reference-dashboard :is(.terminal-summary-card,.terminal-card,.terminal-chart-panel){
+  background:#151515!important;background-image:none!important;
+  border-color:#383838!important;box-shadow:none!important;
+}
+.app-shell.activity-theme :is(.panel-heading,.terminal-card-heading,.terminal-chart-header,
+ .goals-panel-heading,.trade-market-table-head,.terminal-watch-head,.terminal-position-head,
+ .terminal-trades-head,.stock-head,.responsive-table th,.fit-pager-controls,
+ .stock-ticket-tabs,.terminal-portfolio-switch){
+  background:#191919!important;background-image:none!important;
+  border-color:#373737!important;
+}
+.app-shell.activity-theme :is(.terminal-watch-row,.terminal-position-row,.terminal-trades-row,
+ .trade-market-table-row,.responsive-table tr,.goals-table-row,.portfolio-trade-row,
+ .stock-terminal-related-row,.goals-unlock-badge){
+  border-color:#303030!important;
+}
+.app-shell.activity-theme :is(.terminal-watch-row:hover,.trade-market-table-row:hover,
+ .stock-terminal-related-row:hover,.stock-row:hover,.goals-table-row:hover,
+ .sidebar .nav-button:hover,.mobile-nav button:hover){
+  background:#202020!important;background-image:none!important;
+}
+.app-shell.activity-theme :is(.sidebar .nav-button.active,.mobile-nav button.active,
+ .screen-tabs button.active,.trade-market-asset-tabs button.active,
+ .goals-category-tabs button.active,.chart-range-bar button.active,
+ .stock-ticket-tabs button.current,.segmented button.active){
+  background:#1c2821!important;background-image:none!important;
+  color:#9af2bf!important;border-color:#38734f!important;box-shadow:none!important;
+}
+.app-shell.activity-theme :is(.sidebar .nav-button,.mobile-nav button,
+ .screen-tabs button,.chart-range-bar button,.terminal-more,.subtle-link){
+  color:#c2c2c2;
+}
+.app-shell.activity-theme :is(.terminal-card-title svg,.panel-heading h2 svg,
+ .goals-panel-heading h2 svg,.goals-category-tabs button svg,
+ .stock-terminal-breadcrumb strong,.brand-mark,.goals-feature-symbol,
+ .goals-title-icon,.stock-terminal-heading svg){
+  color:var(--gain)!important;filter:none!important;
+}
+.app-shell.activity-theme :is(.header-search,.search-field,.terminal-search,input,select,textarea,
+ .stock-ticket-control,.stock-ticket-quantity,.stock-ticket-presets button,
+ .header-actions .icon-button,.fit-pager-controls button,.goals-sort-label select,
+ .trade-terminal-full,.terminal-details-link,.terminal-more){
+  background:#191919!important;background-image:none!important;
+  border-color:#404040!important;color:#ececec!important;box-shadow:none!important;
+}
+.app-shell.activity-theme :is(.header-search:focus-within,.search-field:focus-within,
+ input:focus-visible,button:focus-visible,select:focus-visible,textarea:focus-visible){
+  outline-color:var(--gain)!important;border-color:#57aa77!important;
+}
+.app-shell.activity-theme :is(.terminal-details-link:hover,.trade-terminal-full:hover,
+ .terminal-more:hover,.header-actions .icon-button:hover){
+  background:#26372c!important;color:#a7ffc9!important;border-color:#4e9968!important;
+}
+.app-shell.activity-theme :is(.positive,.terminal-performance.positive,
+ .header-ticker b.positive,.terminal-quote-change.up,.terminal-trades-row b.buy,
+ .goals-status.completed,.online-dot){
+  color:var(--gain)!important;
+}
+.app-shell.activity-theme :is(.negative,.terminal-performance.negative,
+ .header-ticker b.negative,.terminal-quote-change.down,.terminal-trades-row b.sell,
+ .terminal-quote-change.negative){
+  color:var(--red)!important;
+}
+.app-shell.activity-theme :is(.terminal-progress,.goals-progress-track,
+ .goals-feature-track,.terminal-goal-desc i,.goals-stat-meter){
+  background:#313131!important;
+}
+.app-shell.activity-theme :is(.terminal-progress>span,.goals-progress-track i,
+ .goals-feature-track i,.terminal-goal-desc i b,.goals-stat-meter i){
+  background:var(--gain)!important;background-image:none!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-plot{
+  background:#111111!important;background-image:none!important;
+}
+.app-shell.activity-theme .reference-dashboard .terminal-chart-panel .candle-grid line{
+  stroke:#292929!important;
+}
+.app-shell.activity-theme :is(.terminal-chart-panel .chart-range-bar,.terminal-watch-list,
+ .trade-market-overview-body,.trade-market-list-body,.stock-terminal-quote-summary,
+ .stock-prediction-quote,.overview-market-list,.terminal-allocation){
+  background:#141414!important;background-image:none!important;
+}
+.app-shell.activity-theme :is(.terminal-quote,.terminal-chart-quote strong,.stock-terminal-price strong,
+ .terminal-big-number,.stock-terminal-name h1,.headline h1,.goals-title h1,
+ .goal-stat strong,.terminal-goal-content strong,.terminal-card-title h2){
+  color:#f3f3f3!important;
+}
+.app-shell.activity-theme :is(.terminal-muted,.terminal-kicker,.terminal-goal-desc small,
+ .goals-feature-details p,.user-copy small,.header-market-status.closed){
+  color:#bcbcbc!important;
+}
+.app-shell.activity-theme :is(.stock-mark-logo,.terminal-market-symbol .stock-mark-logo){
+  background:#191919!important;border-color:#424242!important;
+}
+.app-shell.activity-theme .terminal-donut:before{background:#141414!important}
+.app-shell.activity-theme .terminal-donut span{background:#141414!important}
+.app-shell.activity-theme :is(.goals-completion-ring span,.goals-completion-ring:before){
+  background:#151515!important;
+}
+/* Status calendar is portaled to document.body, outside the .app-shell. */
+.market-hours-popover{
+  background:#141414!important;border-color:#434343!important;color:#ececec!important;
+}
+.market-hours-next{background:#1a2821!important;border-color:#365743!important}
+.market-hours-date.regular{background:#183326!important;color:#a0e8b9!important}
+.market-hours-date.closed{background:#202020!important;color:#a6a6a6!important}
+.market-hours-date.early{background:#3a3020!important;color:#f5d297!important}
+.market-hours-heading button,.market-hours-month button{
+  background:#222!important;border-color:#454545!important;color:#dedede!important;
+}
+.market-hours-weekday,.market-hours-explain{color:#c6c6c6!important}
+.market-hours-source{color:#80dfa9!important}
+@media(max-width:760px){
+  .app-shell.activity-theme .reference-dashboard .terminal-lower{
+    background:#0E0E0E!important;
+  }
+}

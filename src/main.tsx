@@ -40,6 +40,9 @@ import './viewport-header-repair.css';
 import './market-schedule.css';
 import './stock-logos.css';
 import './history-status.css';
+import './stock-page-cleanup.css';
+import './dashboard-goals-fix.css';
+import './paperstreet-black.css';
 import brandMark from './assets/paperstreet-mark.svg';
 import { Overview } from './Overview';
 import { MarketSchedule } from './MarketSchedule';
@@ -101,7 +104,7 @@ function App() {
   const [history, setHistory] = useState<{ key: string; data?: ChartHistory; error?: string }>();
   const [historyRetryNonce, setHistoryRetryNonce] = useState(0);
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1W');
-  const [stockPane, setStockPane] = useState<'chart'|'order'|'facts'|'predict'>('chart');
+  const [stockPane, setStockPane] = useState<'chart'|'order'|'predict'>('chart');
   const [portfolioPane, setPortfolioPane] = useState<'positions'|'orders'|'history'>(()=>window.location.hash==='#/history'?'history':'positions');
   const historyKey = `${selectedSymbol}:${historyRange}`;
   const currentHistory = history?.key === historyKey ? history : undefined;
