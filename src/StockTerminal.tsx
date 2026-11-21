@@ -20,7 +20,6 @@ export type StockTerminalProps = {
 };
 const signedPercent=(value:number)=>(value>0?'+':'')+value.toFixed(2)+'%';
 const signedMoney=(cents:number)=>(cents>0?'+':cents<0?'−':'')+money(Math.abs(cents));
-const available=(value:number|undefined)=>value===undefined?'—':money(value);
 
 function StockOrderTicket(p:Pick<StockTerminalProps,
   'symbol'|'quote'|'portfolio'|'side'|'setSide'|'shares'|'setShares'|'orderKind'|'setOrderKind'|
@@ -107,6 +106,10 @@ export function StockTerminal(p:StockTerminalProps){
   const profile=STOCK_PROFILES[p.symbol];
   const position=p.portfolio?.positions.find(v=>v.symbol===p.symbol);
   const change=p.quote?p.quote.priceCents-p.quote.previousCloseCents:0;
+  const session=p.quote?.sessionBar;
+  const rangePercent=session&&session.highCents>session.lowCents
+    ?Math.max(0,Math.min(100,(p.quote!.priceCents-session.lowCents)/(session.highCents-session.lowCents)*100))
+    :50;
   return <div className="stock-terminal" data-pane={p.pane} aria-label={'Stock details and trading for '+p.symbol}>
     <div className="stock-terminal-breadcrumb">
       <button type="button" onClick={p.onBack}><ArrowLeft size={16}/> Trade</button>
@@ -151,13 +154,31 @@ export function StockTerminal(p:StockTerminalProps){
           <b className={change>=0?'positive':'negative'}>{p.quote?<>{change>=0?<TrendingUp size={18}/>:<TrendingDown size={18}/>} {signedMoney(change)} ({signedPercent(p.quote.changePct)})</>:'Waiting for quote'}</b>
           <small>{p.quote?'Quote observed '+new Date(p.quote.fetchedAt*1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'Quote unavailable'}{p.quote?.stale?' · Delayed':''}</small>
         </div>
-        <div className="stock-terminal-hero-facts">
-          <div><span>Open</span><strong>{available(p.quote?.sessionBar?.openCents)}</strong></div>
-          <div><span>High</span><strong>{available(p.quote?.sessionBar?.highCents)}</strong></div>
-          <div><span>Low</span><strong>{available(p.quote?.sessionBar?.lowCents)}</strong></div>
-          <div><span>Prev. close</span><strong>{available(p.quote?.previousCloseCents)}</strong></div>
-          <div><span>Held shares</span><strong>{position?.shares??0}</strong></div>
-          <div><span>P/L</span><strong className={position?(position.profitCents>=0?'positive':'negative'):''}>{position?signedMoney(position.profitCents):'—'}</strong></div>
+        <div className="stock-terminal-snapshot" aria-label="Daily range and your position">
+          <div className="stock-terminal-snapshot-range">
+            <div className="stock-terminal-snapshot-label"><span>Day range</span><small>{p.quote?.marketOpen?'Current session':'Last session'}</small></div>
+            {session ? <>
+              <div className="stock-terminal-range-track" aria-label={`From ${money(session.lowCents)} to ${money(session.highCents)}; last ${money(p.quote!.priceCents)}`}>
+                <i style={{left:rangePercent+'%'}}/>
+              </div>
+              <div className="stock-terminal-range-values">
+                <strong>{money(session.lowCents)}</strong><strong>{money(session.highCents)}</strong>
+              </div>
+            </> : <div className="stock-terminal-snapshot-empty">Session range unavailable</div>}
+          </div>
+          <div className="stock-terminal-position-brief">
+            <div className="stock-terminal-snapshot-label"><span>Your position</span></div>
+            {position?.shares ? <>
+              <div className="stock-terminal-position-main">
+                <strong>{position.shares.toLocaleString('en-US')} {position.shares===1?'share':'shares'}</strong>
+                <span className={position.profitCents>=0?'positive':'negative'}>{signedMoney(position.profitCents)}</span>
+              </div>
+              <small>{money(position.marketValueCents)} market value <span>· Unrealized return</span></small>
+            </> : <>
+              <div className="stock-terminal-position-main"><strong>Not owned</strong></div>
+              <small>No position in {p.symbol}</small>
+            </>}
+          </div>
         </div>
       </div>
     </header>

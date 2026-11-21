@@ -9,6 +9,15 @@ const dayTime = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric
 const fullDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: et });
 const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: et });
 const fields = [['Open', 'openCents'], ['High', 'highCents'], ['Low', 'lowCents'], ['Close', 'closeCents']] as const;
+type TooltipPosition = { left: number; top: number };
+const positionTooltip = (x: number, y: number, width: number, height: number): TooltipPosition => {
+  const panelWidth = Math.min(160, Math.max(0, width - 16));
+  const panelHeight = 114;
+  const left = x + panelWidth + 18 <= width - 8 ? x + 14 :
+    x - panelWidth - 14 >= 8 ? x - panelWidth - 14 : Math.max(8, width - panelWidth - 8);
+  const top = Math.max(8, Math.min(y + 12, Math.max(8, height - panelHeight - 8)));
+  return { left, top };
+};
 
 // Historical ranges prefer actual Alpaca IEX OHLC bars; Finnhub observations are the fallback.
 export function chartDataStatus(history?: ChartHistory, range: HistoryRange = '1W', error?: string) {
@@ -44,6 +53,7 @@ export function PriceChart({ history, quote, range, error }: {
   history?: ChartHistory; quote?: Quote; range: HistoryRange; error?: string;
 }) {
   const [inspectedAt, setInspectedAt] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
   const recorded = history?.candles ?? [];
   const dataStatus = chartDataStatus(history,range,error);
   const count = recorded.reduce((total, bar) => total + bar.samples, 0);
@@ -85,12 +95,16 @@ export function PriceChart({ history, quote, range, error }: {
     const rect = event.currentTarget.getBoundingClientRect();
     const i = Math.floor((event.clientX - rect.left) / rect.width * bars.length);
     setInspectedAt(bars[Math.max(0, Math.min(lastIndex, i))].lastAt);
+    setTooltip(positionTooltip(event.clientX - rect.left, event.clientY - rect.top, rect.width, rect.height));
   }
   function inspectKey(event: KeyboardEvent<HTMLDivElement>) {
     const keys: Record<string, number> = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: lastIndex };
     if (!Object.hasOwn(keys, event.key)) return;
     event.preventDefault();
-    setInspectedAt(bars[Math.max(0, Math.min(lastIndex, keys[event.key]))].lastAt);
+    const next = Math.max(0, Math.min(lastIndex, keys[event.key]));
+    setInspectedAt(bars[next].lastAt);
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTooltip(positionTooltip((next + .5) * rect.width / bars.length, rect.height * .35, rect.width, rect.height));
   }
   const singlePrint = !session && active.samples === 1;
   const chartStatus = error ? 'History unavailable' : !history ? 'Loading history…' :
@@ -101,14 +115,13 @@ export function PriceChart({ history, quote, range, error }: {
       role="status" aria-live="polite" title={dataStatus.text}>
       {dataStatus.text}
     </div>
-    <div className="bar-readout">{singlePrint ? <span>Print <b>{money(active.closeCents)}</b></span> :
-      fields.map(([label, key]) => <span key={key}>{label === 'Close' && session ? 'Last' : label} <b>{money(active[key])}</b></span>)}</div>
     <div className="candle-frame">
       <div className="candle-plot" role="slider" tabIndex={0} aria-label="Inspect price candles"
         aria-valuemin={1} aria-valuemax={bars.length} aria-valuenow={index + 1}
         aria-valuetext={`${atLabel}, open ${money(active.openCents)}, high ${money(active.highCents)}, low ${money(active.lowCents)}, close ${money(active.closeCents)}`}
-        onKeyDown={inspectKey} onPointerDown={inspectPointer} onPointerMove={inspectPointer}
-        onPointerLeave={event => { if (event.pointerType === 'mouse') setInspectedAt(null); }}>
+        onKeyDown={inspectKey} onPointerEnter={inspectPointer} onPointerDown={inspectPointer}
+        onPointerMove={inspectPointer} onPointerLeave={() => { setInspectedAt(null); setTooltip(null); }}
+        onBlur={() => setTooltip(null)}>
         <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
           {[0, 25, 50, 75, 100].map(tick => <line key={tick} x1="0" x2="100%" y1={tick} y2={tick} className="candle-grid"/>)}
           <line x1={x(index) + '%'} x2={x(index) + '%'} y1="0" y2="100" className="candle-guide"/>
@@ -123,6 +136,15 @@ export function PriceChart({ history, quote, range, error }: {
             </g>;
           })}
         </svg>
+        {tooltip && <div className="candle-hover-tooltip" role="tooltip" style={tooltip}>
+          <time>{atLabel}</time>
+          <div className="candle-tooltip-values">
+            {fields.map(([label, key])=><div key={key}>
+              <span>{label}</span>
+              <strong className={label==='Close'?(active.closeCents>=active.openCents?'positive':'negative'):''}>{money(active[key])}</strong>
+            </div>)}
+          </div>
+        </div>}
         {session && high > low && <>
           <span className="candle-extreme candle-high" style={{ top: y(high) + '%' }}>High {money(high)}</span>
           <span className="candle-extreme candle-low" style={{ top: y(low) + '%' }}>Low {money(low)}</span>

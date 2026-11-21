@@ -45,3 +45,19 @@ test('legacy source modules no longer request or expose third-party historical d
  assert.match(read('src/main.tsx'),/import '\.\/chart-status\.css'/);
  assert.match(read('src/chart-status.css'),/chart-data-status/);
 });
+
+
+test('candle OHLC is shown beside cursor instead of a permanent readout',()=>{
+ const src=read('src/PriceChart.tsx');
+ assert.match(src,/className="candle-hover-tooltip"/);
+ assert.match(src,/onPointerMove=\{inspectPointer\}/);
+ assert.match(src,/onPointerLeave=\{/);
+ assert.match(src,/setInspectedAt\(null\); setTooltip\(null\)/);
+ assert.match(src,/onKeyDown=\{inspectKey\}/);
+ assert.doesNotMatch(src,/className="bar-readout"/);
+ const html=renderToStaticMarkup(createElement(PriceChart,{history:sample,quote,range:'1M'}));
+ assert.doesNotMatch(html,/bar-readout|Open <b>|High <b>|Low <b>|Close <b>/);
+ const css=read('src/paperstreet-black.css');
+ assert.match(css,/\.candle-hover-tooltip\{/);
+ assert.match(css,/pointer-events:none/);
+});
