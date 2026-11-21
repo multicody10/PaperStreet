@@ -63,7 +63,7 @@ export async function inspectProductionDeployIdentity(
       key.kty === 'RSA' && key.use === 'sig' && key.alg === 'RS256');
     if (!jwk) {
       // Local development / a genuinely rotated key can still use trusted JWKS.
-      const response = await fetch(JWKS_URL, { redirect: 'error', signal: AbortSignal.timeout(8000) })
+      const response = await fetch(JWKS_URL, { redirect: 'manual', signal: AbortSignal.timeout(8000) })
         .catch(() => null);
       if (!response?.ok) return deny('jwks_fetch');
       const data = await response.json().catch(() => null) as Jwks | null;

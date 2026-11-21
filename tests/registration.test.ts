@@ -30,6 +30,7 @@ function harness(t: TestContext, original: object[] = []) {
   const env = { DB: db, DISCORD_CLIENT_ID: appId, DISCORD_CLIENT_SECRET: 'mock-secret', DISCORD_PUBLIC_KEY: key };
   t.mock.method(globalThis, 'fetch', async (input: RequestInfo | URL, options?: RequestInit) => {
     const url = String(input), method = options?.method ?? 'GET';
+    assert.equal(options?.redirect, 'manual', 'Cloudflare Workers must not use redirect:error');
     const body = options?.body instanceof URLSearchParams
       ? Object.fromEntries(options.body.entries())
       : options?.body ? JSON.parse(String(options.body)) : undefined;

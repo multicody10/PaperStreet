@@ -19,7 +19,7 @@ const API = 'https://discord.com/api/v10';
 async function register(env: RegistrationEnv): Promise<'registered' | 'verified'> {
   const clientId = env.DISCORD_CLIENT_ID!;
   const response = await fetch(`${API}/oauth2/token`, {
-    method: 'POST', redirect: 'error', signal: AbortSignal.timeout(8000),
+    method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(8000),
     body: new URLSearchParams({
       grant_type: 'client_credentials', scope: 'applications.commands.update',
       client_id: clientId, client_secret: env.DISCORD_CLIENT_SECRET!,
@@ -36,7 +36,7 @@ async function register(env: RegistrationEnv): Promise<'registered' | 'verified'
   const commandsUrl = `${API}/applications/${clientId}/commands`;
   async function discord(url: string, step: string, init: RequestInit = {}) {
     const result = await fetch(url, {
-      headers, redirect: 'error', signal: AbortSignal.timeout(8000), ...init,
+      headers, redirect: 'manual', signal: AbortSignal.timeout(8000), ...init,
     }).catch(() => { throw new Error(`${step}_network_error`); });
     if (!result.ok) throw new Error(`${step}_http_${result.status}`);
     const json = await result.json().catch(() => null) as unknown;

@@ -28,8 +28,9 @@ function jwt(body: Record<string, unknown> = claims) {
   return [header, content, signature].join('.');
 }
 function mockJwks(t: TestContext) {
-  t.mock.method(globalThis, 'fetch', async (resource: RequestInfo | URL) => {
+  t.mock.method(globalThis, 'fetch', async (resource: RequestInfo | URL, options?: RequestInit) => {
     assert.equal(String(resource), 'https://token.actions.githubusercontent.com/.well-known/jwks');
+    assert.equal(options?.redirect, 'manual', 'Cloudflare Workers must not use redirect:error');
     return Response.json({ keys: [jwk] });
   });
 }
