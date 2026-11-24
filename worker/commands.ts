@@ -45,7 +45,7 @@ export function portfolioEmbed(portfolio: Portfolio, avatarUrl?: string): Discor
   const lines = ordered.map(p => {
     const returnPct = p.costBasisCents ? p.profitCents / p.costBasisCents * 100 : 0;
     const arrow = p.profitCents >= 0 ? '↗' : '↘';
-    return `**${p.symbol}** · ${p.shares.toLocaleString('en-US')} sh. · **${money(p.marketValueCents)}** · ${arrow} ${percent(returnPct)}`;
+    return `**${p.symbol}** · ${p.shares.toLocaleString('en-US')} ${p.short?'short':'sh.'} · **${money(p.marketValueCents)}** · ${arrow} ${percent(returnPct)}`;
   });
   let display = '';
   let count = 0;
@@ -65,7 +65,7 @@ export function portfolioEmbed(portfolio: Portfolio, avatarUrl?: string): Discor
     description: `**TOTAL EQUITY**\n**${money(portfolio.equityCents)}**\n${change >= 0 ? '📈' : '📉'} ${signedMoney(change)} (${percent(changePct)}) all time`,
     color: change >= 0 ? 0x28bb80 : 0xd95468,
     fields: [
-      { name: '💵 Cash Available', value: money(portfolio.cashCents), inline: true },
+      { name: '💵 Cash Available', value: money(portfolio.cashCents)+(portfolio.marginDebtCents ? '\nDebt: '+money(portfolio.marginDebtCents) : ''), inline: true },
       { name: '📈 Invested Value', value: money(portfolio.investedCents), inline: true },
       { name: '📊 Holdings', value: String(portfolio.positions.length), inline: true },
       { name: `Positions · ${portfolio.positions.length} stocks`, value: display || '*No open positions yet. Your entire balance is cash.*' },

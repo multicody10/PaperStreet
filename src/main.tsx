@@ -1,3 +1,4 @@
+import { tradeVerb, type OrderSide } from '../shared/gameplay';
 import { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
@@ -89,7 +90,7 @@ function App() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<SymbolCode>(() => parseAppHash(window.location.hash).symbol);
-  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
+  const [side, setSide] = useState<OrderSide>('BUY');
   const [shares, setShares] = useState('1');
   const [orderKind, setOrderKind] = useState<'AUTO' | 'IMMEDIATE' | OrderKind>('AUTO');
   const [triggerPrice, setTriggerPrice] = useState('');
@@ -113,7 +114,7 @@ function App() {
     setTab(page);
     window.history.pushState(null, '', appHash(page));
   }
-  function openStock(symbol: SymbolCode, nextSide: 'BUY' | 'SELL' = 'BUY') {
+  function openStock(symbol: SymbolCode, nextSide: OrderSide = 'BUY') {
     setSelectedSymbol(symbol);
     setSide(nextSide);
     setShares('1');
@@ -231,7 +232,9 @@ function App() {
   const total = selected && validQuantity ? selected.priceCents * quantity : 0;
   const position = portfolio?.positions.find(p => p.symbol === selectedSymbol);
   const canTrade = !!selected && !selected.stale && validQuantity && !!portfolio &&
-    (side === 'BUY' ? portfolio.cashCents >= total : (position?.shares ?? 0) >= quantity);
+    (side === 'BUY' ? !position?.short && portfolio.cashCents >= total :
+      side === 'SHORT' ? (!position || !!position.short) && portfolio.cashCents >= total && (position?.shares??0)+quantity<=100000 :
+      !!position && (side === 'COVER' ? !!position.short : !position.short) && position.shares>=quantity);
   const effectiveOrderKind: 'IMMEDIATE' | OrderKind = selected?.marketOpen
     ? orderKind === 'AUTO' ? 'IMMEDIATE' : orderKind
     : orderKind === 'LIMIT' || orderKind === 'STOP' ? orderKind : 'MARKET';
@@ -265,7 +268,7 @@ function App() {
         });
         setFeedback({
           kind:'ok', message:response.duplicate ? 'Order already filled.' :
-            (side === 'BUY' ? 'Bought ' : 'Sold ') + quantity + ' ' + selected.symbol + ' at ' + money(response.fillPriceCents ?? selected.priceCents) + '.',
+            (tradeVerb(side)+' ') + quantity + ' ' + selected.symbol + ' at ' + money(response.fillPriceCents ?? selected.priceCents) + '.',
         });
       }
       await refresh(token, tab);
@@ -377,7 +380,7 @@ function App() {
               {(tab === 'portfolio' || tab === 'leaderboard') && <section className={'page-insights '+(tab === 'leaderboard'?'leaderboard-insights':'')} aria-label={tab === 'portfolio'?'Portfolio summary':'Leaderboard summary'}>
                  {tab === 'portfolio' ? <>
                    <div className="panel page-insight"><span>Account equity</span><strong>{portfolio?money(portfolio.equityCents):'—'}</strong><small>Virtual account balance</small></div>
-                   <div className="panel page-insight"><span>Available cash</span><strong>{portfolio?money(portfolio.cashCents):'—'}</strong><small>Buying power</small></div>
+                   <div className="panel page-insight"><span>Available cash</span><strong>{portfolio?money(portfolio.cashCents):'—'}</strong><small>{portfolio?.marginDebtCents? 'Margin debt '+money(portfolio.marginDebtCents):'Buying power'}</small></div>
                    <div className="panel page-insight"><span>Invested</span><strong>{portfolio?money(portfolio.investedCents):'—'}</strong><small>{portfolio?portfolio.positions.length:0} open positions</small></div>
                    <div className="panel page-insight"><span>Total return</span><strong className={portfolio?(portfolio.profitCents>=0?'positive':'negative'):''}>{portfolio?signedMoney(portfolio.profitCents):'—'}</strong><small>Since account creation</small></div>
                  </> : <>
@@ -421,11 +424,11 @@ function App() {
                       <thead><tr><th>Asset</th><th>Shares</th><th>Average cost</th><th>Market value</th><th>Profit / loss</th><th></th></tr></thead>
                       <tbody>{items.map(p=><tr key={p.symbol}>
                         <td data-label="Asset"><strong>{p.symbol}</strong><small>{p.quote.name}</small></td>
-                        <td data-label="Shares">{p.shares}</td>
+                        <td data-label="Shares">{p.shares}{p.short?' short':''}</td>
                         <td data-label="Average cost">{money(Math.round(p.costBasisCents/p.shares))}</td>
                         <td data-label="Market value">{money(p.marketValueCents)}</td>
                         <td data-label="Profit / loss" className={p.profitCents>=0?'positive':'negative'}>{signedMoney(p.profitCents)}</td>
-                        <td data-label="Action"><button type="button" className="small-action" onClick={()=>openStock(p.symbol,'SELL')}>Trade <ArrowUpRight size={14}/></button></td>
+                        <td data-label="Action"><button type="button" className="small-action" onClick={()=>openStock(p.symbol,p.short?'COVER':'SELL')}>Trade <ArrowUpRight size={14}/></button></td>
                       </tr>)}</tbody></table></div>}/>
                   : <FitPager items={leaders} rowHeight={65} compactRowHeight={72} empty="No traders yet."
                     render={(items,start)=><div className="full-leaderboard">{items.map((leader,i)=><div key={leader.userId} className={'full-leader-row '+(leader.userId===account.id?'self':'')}>

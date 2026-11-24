@@ -1,3 +1,4 @@
+import { isBuySide, orderLabel, type OrderSide } from '../shared/gameplay';
 import { useState } from 'react';
 import { ArrowDownLeft, ArrowLeft, ArrowUpRight, ChevronRight, Clock3, Crosshair, Layers, MoreHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react';
 import { HISTORY_RANGES, type ChartHistory, type HistoryRange, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
@@ -13,7 +14,7 @@ export type StockTerminalProps = {
   symbol:SymbolCode;quote?:Quote;quotes:Quote[];portfolio:Portfolio|null;trades:Trade[];
   history?:ChartHistory;historyError?:string;range:HistoryRange;setRange:(v:HistoryRange)=>void;
   pane:StockPane;setPane:(v:StockPane)=>void;onBack:()=>void;openStock:(s:SymbolCode)=>void;openPortfolio:()=>void;
-  side:'BUY'|'SELL';setSide:(v:'BUY'|'SELL')=>void;
+  side:OrderSide;setSide:(v:OrderSide)=>void;
   shares:string;setShares:(v:string)=>void;orderKind:'IMMEDIATE'|OrderKind;setOrderKind:(v:'AUTO'|'IMMEDIATE'|OrderKind)=>void;
   triggerPrice:string;setTriggerPrice:(v:string)=>void;total:number;canSubmit:boolean;pending:boolean;execute:()=>void;
   predictions:Prediction[];forecastPending:boolean;submitForecast:(s:SymbolCode,d:PredictionDirection)=>void;
@@ -25,15 +26,20 @@ function StockOrderTicket(p:Pick<StockTerminalProps,
   'symbol'|'quote'|'portfolio'|'side'|'setSide'|'shares'|'setShares'|'orderKind'|'setOrderKind'|
   'triggerPrice'|'setTriggerPrice'|'total'|'canSubmit'|'pending'|'execute'|'openPortfolio'>) {
   const queued=p.orderKind!=='IMMEDIATE';
-  const held=p.portfolio?.positions.find(pos=>pos.symbol===p.symbol)?.shares??0;
-  const max=p.side==='BUY'&&p.quote?
-    Math.min(100000,Math.floor((p.portfolio?.cashCents??0)/Math.max(1,p.quote.priceCents))):
-    Math.min(100000,held);
+  const position=p.portfolio?.positions.find(pos=>pos.symbol===p.symbol);
+  const held=position?.shares??0;
+  const opening=p.side==='BUY'||p.side==='SHORT';
+  const compatible=p.side==='BUY'||p.side==='SELL'?!position?.short:!position||!!position.short;
+  const max=!compatible?0:opening&&p.quote?
+    Math.min(p.side==='SHORT'?100000-held:100000,Math.floor((p.portfolio?.cashCents??0)/Math.max(1,p.quote.priceCents))):
+    !opening?Math.min(100000,held):0;
   const marketValue=p.quote?.marketOpen?'IMMEDIATE':'MARKET';
   return <section className="panel stock-terminal-ticket" aria-label={'Trade '+p.symbol}>
     <div className="stock-ticket-tabs side-selector" role="group" aria-label="Trade direction">
       <button className={p.side==='BUY'?'current buy':''} type="button" aria-pressed={p.side==='BUY'} onClick={()=>p.setSide('BUY')}>Buy</button>
       <button className={p.side==='SELL'?'current sell':''} type="button" aria-pressed={p.side==='SELL'} onClick={()=>p.setSide('SELL')}>Sell</button>
+      <button className={p.side==='SHORT'?'current sell':''} type="button" aria-pressed={p.side==='SHORT'} onClick={()=>p.setSide('SHORT')}>Short</button>
+      <button className={p.side==='COVER'?'current buy':''} type="button" aria-pressed={p.side==='COVER'} onClick={()=>p.setSide('COVER')}>Cover</button>
     </div>
     <div className="stock-ticket-body">
       <div className="stock-ticket-field">
@@ -61,13 +67,13 @@ function StockOrderTicket(p:Pick<StockTerminalProps,
           aria-pressed={p.shares===String(qty)}>{qty.toLocaleString('en-US')}</button>)}
         <button type="button" disabled={max<1} aria-pressed={p.shares===String(max)} onClick={()=>p.setShares(String(max))}>Max</button>
       </div>
-      <div className="stock-ticket-balance"><span>{p.side==='BUY'?'Available paper cash':'Available shares'}</span>
-        <strong>{p.side==='BUY'?money(p.portfolio?.cashCents??0):held.toLocaleString('en-US')}</strong></div>
-      <div className="stock-ticket-total"><span>{queued?'Indicative value':'Estimated '+(p.side==='BUY'?'cost':'proceeds')}</span><strong>{money(p.total)}</strong></div>
-      <button type="button" className={'execute-button '+p.side.toLowerCase()} disabled={!p.canSubmit||p.pending} onClick={p.execute}>
-        {p.pending?'Processing…':(queued?'Queue ':'')+(p.side==='BUY'?'Buy ':'Sell ')+p.symbol}
+      <div className="stock-ticket-balance"><span>{opening?'Available paper cash':p.side==='COVER'?'Short shares':'Available shares'}</span>
+        <strong>{opening?money(p.portfolio?.cashCents??0):(compatible?held:0).toLocaleString('en-US')}</strong></div>
+      <div className="stock-ticket-total"><span>{p.side==='SHORT'?'Required collateral':queued?'Indicative value':'Estimated '+(isBuySide(p.side)?'cost':'proceeds')}</span><strong>{money(p.total)}</strong></div>
+      <button type="button" className={'execute-button '+(isBuySide(p.side)?'buy':'sell')} disabled={!p.canSubmit||p.pending} onClick={p.execute}>
+        {p.pending?'Processing…':(queued?'Queue ':'')+orderLabel(p.side)+' '+p.symbol}
       </button>
-      <p className="stock-ticket-note">{queued?'Queued orders execute with verified prices when market conditions permit.':'Simulated trade using verified market quotes.'}</p>
+      <p className="stock-ticket-note">{p.side==='SHORT'?'100% collateral; proceeds locked. Auto cover below 25% maintenance margin.':p.side==='COVER'?'Repurchase shares to close the short. Gap losses can create paper debt.':queued?'Queued orders execute with verified prices when market conditions permit.':'Simulated trade using verified market quotes.'}</p>
       <button type="button" className="stock-ticket-orders-link" onClick={p.openPortfolio}>Queued orders <ChevronRight size={13}/></button>
     </div>
   </section>;
@@ -94,8 +100,8 @@ function StockActivity({symbol,trades}:{symbol:SymbolCode;trades:Trade[]}){
     <div className="stock-terminal-heading"><h2><Clock3 size={17}/> Your {symbol} trades</h2><span>{selected.length} fills</span></div>
     <FitPager items={selected} rowHeight={43} compactRowHeight={44} empty={'No '+symbol+' trades yet'}
       render={items=><div className="stock-terminal-activity-list">{items.map(t=><div className="stock-terminal-activity-row" key={t.id}>
-        <span className={t.side==='BUY'?'buy':'sell'}>{t.side==='BUY'?<ArrowDownLeft size={14}/>:<ArrowUpRight size={14}/>}</span>
-        <div><strong>{t.side} {t.shares} shares</strong><small>{new Date(t.executedAt*1000).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</small></div>
+        <span className={isBuySide(t.side)?'buy':'sell'}>{isBuySide(t.side)?<ArrowDownLeft size={14}/>:<ArrowUpRight size={14}/>}</span>
+        <div><strong>{orderLabel(t.side)} {t.shares} shares</strong><small>{new Date(t.executedAt*1000).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</small></div>
         <b>{money(t.priceCents)}</b>
       </div>)}</div>}/>
   </section>;
@@ -170,10 +176,10 @@ export function StockTerminal(p:StockTerminalProps){
             <div className="stock-terminal-snapshot-label"><span>Your position</span></div>
             {position?.shares ? <>
               <div className="stock-terminal-position-main">
-                <strong>{position.shares.toLocaleString('en-US')} {position.shares===1?'share':'shares'}</strong>
+                <strong>{position.shares.toLocaleString('en-US')} {position.short?'short':position.shares===1?'share':'shares'}</strong>
                 <span className={position.profitCents>=0?'positive':'negative'}>{signedMoney(position.profitCents)}</span>
               </div>
-              <small>{money(position.marketValueCents)} market value <span>· Unrealized return</span></small>
+              <small>{money(position.marketValueCents)} {position.short?'short exposure':'market value'} <span>· Unrealized return</span></small>
             </> : <>
               <div className="stock-terminal-position-main"><strong>Not owned</strong></div>
               <small>No position in {p.symbol}</small>

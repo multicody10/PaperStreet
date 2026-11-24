@@ -1,3 +1,4 @@
+import { isBuySide, ledgerSide, positionEffect, displaySideSql } from '../shared/gameplay';
 import { isSymbol, type Quote, type SymbolCode } from '../shared/stocks';
 import type { Achievement, AchievementCode, OrderKind, OrderSide, PredictionDirection, QueuedOrder, Prediction, PredictionSummary } from '../shared/gameplay';
 import { isQuoteExecutable, isUsMarketOpen, quoteFor, type MarketEnv } from './market';
@@ -33,8 +34,8 @@ export function nextMarketSession(now = Math.floor(Date.now() / 1000)): string {
 export function orderMatches(kind: OrderKind, side: OrderSide, trigger: number | null, price: number): boolean {
   if (kind === 'MARKET') return true;
   if (!trigger || !Number.isSafeInteger(trigger)) return false;
-  return kind === 'LIMIT' ? side === 'BUY' ? price <= trigger : price >= trigger
-    : side === 'BUY' ? price >= trigger : price <= trigger;
+  return kind === 'LIMIT' ? isBuySide(side) ? price <= trigger : price >= trigger
+    : isBuySide(side) ? price >= trigger : price <= trigger;
 }
 export function predictionResult(direction: PredictionDirection, baseline: number, close: number) {
   const outcome = close === baseline ? 'PUSH' :
@@ -55,7 +56,7 @@ const asPrediction = (row: PredictionRow): Prediction => ({
   basePriceCents: row.base_price_cents, closePriceCents: row.close_price_cents,
   outcome: row.outcome, points: row.points, createdAt: row.created_at,
 });
-const orderColumns = 'id,user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents,status,created_at,resolved_at,fill_price_cents,failure_reason';
+const orderColumns = `id,user_id,client_order_id,symbol,${displaySideSql()} AS side,shares,kind,trigger_price_cents,status,created_at,resolved_at,fill_price_cents,failure_reason`;
 const predictionColumns = 'id,user_id,symbol,direction,target_date,base_price_cents,close_price_cents,outcome,points,created_at';
 
 export async function listOrders(userId: string, env: MarketEnv): Promise<QueuedOrder[]> {
@@ -69,8 +70,8 @@ export async function queueOrder(env: MarketEnv, userId: string, input: {
   if (prior) return asOrder(prior);
   const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM queued_orders WHERE user_id=? AND status IN ('PENDING','PROCESSING')").bind(userId).first<{n:number}>();
   if ((active?.n ?? 0) >= 30) throw new Error('You can have at most 30 open queued orders.');
-  const created = await env.DB.prepare('INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents,channel_id) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(user_id,client_order_id) DO NOTHING RETURNING id')
-    .bind(userId,input.orderId,input.symbol,input.side,input.shares,input.kind,input.triggerPriceCents,input.channelId??null).first<{id:number}>();
+  const created = await env.DB.prepare('INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,trigger_price_cents,channel_id,position_effect) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,client_order_id) DO NOTHING RETURNING id')
+    .bind(userId,input.orderId,input.symbol,ledgerSide(input.side),input.shares,input.kind,input.triggerPriceCents,input.channelId??null,positionEffect(input.side)).first<{id:number}>();
   const id = created?.id;
   const row = await env.DB.prepare('SELECT ' + orderColumns + ' FROM queued_orders WHERE user_id=? AND ' + (id ? 'id=?' : 'client_order_id=?')).bind(userId,id ?? input.orderId).first<OrderRow>();
   if (!row) throw new Error('Unable to save queued order');
@@ -107,8 +108,8 @@ export async function processQueuedOrders(env: MarketEnv, now = Math.floor(Date.
     try {
       let trade = await env.DB.prepare('SELECT id FROM trades WHERE user_id=? AND client_order_id=?').bind(row.user_id,row.client_order_id).first<{id:number}>();
       if (!trade) {
-        trade = await env.DB.prepare('INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents) VALUES(?,?,?,?,?,?) RETURNING id')
-          .bind(row.user_id,row.client_order_id,row.symbol,row.side,row.shares,quote.priceCents).first<{id:number}>();
+        trade = await env.DB.prepare('INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents,position_effect) VALUES(?,?,?,?,?,?,?) RETURNING id')
+          .bind(row.user_id,row.client_order_id,row.symbol,ledgerSide(row.side),row.shares,quote.priceCents,positionEffect(row.side)).first<{id:number}>();
       }
       await env.DB.prepare("UPDATE queued_orders SET status='FILLED',resolved_at=?,fill_price_cents=?,failure_reason=NULL WHERE id=? AND status='PROCESSING'")
         .bind(now,quote.priceCents,row.id).run();
@@ -123,10 +124,11 @@ export async function processQueuedOrders(env: MarketEnv, now = Math.floor(Date.
           filled++; continue;
         }
       }
-      const rejected = message.includes('Insufficient cash') || message.includes('Insufficient shares');
+      const reason = ['Insufficient cash for short collateral','Insufficient short shares','Close short position first','Close long position first','Short position limit exceeded','Insufficient cash','Insufficient shares'].find(r=>message.includes(r));
+      const rejected = !!reason;
       await env.DB.prepare("UPDATE queued_orders SET status=?,claimed_at=NULL,resolved_at=?,failure_reason=? WHERE id=? AND status='PROCESSING'")
         .bind(rejected ? 'REJECTED' : 'PENDING',rejected ? now : null,
-          rejected ? (message.includes('cash') ? 'Insufficient cash at execution' : 'Insufficient shares at execution') : null,row.id).run();
+          reason ? reason+' at execution' : null,row.id).run();
       if (!rejected) console.error('Queued order retryable failure',row.id);
     }
   }

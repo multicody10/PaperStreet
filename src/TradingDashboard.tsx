@@ -1,3 +1,4 @@
+import { isBuySide, orderLabel } from '../shared/gameplay';
 import { useState, type ReactNode } from 'react';
 import { ArrowRight, BarChart3, BriefcaseBusiness, CheckCircle2, ChevronRight, Target, Trophy, Wallet } from 'lucide-react';
 import { STARTING_CASH_CENTS, type ChartHistory, type HistoryRange, type Portfolio, type Quote, type SymbolCode, type Trade } from '../shared/stocks';
@@ -30,10 +31,10 @@ function Allocation({portfolio}:{portfolio:Portfolio|null}) {
   const total=portfolio?.equityCents??0;
   const invested=portfolio?.investedCents??0;
   const positions=[...(portfolio?.positions??[])].sort((a,b)=>b.marketValueCents-a.marketValueCents);
-  const groups=[...positions.slice(0,3).map(p=>({label:p.symbol,cents:p.marketValueCents})),
+  const groups=[...positions.slice(0,3).map(p=>({label:p.symbol+(p.short?' short':''),cents:p.marketValueCents})),
     ...(positions.length>3?[{label:'Other',cents:positions.slice(3).reduce((n,p)=>n+p.marketValueCents,0)}]:[]),
     {label:'Cash',cents:portfolio?.cashCents??0}];
-  const safe=Math.max(total,1);
+  const safe=Math.max(portfolio?.positions.some(p=>p.short)?groups.reduce((n,g)=>n+g.cents,0):total,1);
   let angle=0;
   const colors=groups.map((group,i)=>({ ...group,color:group.label==='Cash'?'#555555':DAY_COLORS[i%DAY_COLORS.length],
     percent:Math.max(0,group.cents)/safe*100 }));
@@ -164,7 +165,7 @@ export function TradingDashboard(p:DashboardProps) {
           <FitPager key="positions" items={openPositions} rowHeight={40} compactRowHeight={43} empty="No open positions"
             render={items=><div className="terminal-position-list">{items.map(pos=><div key={pos.symbol} className="terminal-position-row">
               <strong className="terminal-position-symbol"><StockMark symbol={pos.symbol}/>{pos.symbol}</strong>
-              <span>{pos.shares}</span><span>{money(pos.quote.priceCents)}</span>
+              <span>{pos.shares}{pos.short?' S':''}</span><span>{money(pos.quote.priceCents)}</span>
               <strong className={pos.profitCents>=0?'positive':'negative'}>{currencyDelta(pos.profitCents)}</strong>
             </div>)}</div>}/>
         </>:<>
@@ -172,7 +173,7 @@ export function TradingDashboard(p:DashboardProps) {
           <FitPager key="trades" items={p.trades} rowHeight={40} compactRowHeight={43} empty="No completed trades"
             render={items=><div className="terminal-trades-list">{items.map(t=><div key={t.id} className="terminal-trades-row">
               <span>{new Date(t.executedAt*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
-              <strong>{t.symbol}</strong><b className={t.side==='BUY'?'buy':'sell'}>{t.side==='BUY'?'Buy':'Sell'}</b>
+              <strong>{t.symbol}</strong><b className={isBuySide(t.side)?'buy':'sell'}>{orderLabel(t.side)}</b>
               <span>{t.shares}</span>
             </div>)}</div>}/>
         </>}

@@ -30,7 +30,7 @@ export type Quote = {
   changePct: number; fetchedAt: number; source: 'finnhub'; stale: boolean; marketOpen: boolean;
   sessionBar?: PriceBar;
 };
-export type Position = { symbol: SymbolCode; shares: number; costBasisCents: number; marketValueCents: number; profitCents: number; quote: Quote };
-export type Portfolio = { userId: string; displayName: string; cashCents: number; startingCashCents: number; equityCents: number; investedCents: number; profitCents: number; positions: Position[] };
+export type Position = { short?: boolean; capitalCents?: number; symbol: SymbolCode; shares: number; costBasisCents: number; marketValueCents: number; profitCents: number; quote: Quote };
+export type Portfolio = { marginDebtCents?: number; userId: string; displayName: string; cashCents: number; startingCashCents: number; equityCents: number; investedCents: number; profitCents: number; positions: Position[] };
 export type Leader = { userId: string; displayName: string; avatarUrl: string; equityCents: number; startingCashCents: number; changeCents: number };
-export type Trade = { id: number; symbol: SymbolCode; side: 'BUY' | 'SELL'; shares: number; priceCents: number; executedAt: number };
+export type Trade = { id: number; symbol: SymbolCode; side: import('./gameplay').OrderSide | 'LIQUIDATE'; shares: number; priceCents: number; executedAt: number };

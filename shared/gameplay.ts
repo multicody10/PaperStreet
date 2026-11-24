@@ -1,6 +1,15 @@
 import type { SymbolCode } from './stocks';
 
-export type OrderSide = 'BUY' | 'SELL';
+export type OrderSide = 'BUY' | 'SELL' | 'SHORT' | 'COVER';
+export const isOrderSide = (value: unknown): value is OrderSide =>
+  value === 'BUY' || value === 'SELL' || value === 'SHORT' || value === 'COVER';
+export const isBuySide = (side: OrderSide | 'LIQUIDATE') => side === 'BUY' || side === 'COVER' || side === 'LIQUIDATE';
+export const orderLabel = (side: OrderSide | 'LIQUIDATE') => ({BUY:'Buy',SELL:'Sell',SHORT:'Short',COVER:'Cover',LIQUIDATE:'Liquidated'}[side]);
+export const tradeVerb = (side: OrderSide | 'LIQUIDATE') => ({BUY:'Bought',SELL:'Sold',SHORT:'Shorted',COVER:'Covered',LIQUIDATE:'Liquidated'}[side]);
+export const ledgerSide = (side: OrderSide) => isBuySide(side) ? 'BUY' : 'SELL';
+export const positionEffect = (side: OrderSide) => side === 'SHORT' || side === 'COVER' ? 'SHORT' : 'LONG';
+// Only server-selected aliases are passed to this SQL expression.
+export const displaySideSql = (prefix = '') => `CASE WHEN ${prefix}position_effect='LIQUIDATION' THEN 'LIQUIDATE' WHEN ${prefix}position_effect='SHORT' THEN CASE WHEN ${prefix}side='BUY' THEN 'COVER' ELSE 'SHORT' END ELSE ${prefix}side END`;
 export type OrderKind = 'MARKET' | 'LIMIT' | 'STOP';
 export type OrderStatus = 'PENDING' | 'PROCESSING' | 'FILLED' | 'CANCELED' | 'REJECTED';
 export type QueuedOrder = {

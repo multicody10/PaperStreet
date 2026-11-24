@@ -1,3 +1,5 @@
+import { isOrderSide, ledgerSide, positionEffect, displaySideSql } from '../shared/gameplay';
+import { liquidateUnderMargin } from './margin';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { portfolioInteraction } from './commands';
@@ -140,7 +142,7 @@ app.get('/api/portfolio', async c => {
 });
 
 app.get('/api/history', async c => {
-  const trades = await c.env.DB.prepare(`SELECT id,symbol,side,shares,price_cents AS priceCents,executed_at AS executedAt
+  const trades = await c.env.DB.prepare(`SELECT id,symbol,${displaySideSql()} AS side,shares,price_cents AS priceCents,executed_at AS executedAt
     FROM trades WHERE user_id=? ORDER BY id DESC LIMIT 30`).bind(c.get('userId')).all();
   return noStore({ trades: trades.results });
 });
@@ -156,7 +158,7 @@ app.post('/api/orders', async c => {
   const kind = input?.kind;
   const price = input?.triggerPriceCents;
   if (!input || !isSymbol(input.symbol) ||
-      (input.side!=='BUY' && input.side!=='SELL') ||
+      !isOrderSide(input.side) ||
       !Number.isSafeInteger(input.shares) || Number(input.shares)<1 || Number(input.shares)>100000 ||
       (kind!=='MARKET' && kind!=='LIMIT' && kind!=='STOP') ||
       (kind==='MARKET' ? price!=null : !Number.isSafeInteger(price) || Number(price)<1 || Number(price)>100000000) ||
@@ -213,7 +215,7 @@ app.get('/api/leaderboard', async c => {
     return noStore({ error: 'Leaderboard unavailable while market quotes are stale' }, 503);
   const leaders = await memoized('leaderboard', 15000, async (): Promise<Leader[]> => {
     const { results } = await c.env.DB.prepare(`SELECT p.user_id AS userId, p.display_name AS displayName,
-      p.cash_cents + COALESCE(SUM(h.shares * q.price_cents),0) AS equityCents,
+      p.cash_cents - p.margin_debt_cents + COALESCE(SUM(h.shares * q.price_cents),0) + COALESCE((SELECT SUM(2*s.cost_basis_cents-s.shares*sq.price_cents) FROM short_positions s JOIN quote_cache sq ON sq.symbol=s.symbol WHERE s.user_id=p.user_id),0) AS equityCents,
       p.starting_cash_cents AS startingCashCents,
       p.avatar_hash AS avatarHash, p.avatar_discriminator AS avatarDiscriminator
       FROM players p LEFT JOIN holdings h ON h.user_id = p.user_id
@@ -230,7 +232,7 @@ app.get('/api/leaderboard', async c => {
 app.post('/api/trade', async c => {
   if (Number(c.req.header('Content-Length') ?? 0) > 2048) return noStore({ error: 'Invalid order' }, 400);
   const input = await c.req.json().catch(() => null) as { symbol?: unknown; side?: unknown; shares?: unknown; expectedPriceCents?: unknown; orderId?: unknown; channelId?: unknown } | null;
-  if (!input || !isSymbol(input.symbol) || (input.side !== 'BUY' && input.side !== 'SELL') ||
+  if (!input || !isSymbol(input.symbol) || !isOrderSide(input.side) ||
       !Number.isSafeInteger(input.shares) || Number(input.shares) < 1 || Number(input.shares) > 100_000 ||
       !Number.isSafeInteger(input.expectedPriceCents) || Number(input.expectedPriceCents) <= 0 ||
       typeof input.orderId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.orderId)) {
@@ -248,9 +250,9 @@ app.post('/api/trade', async c => {
   }
   try {
     const channelId = await verifiedActivityChannel(c.env.DB,userId,input.channelId);
-    const result = await c.env.DB.prepare(`INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents,channel_id)
-      VALUES(?,?,?,?,?,?,?) RETURNING id`).bind(userId, input.orderId, input.symbol, input.side,
-      input.shares, quote.priceCents,channelId).first<{ id: number }>();
+    const result = await c.env.DB.prepare(`INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents,channel_id,position_effect)
+      VALUES(?,?,?,?,?,?,?,?) RETURNING id`).bind(userId, input.orderId, input.symbol, ledgerSide(input.side),
+      input.shares, quote.priceCents,channelId,positionEffect(input.side)).first<{ id: number }>();
     if (result?.id) c.executionCtx.waitUntil(deliverTradeNotifications(c.env,Math.floor(Date.now()/1000),result.id).catch(()=>
       console.error('Immediate trade announcement dispatch failed')));
     invalidateMemo('leaderboard');
@@ -260,6 +262,11 @@ app.post('/api/trade', async c => {
     if (message.includes('UNIQUE constraint failed')) {
       const previous = await c.env.DB.prepare('SELECT id FROM trades WHERE user_id=? AND client_order_id=?').bind(userId, input.orderId).first<{ id: number }>();
       if (previous) return noStore({ tradeId: previous.id, duplicate: true });
+    }
+    if (message.includes('Insufficient cash for short collateral')) return noStore({ error: 'Insufficient cash for short collateral (100% of position value)' }, 409);
+    if (message.includes('Insufficient short shares')) return noStore({ error: 'You do not have enough short shares to cover' }, 409);
+    for (const reason of ['Close short position first','Close long position first','Short position limit exceeded']) {
+      if (message.includes(reason)) return noStore({error:reason},409);
     }
     if (message.includes('Insufficient cash')) return noStore({ error: 'Insufficient buying power' }, 409);
     if (message.includes('Insufficient shares')) return noStore({ error: 'You do not own enough shares' }, 409);
@@ -282,8 +289,12 @@ export default {
     if (!isUsMarketOpen(now)) return;
     ctx.waitUntil((async () => {
       // Keep failures in the quote collector from preventing queued-order processing.
-      await allQuotes(env).catch(error =>
-        console.error('Quote collection failed', error instanceof Error ? error.message : 'Unknown'));
+      const quotes = await allQuotes(env, now).catch(error => {
+        console.error('Quote collection failed', error instanceof Error ? error.message : 'Unknown');
+        return [];
+      });
+      await liquidateUnderMargin(env, quotes, now).catch(error=>
+        console.error('Margin liquidation failed', error instanceof Error ? error.message : 'Unknown'));
       await processQueuedOrders(env, now);
       await deliverTradeNotifications(env, now).catch(()=>
         console.error('Queued trade announcement dispatch failed'));

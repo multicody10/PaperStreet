@@ -186,5 +186,73 @@ class TradeLedgerTest(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM player_achievements WHERE user_id=?", (UID,)).fetchone()[0], 1)
 
 
+class ShortLedgerTest(TradeLedgerTest):
+    # Keep existing migration tests independent; these cases use the production upgrade.
+    def short_setup(self):
+        self.db.executescript(GAMEPLAY_MIGRATION)
+        root = pathlib.Path(__file__).resolve().parents[1] / 'migrations'
+        self.db.executescript((root / '0015_trade_notifications.sql').read_text())
+        self.db.executescript((root / '0016_short_positions.sql').read_text())
+
+    def short_order(self, oid, side, qty, price, effect='SHORT'):
+        self.db.execute("INSERT INTO trades(user_id,client_order_id,symbol,side,shares,price_cents,position_effect) VALUES (?,?,?,?,?,?,?)",
+                        (UID,oid,'AAPL',side,qty,price,effect))
+
+    def short_position(self):
+        return self.db.execute("SELECT shares,cost_basis_cents FROM short_positions WHERE user_id=? AND symbol='AAPL'",(UID,)).fetchone()
+
+    def test_short_profit_partial_cover_and_idempotency(self):
+        self.short_setup()
+        self.short_order('s','SELL',5,10000)
+        self.assertEqual(self.balance(),950000)
+        self.assertEqual(self.short_position(),(5,50000))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.short_order('s','SELL',5,10000)
+        self.short_order('c','BUY',2,8000)
+        self.assertEqual(self.balance(),974000)
+        self.assertEqual(self.short_position(),(3,30000))
+        self.short_order('d','BUY',3,8000)
+        self.assertEqual(self.balance(),1010000)
+        self.assertIsNone(self.short_position())
+
+    def test_collateral_and_opposite_side_guards(self):
+        self.short_setup()
+        with self.assertRaisesRegex(sqlite3.IntegrityError,'Insufficient cash'):
+            self.short_order('s','SELL',101,10000)
+        self.order('long','BUY',1)
+        with self.assertRaisesRegex(sqlite3.IntegrityError,'Close long position'):
+            self.short_order('s','SELL',1,10000)
+        self.order('exit','SELL',1)
+        self.short_order('s','SELL',100,10000)
+        self.assertEqual(self.balance(),0)
+        with self.assertRaisesRegex(sqlite3.IntegrityError,'Insufficient short shares'):
+            self.short_order('bad','BUY',101,10000)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.order('long2','BUY',1)
+        self.assertEqual(self.short_position(),(100,1000000))
+
+    def test_gap_liquidation_records_debt_and_repays_from_long_sale(self):
+        self.short_setup()
+        self.order('long','BUY',10,10000,'MSFT')
+        self.short_order('s','SELL',90,10000)
+        self.short_order('force','BUY',90,21000,'LIQUIDATION')
+        self.assertEqual(self.balance(),0)
+        self.assertIsNone(self.short_position())
+        self.assertEqual(self.db.execute('SELECT margin_debt_cents FROM players').fetchone()[0],90000)
+        self.order('sell','SELL',10,10000,'MSFT')
+        self.assertEqual(self.balance(),10000)
+        self.assertEqual(self.db.execute('SELECT margin_debt_cents FROM players').fetchone()[0],0)
+
+    def test_preserve_existing_trades_and_queued_notification(self):
+        self.order('existing','BUY',1,10000,'MSFT')
+        self.short_setup()
+        self.assertEqual(self.db.execute("SELECT position_effect FROM trades WHERE client_order_id='existing'").fetchone()[0],'LONG')
+        self.db.execute("INSERT INTO queued_orders(user_id,client_order_id,symbol,side,shares,kind,channel_id,position_effect) VALUES (?,?,?,?,?,?,?,?)",
+                        (UID,'queued','AAPL','SELL',2,'MARKET','123456789012345678','SHORT'))
+        self.short_order('queued','SELL',2,10000)
+        self.assertEqual(self.db.execute('SELECT queued FROM trade_notifications').fetchone()[0],1)
+        self.assertEqual(self.short_position(),(2,20000))
+
+
 if __name__ == '__main__':
     unittest.main()
