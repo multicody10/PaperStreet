@@ -1,3 +1,5 @@
+import { isBuySide, orderLabel, tradeVerb, displaySideSql } from '../shared/gameplay';
+import type { Trade } from '../shared/stocks';
 import { discordAvatarUrl } from './avatar';
 import type { MarketEnv } from './market';
 import type { SymbolCode } from '../shared/stocks';
@@ -17,7 +19,7 @@ export async function verifiedActivityChannel(
 
 export type TradeAnnouncement = {
   tradeId:number; userId:string; channelId:string; queued:boolean;
-  symbol:SymbolCode; side:'BUY'|'SELL'; shares:number; priceCents:number; executedAt:number;
+  symbol:SymbolCode; side:Trade['side']; shares:number; priceCents:number; executedAt:number;
   displayName:string; avatarHash:string|null; avatarDiscriminator:string|null;
 };
 const currency = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
@@ -25,18 +27,18 @@ const money = (cents:number) => currency.format(cents/100);
 const safeName = (name:string) => name.replace(/[\r\n<>@*_~`|]/g,'').trim().slice(0,48)||'Trader';
 
 export function tradeMessage(row:TradeAnnouncement) {
-  const buy = row.side==='BUY';
+  const buy = isBuySide(row.side);
   const name = safeName(row.displayName);
   return {
-    content:row.queued ? `<@${row.userId}> your queued ${buy?'buy':'sell'} order has filled!`:'',
+    content:row.queued ? `<@${row.userId}> your queued ${orderLabel(row.side).toLowerCase()} order has filled!`:'',
     allowed_mentions:{parse:[],users:row.queued?[row.userId]:[]},
     embeds:[{
       title:`${buy?'📈':'📉'} ${row.queued?'Queued Order Filled':'Paper Trade Executed'} · ${row.symbol}`,
-      description:`**${name}** ${buy?'bought':'sold'} **${row.shares.toLocaleString('en-US')}** ${row.shares===1?'share':'shares'} of **${row.symbol}**.`,
+      description:`**${name}** ${tradeVerb(row.side).toLowerCase()} **${row.shares.toLocaleString('en-US')}** ${row.shares===1?'share':'shares'} of **${row.symbol}**.`,
       color:buy?0x31d49d:0xd95468,
       author:{name:name+' • Virtual Trader',icon_url:discordAvatarUrl(row.userId,row.avatarHash,row.avatarDiscriminator)},
       fields:[
-        {name:'Action',value:buy?'Shares Purchased':'Shares Sold',inline:true},
+        {name:'Action',value:row.side==='BUY'?'Shares Purchased':row.side==='SELL'?'Shares Sold':row.side==='SHORT'?'Short Position Opened':'Short Position Covered',inline:true},
         {name:'Shares',value:row.shares.toLocaleString('en-US'),inline:true},
         {name:'Fill price',value:money(row.priceCents),inline:true},
         {name:'Total value',value:`**${money(row.shares*row.priceCents)}**`,inline:true},
@@ -51,7 +53,7 @@ export function tradeMessage(row:TradeAnnouncement) {
 }
 type Row = TradeAnnouncement & {attempts:number};
 const query=`SELECT n.trade_id AS tradeId,n.user_id AS userId,n.channel_id AS channelId,
-  n.queued AS queued,n.attempts,t.symbol,t.side,t.shares,t.price_cents AS priceCents,
+  n.queued AS queued,n.attempts,t.symbol,${displaySideSql('t.')} AS side,t.shares,t.price_cents AS priceCents,
   t.executed_at AS executedAt,p.display_name AS displayName,p.avatar_hash AS avatarHash,
   p.avatar_discriminator AS avatarDiscriminator
   FROM trade_notifications n JOIN trades t ON t.id=n.trade_id

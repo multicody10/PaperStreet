@@ -29,6 +29,13 @@ The entire stack runs on **Cloudflare Workers Free**: a single Worker for the AP
 
 > This is a virtual-money game, not a brokerage. All prices originate from the market data provider, but quotes may be delayed and execution is not exchange-accurate. The game does not model fees, taxes, dividends, splits or corporate actions. Immediate fills run only during regular US exchange hours, with a recent verified in-session print. Queued orders are persisted and processed by the existing five-minute cron after the exchange opens. They may fill later than the opening tick, and limit/stop orders can remain pending. Orders are rejected at execution if funds or shares are insufficient. Predictions use the last verified observation near the target session's close; if no such observation exists, settlement remains pending rather than inventing a result. Historical simulated fills are preserved for audit when migrating an existing installation.
 
+## Short selling
+- Use **Short** to sell borrowed virtual shares and **Cover** to repurchase them. Close an opposite position before opening a new one on the same symbol.
+- Opening a short locks 100% cash collateral plus all short-sale proceeds; neither can be spent. Short P/L is entry proceeds minus repurchase liability. Partial covers release a proportional share of collateral and proceeds.
+- Each market-window cron uses verified current regular-session prices to liquidate isolated short positions below 25% maintenance margin (up to 40 per run). Price gaps can cause virtual debt; debt reduces equity and future realized proceeds repay it before becoming buying power. Liquidations appear in history. No borrowing fees or real-world borrow availability are simulated.
+- Immediate and queued market, limit and stop orders use the same atomic ledger. Queued short and cover fills are announced through the existing verified Discord channel. Existing long positions and history are preserved by the additive migration.
+- The portfolio, leaderboard and Discord portfolio embed include short liabilities. All funds and debt are virtual.
+
 ## After-hours gameplay
 
 - **Goals** tracks actual achievements in trading, stock predictions and diversification, with completion stats, featured objectives, a progression table, recent unlocks and a portfolio growth milestone. Individual stock predictions remain exclusively on stock trade pages (e.g., `#/trade/AAPL`), with their own ticker-specific history and one entry per stock/session.

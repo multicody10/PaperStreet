@@ -387,3 +387,6 @@
   .trade-terminal[data-section="stocks"] .trade-market-list{display:flex!important;flex:1;min-height:0}
   .trade-terminal>.screen-tabs button{flex:1}
 }
+
+.app-shell .stock-terminal-ticket .stock-ticket-tabs.side-selector{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));}
+.app-shell .stock-terminal-ticket .stock-ticket-tabs.side-selector button{min-width:0;padding-inline:2px;}

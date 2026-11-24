@@ -38,3 +38,12 @@ test('forecast settlement requires an actual print in last ten minutes of target
   assert.equal(isClosingPrint(at('2026-11-20T20:55:00Z'),'2026-11-23'),false);
   assert.equal(isClosingPrint(at('2026-11-27T17:55:00Z'),'2026-11-27'),true);
 });
+
+test('short and cover orders use sell and buy trigger semantics',()=>{
+  assert.equal(orderMatches('LIMIT','SHORT',100,101),true);
+  assert.equal(orderMatches('LIMIT','SHORT',100,99),false);
+  assert.equal(orderMatches('STOP','SHORT',100,99),true);
+  assert.equal(orderMatches('LIMIT','COVER',100,99),true);
+  assert.equal(orderMatches('STOP','COVER',100,101),true);
+  assert.equal(orderMatches('STOP','COVER',100,99),false);
+});

@@ -1,3 +1,4 @@
+import { isBuySide, orderLabel } from '../shared/gameplay';
 import { ArrowDownLeft, ArrowUpRight, Clock3 } from 'lucide-react';
 import type { Trade } from '../shared/stocks';
 import { FitPager } from './FitPager';
@@ -11,8 +12,8 @@ export function PortfolioHistory({trades}:{trades:Trade[]}){
     <FitPager items={trades} rowHeight={59} compactRowHeight={63} empty="No executed trades."
       render={items=><div className="portfolio-trades-list">{items.map(trade=><div key={trade.id} className="portfolio-trade-row">
         <span className="portfolio-trade-action">
-          <i className={trade.side==='BUY'?'buy':'sell'}>{trade.side==='BUY'?<ArrowDownLeft size={14}/>:<ArrowUpRight size={14}/>}</i>
-          <span><strong>{trade.side} {trade.shares} {trade.symbol}</strong><small>{trade.shares} shares</small></span>
+          <i className={isBuySide(trade.side)?'buy':'sell'}>{isBuySide(trade.side)?<ArrowDownLeft size={14}/>:<ArrowUpRight size={14}/>}</i>
+          <span><strong>{orderLabel(trade.side)} {trade.shares} {trade.symbol}</strong><small>{trade.shares} shares</small></span>
         </span>
         <span className="portfolio-trade-value"><strong>{money(trade.shares*trade.priceCents)}</strong>
           <small>{money(trade.priceCents)} per share</small></span>

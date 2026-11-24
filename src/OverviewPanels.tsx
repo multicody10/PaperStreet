@@ -1,3 +1,4 @@
+import { isBuySide, tradeVerb } from '../shared/gameplay';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import {
   Activity, ArrowDownLeft, ArrowUpRight, BriefcaseBusiness, CandlestickChart,
@@ -171,7 +172,7 @@ export function Holdings({ portfolio, onStock, detail, empty, onAll }: AccountLi
       render={page => <div className="overview-records">{page.map(pos =>
         <div className="record" key={pos.symbol}>
           <span className="asset-cell"><StockMark symbol={pos.symbol}/><span><strong>{pos.symbol}</strong>
-            <small>{pos.shares} {pos.shares === 1 ? 'share' : 'shares'}</small></span></span>
+            <small>{pos.shares} {pos.short?'short':pos.shares === 1 ? 'share' : 'shares'}</small></span></span>
           {detail && <span className="record-fact"><small>Avg. cost</small><b>{money(pos.costBasisCents / pos.shares)}</b></span>}
           <span className="record-value"><strong>{money(pos.marketValueCents)}</strong>
             <small className={tone(pos.profitCents)}>{signedMoney(pos.profitCents)}</small></span>
@@ -211,9 +212,9 @@ export function OrderList({ trades, detail, empty, onAll }: AccountListProps & {
       compactRowHeight={62} empty={empty}
       render={page => <div className="overview-records">{page.map(t =>
         <div className="record order-record" key={t.id}>
-          <span className={'order-mark ' + t.side.toLowerCase()}>{t.side === 'BUY' ?
+          <span className={'order-mark ' + (isBuySide(t.side)?'buy':'sell')}>{isBuySide(t.side) ?
             <ArrowDownLeft size={19}/> : <ArrowUpRight size={19}/>}</span>
-          <span className="record-title"><strong>{t.side === 'BUY' ? 'Bought' : 'Sold'} {t.symbol}</strong>
+          <span className="record-title"><strong>{tradeVerb(t.side)} {t.symbol}</strong>
             <small>{new Date(t.executedAt * 1000).toLocaleString(undefined, {
               month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
             })}</small></span>
